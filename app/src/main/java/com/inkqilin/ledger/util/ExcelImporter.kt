@@ -2,6 +2,7 @@ package com.inkqilin.ledger.util
 
 import android.content.Context
 import android.net.Uri
+import com.inkqilin.ledger.data.Category
 import com.inkqilin.ledger.data.Transaction
 import com.inkqilin.ledger.data.TransactionType
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
@@ -9,8 +10,16 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 object ExcelImporter {
-    fun importTransactionsFromUri(context: Context, uri: Uri): List<Transaction> {
+    data class ImportResult(
+        val transactions: List<Transaction>,
+        val newCategories: List<Category>
+    )
+
+    fun importTransactionsFromUri(context: Context, uri: Uri, existingCategories: List<Category>): ImportResult {
         val transactions = mutableListOf<Transaction>()
+        val newCategoriesMap = mutableMapOf<Pair<String, TransactionType>, Category>()
+        val existingCategorySet = existingCategories.map { it.name to it.type }.toSet()
+
         try {
             context.contentResolver.openInputStream(uri)?.use { inputStream ->
                 val workbook = XSSFWorkbook(inputStream)
@@ -21,20 +30,39 @@ object ExcelImporter {
                     val row = sheet.getRow(rowIndex) ?: continue
                     
                     try {
-                        val dateStr = row.getCell(0).stringCellValue
-                        val date = sdf.parse(dateStr)?.time ?: System.currentTimeMillis()
+                        val dateCell = row.getCell(0)
+                        val date = when {
+                            dateCell == null -> System.currentTimeMillis()
+                            dateCell.cellType == org.apache.poi.ss.usermodel.CellType.NUMERIC && org.apache.poi.ss.usermodel.DateUtil.isCellDateFormatted(dateCell) -> 
+                                dateCell.dateCellValue.time
+                            else -> try {
+                                sdf.parse(dateCell.stringCellValue)?.time ?: System.currentTimeMillis()
+                            } catch (e: Exception) {
+                                System.currentTimeMillis()
+                            }
+                        }
                         
-                        val typeStr = row.getCell(1).stringCellValue
+                        val typeStr = try { row.getCell(1).stringCellValue } catch (e: Exception) { "支出" }
                         val type = if (typeStr == "收入") TransactionType.INCOME else TransactionType.EXPENSE
                         
-                        val category = row.getCell(2).stringCellValue
-                        val amount = row.getCell(3).numericCellValue
+                        val categoryName = try { row.getCell(2).stringCellValue } catch (e: Exception) { "其他" }
+                        val amount = try { row.getCell(3).numericCellValue } catch (e: Exception) { 0.0 }
                         val note = try { row.getCell(4).stringCellValue } catch (e: Exception) { "" }
+
+                        // 检查分类是否存在
+                        if (!existingCategorySet.contains(categoryName to type) && 
+                            !newCategoriesMap.containsKey(categoryName to type)) {
+                            newCategoriesMap[categoryName to type] = Category(
+                                name = categoryName,
+                                icon = "🆕", // 自动创建的分类使用默认图标
+                                type = type
+                            )
+                        }
 
                         transactions.add(
                             Transaction(
                                 amount = amount,
-                                category = category,
+                                category = categoryName,
                                 note = note,
                                 date = date,
                                 type = type
@@ -49,6 +77,6 @@ object ExcelImporter {
         } catch (e: Exception) {
             e.printStackTrace()
         }
-        return transactions
+        return ImportResult(transactions, newCategoriesMap.values.toList())
     }
 }

@@ -67,15 +67,8 @@ fun SettingsScreen(viewModel: TransactionViewModel) {
         contract = ActivityResultContracts.GetContent(),
         onResult = { uri ->
             uri?.let {
-                scope.launch {
-                    val transactions = ExcelImporter.importTransactionsFromUri(context, it)
-                    if (transactions.isNotEmpty()) {
-                        transactions.forEach { t -> viewModel.addTransaction(t) }
-                        Toast.makeText(context, "成功导入 ${transactions.size} 笔账单！", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(context, "导入失败或文件为空", Toast.LENGTH_SHORT).show()
-                    }
-                }
+                viewModel.importTransactions(context, it)
+                Toast.makeText(context, "导入请求已提交，正在后台处理...", Toast.LENGTH_SHORT).show()
             }
         }
     )

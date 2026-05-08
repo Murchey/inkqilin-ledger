@@ -1,9 +1,12 @@
 package com.inkqilin.ledger.ui
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.inkqilin.ledger.data.*
+import com.inkqilin.ledger.util.ExcelImporter
 import com.inkqilin.ledger.util.ThemeManager
 import com.inkqilin.ledger.util.ThemeMode
 import kotlinx.coroutines.flow.*
@@ -89,6 +92,23 @@ class TransactionViewModel(
 
     fun getCategoriesByType(type: TransactionType): Flow<List<Category>> {
         return categoryDao.getCategoriesByType(type)
+    }
+
+    fun importTransactions(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            val existingCategories = allCategories.first()
+            val result = ExcelImporter.importTransactionsFromUri(context, uri, existingCategories)
+            
+            // 插入新分类
+            result.newCategories.forEach { category ->
+                categoryDao.insertCategory(category)
+            }
+            
+            // 插入所有账单
+            result.transactions.forEach { transaction ->
+                transactionDao.insertTransaction(transaction)
+            }
+        }
     }
 }
 
