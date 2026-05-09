@@ -31,23 +31,32 @@ object ExcelImporter {
                     
                     try {
                         val dateCell = row.getCell(0)
+                        val firstCellStr = dateCell?.toString() ?: ""
+
+                        if (firstCellStr.startsWith("说明") || firstCellStr.startsWith("日期")) {
+                            continue
+                        }
+
                         val date = when {
                             dateCell == null -> System.currentTimeMillis()
                             dateCell.cellType == org.apache.poi.ss.usermodel.CellType.NUMERIC && org.apache.poi.ss.usermodel.DateUtil.isCellDateFormatted(dateCell) -> 
                                 dateCell.dateCellValue.time
                             else -> try {
-                                sdf.parse(dateCell.stringCellValue)?.time ?: System.currentTimeMillis()
+                                sdf.parse(firstCellStr)?.time ?: System.currentTimeMillis()
                             } catch (e: Exception) {
                                 System.currentTimeMillis()
                             }
                         }
                         
                         val typeStr = try { row.getCell(1).stringCellValue } catch (e: Exception) { "支出" }
+                        if (typeStr != "收入" && typeStr != "支出") continue
                         val type = if (typeStr == "收入") TransactionType.INCOME else TransactionType.EXPENSE
                         
                         val categoryName = try { row.getCell(2).stringCellValue } catch (e: Exception) { "其他" }
                         val amount = try { row.getCell(3).numericCellValue } catch (e: Exception) { 0.0 }
                         val note = try { row.getCell(4).stringCellValue } catch (e: Exception) { "" }
+
+                        if (amount <= 0.0 || amount.isNaN()) continue
 
                         // 检查分类是否存在
                         if (!existingCategorySet.contains(categoryName to type) && 

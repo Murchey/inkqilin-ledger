@@ -5,6 +5,8 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ExitToApp
@@ -24,11 +26,20 @@ import kotlinx.coroutines.launch
 import androidx.compose.runtime.*
 import com.inkqilin.ledger.util.ThemeMode
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.navigation.NavController
+
 @Composable
-fun SettingsScreen(viewModel: TransactionViewModel) {
+fun SettingsScreen(viewModel: TransactionViewModel, navController: NavController) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val themeMode by viewModel.themeMode.collectAsState()
+    val incomeColorHex by viewModel.incomeColor.collectAsState()
+    val expenseColorHex by viewModel.expenseColor.collectAsState()
 
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
@@ -73,10 +84,7 @@ fun SettingsScreen(viewModel: TransactionViewModel) {
         }
     )
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text(text = "设置", style = MaterialTheme.typography.titleLarge)
-        Spacer(modifier = Modifier.height(24.dp))
-
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         Text(text = "显示设置", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
         Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
             Column {
@@ -112,7 +120,37 @@ fun SettingsScreen(viewModel: TransactionViewModel) {
                         }
                     }
                 )
+                Divider()
+                ListItem(
+                    headlineContent = { Text("收入展示颜色") },
+                    trailingContent = {
+                        ColorPickerButton(
+                            selectedColor = incomeColorHex,
+                            onColorSelected = { viewModel.setIncomeColor(it) }
+                        )
+                    }
+                )
+                Divider()
+                ListItem(
+                    headlineContent = { Text("支出展示颜色") },
+                    trailingContent = {
+                        ColorPickerButton(
+                            selectedColor = expenseColorHex,
+                            onColorSelected = { viewModel.setExpenseColor(it) }
+                        )
+                    }
+                )
             }
+        }
+
+        Text(text = "分类管理", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
+        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+            ListItem(
+                headlineContent = { Text("账单标签（类别）管理") },
+                supportingContent = { Text("添加、修改或删除收支分类") },
+                leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
+                modifier = Modifier.clickable { navController.navigate("category_management") }
+            )
         }
 
         Text(text = "数据管理", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
@@ -168,9 +206,49 @@ fun SettingsScreen(viewModel: TransactionViewModel) {
                 Divider()
                 ListItem(
                     headlineContent = { Text("关于 墨麒麟记账") },
-                    supportingContent = { Text("版本 1.0.0") },
+                    supportingContent = { Text("版本 1.1.0") },
                     leadingContent = { Icon(Icons.Default.Info, contentDescription = null) }
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun ColorPickerButton(selectedColor: String, onColorSelected: (String) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    val colors = listOf("#715CFF", "#51B4FF", "#4CAF50", "#F44336", "#FF9800", "#9C27B0", "#E91E63", "#00BCD4", "#000000", "#795548")
+
+    Box {
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .background(Color(android.graphics.Color.parseColor(selectedColor)))
+                .clickable { expanded = true }
+        )
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            Row(modifier = Modifier.padding(8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                colors.take(5).forEach { colorHex ->
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(Color(android.graphics.Color.parseColor(colorHex)))
+                            .clickable { onColorSelected(colorHex); expanded = false }
+                    )
+                }
+            }
+            Row(modifier = Modifier.padding(8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                colors.drop(5).forEach { colorHex ->
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(Color(android.graphics.Color.parseColor(colorHex)))
+                            .clickable { onColorSelected(colorHex); expanded = false }
+                    )
+                }
             }
         }
     }

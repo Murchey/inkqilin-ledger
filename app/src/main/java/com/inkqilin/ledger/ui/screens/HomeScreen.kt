@@ -14,7 +14,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.filled.DateRange
@@ -244,15 +243,60 @@ fun HomeScreen(viewModel: TransactionViewModel) {
                 }
             }
         } else {
-            items(
-                items = filteredTransactions,
-                key = { it.id }
-            ) { transaction ->
-                SwipeableTransactionItem(
-                    transaction = transaction,
-                    onDelete = { transactionToDelete = transaction },
-                    onEdit = { transactionToEdit = transaction }
-                )
+            val daySdf = SimpleDateFormat("MM月dd日 EEEE", Locale.getDefault())
+            val groupedTransactions = filteredTransactions.groupBy { transaction ->
+                val cal = Calendar.getInstance().apply { timeInMillis = transaction.date }
+                cal.set(Calendar.HOUR_OF_DAY, 0)
+                cal.set(Calendar.MINUTE, 0)
+                cal.set(Calendar.SECOND, 0)
+                cal.set(Calendar.MILLISECOND, 0)
+                cal.timeInMillis
+            }.toSortedMap(compareByDescending { it })
+
+            groupedTransactions.entries.forEachIndexed { groupIndex, (dateKey, transactions) ->
+                if (groupIndex > 0) {
+                    item {
+                        Divider(
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
+                    }
+                }
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = daySdf.format(Date(dateKey)),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        val dayTotal = transactions.sumOf {
+                            if (it.type == TransactionType.EXPENSE) -it.amount else it.amount
+                        }
+                        Text(
+                            text = "¥${String.format("%.2f", dayTotal)}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (dayTotal >= 0) InkGreen else InkRed
+                        )
+                    }
+                }
+                items(
+                    items = transactions,
+                    key = { it.id }
+                ) { transaction ->
+                    SwipeableTransactionItem(
+                        transaction = transaction,
+                        viewModel = viewModel,
+                        onDelete = { transactionToDelete = transaction },
+                        onEdit = { transactionToEdit = transaction }
+                    )
+                }
             }
         }
     }
@@ -408,142 +452,4 @@ fun EditTransactionDialog(
             TextButton(onClick = onDismiss) { Text("取消") }
         }
     )
-}
-
-@Composable
-fun SwipeableTransactionItem(
-    transaction: Transaction,
-    onDelete: () -> Unit,
-    onEdit: () -> Unit
-) {
-    val density = LocalDensity.current
-    val menuWidth = 120.dp
-    val menuWidthPx = with(density) { menuWidth.toPx() }
-    
-    var offsetX by remember(transaction.id) { mutableFloatStateOf(0f) }
-    val draggableState = rememberDraggableState { delta ->
-        val newOffset = (offsetX + delta).coerceIn(-menuWidthPx, 0f)
-        offsetX = newOffset
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 4.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Row(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .width(menuWidth)
-                .fillMaxHeight(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            IconButton(
-                onClick = {
-                    offsetX = 0f
-                    onEdit()
-                }
-            ) {
-                Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.primary)
-            }
-            IconButton(
-                onClick = {
-                    offsetX = 0f
-                    onDelete()
-                }
-            ) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = InkRed)
-            }
-        }
-
-        Box(
-            modifier = Modifier
-                .offset { IntOffset(offsetX.roundToInt(), 0) }
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface)
-                .draggable(
-                    state = draggableState,
-                    orientation = Orientation.Horizontal,
-                    onDragStopped = {
-                        offsetX = if (offsetX < -menuWidthPx / 2) -menuWidthPx else 0f
-                    }
-                )
-        ) {
-            TransactionItem(transaction)
-        }
-    }
-}
-
-@Composable
-fun TransactionItem(transaction: Transaction) {
-    val sdf = SimpleDateFormat("MM月dd日", Locale.getDefault())
-    val dateStr = sdf.format(Date(transaction.date))
-
-    val categoryIcons = mapOf(
-        "餐饮" to "🍜", "交通" to "🚗", "购物" to "🛒", "娱乐" to "🎮",
-        "居住" to "🏠", "其他" to "📦", "工资" to "💰", "奖金" to "🎁",
-        "理财" to "📈"
-    )
-    val icon = categoryIcons[transaction.category] ?: "📋"
-    val isIncome = transaction.type == TransactionType.INCOME
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (isIncome) InkGreen.copy(alpha = 0.12f)
-                        else InkRed.copy(alpha = 0.12f)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(text = icon, fontSize = 20.sp)
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = transaction.category,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 15.sp
-                )
-                if (transaction.note.isNotBlank()) {
-                    Text(
-                        text = transaction.note,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1
-                    )
-                }
-            }
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = "${if (isIncome) "+" else "-"}¥${String.format("%.2f", transaction.amount)}",
-                    color = if (isIncome) InkGreen else InkRed,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                )
-                Text(
-                    text = dateStr,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 11.sp
-                )
-            }
-        }
-    }
 }

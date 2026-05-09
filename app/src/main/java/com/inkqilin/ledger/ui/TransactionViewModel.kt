@@ -64,10 +64,37 @@ class TransactionViewModel(
         }
     }
 
-    fun addCategory(name: String, icon: String, type: TransactionType) {
+    fun addCategory(name: String, icon: String, type: TransactionType, color: String = "#715CFF") {
         viewModelScope.launch {
-            categoryDao.insertCategory(Category(name = name, icon = icon, type = type))
+            categoryDao.insertCategory(Category(name = name, icon = icon, type = type, color = color))
         }
+    }
+
+    fun updateCategory(category: Category) {
+        viewModelScope.launch {
+            categoryDao.updateCategory(category)
+        }
+    }
+
+    fun deleteCategory(category: Category) {
+        viewModelScope.launch {
+            categoryDao.deleteCategory(category)
+        }
+    }
+
+    val incomeColor: StateFlow<String> = themeManager.incomeColor.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), "#4CAF50"
+    )
+    val expenseColor: StateFlow<String> = themeManager.expenseColor.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), "#F44336"
+    )
+
+    fun setIncomeColor(color: String) {
+        viewModelScope.launch { themeManager.setIncomeColor(color) }
+    }
+
+    fun setExpenseColor(color: String) {
+        viewModelScope.launch { themeManager.setExpenseColor(color) }
     }
 
     fun setThemeMode(mode: ThemeMode) {

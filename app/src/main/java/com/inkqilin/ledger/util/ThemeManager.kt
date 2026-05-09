@@ -15,15 +15,37 @@ enum class ThemeMode {
 
 class ThemeManager(private val context: Context) {
     private val THEME_KEY = stringPreferencesKey("theme_mode")
+    private val INCOME_COLOR_KEY = stringPreferencesKey("income_color")
+    private val EXPENSE_COLOR_KEY = stringPreferencesKey("expense_color")
 
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { preferences ->
         val mode = preferences[THEME_KEY] ?: ThemeMode.AUTO.name
         ThemeMode.valueOf(mode)
     }
 
+    val incomeColor: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[INCOME_COLOR_KEY] ?: "#4CAF50"
+    }
+
+    val expenseColor: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[EXPENSE_COLOR_KEY] ?: "#F44336"
+    }
+
     suspend fun setThemeMode(mode: ThemeMode) {
         context.dataStore.edit { preferences ->
             preferences[THEME_KEY] = mode.name
+        }
+    }
+
+    suspend fun setIncomeColor(color: String) {
+        context.dataStore.edit { preferences ->
+            preferences[INCOME_COLOR_KEY] = color
+        }
+    }
+
+    suspend fun setExpenseColor(color: String) {
+        context.dataStore.edit { preferences ->
+            preferences[EXPENSE_COLOR_KEY] = color
         }
     }
 }

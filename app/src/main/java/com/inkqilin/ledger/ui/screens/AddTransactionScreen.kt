@@ -39,6 +39,11 @@ fun AddTransactionScreen(viewModel: TransactionViewModel, navController: NavCont
     val allCategories by viewModel.allCategories.collectAsState(initial = emptyList())
     val categories = allCategories.filter { it.type == type }
     
+    val incomeColorHex by viewModel.incomeColor.collectAsState()
+    val expenseColorHex by viewModel.expenseColor.collectAsState()
+    val incomeColor = Color(android.graphics.Color.parseColor(incomeColorHex))
+    val expenseColor = Color(android.graphics.Color.parseColor(expenseColorHex))
+
     var showAddCategoryDialog by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
 
@@ -65,11 +70,11 @@ fun AddTransactionScreen(viewModel: TransactionViewModel, navController: NavCont
     }
 
     if (showAddCategoryDialog) {
-        AddCategoryDialog(
+        CategoryEditDialog(
             type = type,
             onDismiss = { showAddCategoryDialog = false },
-            onConfirm = { name, icon ->
-                viewModel.addCategory(name, icon, type)
+            onConfirm = { name, icon, color ->
+                viewModel.addCategory(name, icon, type, color)
                 category = name
                 showAddCategoryDialog = false
             }
@@ -113,7 +118,7 @@ fun AddTransactionScreen(viewModel: TransactionViewModel, navController: NavCont
             ) {
                 listOf(TransactionType.EXPENSE to "支出", TransactionType.INCOME to "收入").forEach { (t, label) ->
                     val selected = type == t
-                    val accentColor = if (t == TransactionType.EXPENSE) InkRed else InkGreen
+                    val accentColor = if (t == TransactionType.EXPENSE) expenseColor else incomeColor
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -247,82 +252,14 @@ fun AddTransactionScreen(viewModel: TransactionViewModel, navController: NavCont
                     .padding(horizontal = 20.dp)
                     .height(52.dp),
                 shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (type == TransactionType.EXPENSE) expenseColor else incomeColor
+                )
             ) {
                 Text("保存", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
-}
-
-@Composable
-fun AddCategoryDialog(
-    type: TransactionType,
-    onDismiss: () -> Unit,
-    onConfirm: (String, String) -> Unit
-) {
-    var name by remember { mutableStateOf("") }
-    var selectedIcon by remember { mutableStateOf("📦") }
-    val icons = listOf("🍜", "🚗", "🛒", "🎮", "🏠", "📦", "💰", "🎁", "📈", "💊", "📚", "🎭", "✈️", "☕")
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("新增分类") },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("分类名称") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("选择图标", style = MaterialTheme.typography.labelMedium)
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    val chunkedIcons = icons.chunked(7)
-                    Column {
-                        chunkedIcons.forEach { rowIcons ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                rowIcons.forEach { icon ->
-                                    Box(
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(
-                                                if (selectedIcon == icon) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                                                else Color.Transparent
-                                            )
-                                            .clickable { selectedIcon = icon },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(text = icon, fontSize = 20.sp)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { if (name.isNotBlank()) onConfirm(name, selectedIcon) },
-                enabled = name.isNotBlank()
-            ) {
-                Text("确定")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
-        }
-    )
 }
 
 @Composable

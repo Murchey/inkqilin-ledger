@@ -32,11 +32,14 @@ object ExcelExporter {
                 headerRow.createCell(0).setCellValue("日期 (格式: 2023-01-01 12:00)")
                 headerRow.createCell(1).setCellValue("类型 (收入/支出)")
                 headerRow.createCell(2).setCellValue("分类")
-                headerRow.createCell(3).setCellValue("金额")
+                headerRow.createCell(3).setCellValue("金额 (填写正数即可，无需加正负号)")
                 headerRow.createCell(4).setCellValue("备注")
 
-                // Sample Row
-                val sampleRow = sheet.createRow(1)
+                val tipsRow = sheet.createRow(1)
+                tipsRow.createCell(0).setCellValue("说明：请根据'类型'列区分收支，金额列仅填写正数数字")
+                tipsRow.createCell(1).setCellValue("例如：类型填写'支出'，金额填写 25.5")
+
+                val sampleRow = sheet.createRow(2)
                 sampleRow.createCell(0).setCellValue("2023-01-01 12:00")
                 sampleRow.createCell(1).setCellValue("支出")
                 sampleRow.createCell(2).setCellValue("餐饮")

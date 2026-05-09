@@ -23,6 +23,15 @@ import com.inkqilin.ledger.data.TransactionType
 import com.inkqilin.ledger.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import androidx.navigation.NavController
+import com.inkqilin.ledger.data.Category
+import kotlin.math.roundToInt
 
 enum class TimePeriod(val label: String) {
     WEEK("本周"), MONTH("本月"), YEAR("本年"), CUSTOM("自定义")
@@ -30,10 +39,18 @@ enum class TimePeriod(val label: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StatisticsScreen(viewModel: TransactionViewModel) {
+fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavController) {
     val transactions by viewModel.allTransactions.collectAsState(initial = emptyList())
+    val categories by viewModel.allCategories.collectAsState(initial = emptyList())
+    val incomeColorHex by viewModel.incomeColor.collectAsState()
+    val expenseColorHex by viewModel.expenseColor.collectAsState()
+    val incomeColor = Color(android.graphics.Color.parseColor(incomeColorHex))
+    val expenseColor = Color(android.graphics.Color.parseColor(expenseColorHex))
+
     var selectedType by remember { mutableStateOf(TransactionType.EXPENSE) }
     var selectedPeriod by remember { mutableStateOf(TimePeriod.MONTH) }
+    
+    var categoryToEdit by remember { mutableStateOf<Category?>(null) }
     
     var startDate by remember { mutableLongStateOf(
         Calendar.getInstance().apply { set(Calendar.DAY_OF_MONTH, 1); set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0) }.timeInMillis
@@ -94,14 +111,6 @@ fun StatisticsScreen(viewModel: TransactionViewModel) {
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 16.dp)
     ) {
-        item {
-            Text(
-                text = "收支统计",
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)
-            )
-        }
-
         item {
             Row(
                 modifier = Modifier
@@ -260,61 +269,125 @@ fun StatisticsScreen(viewModel: TransactionViewModel) {
                 }
             }
         } else {
-            items(categoryTotals) { (category, total) ->
-                val maxAmount = categoryTotals.firstOrNull()?.second ?: 1.0
-                val accentColor = if (selectedType == TransactionType.EXPENSE) InkRed else InkGreen
-                Card(
+            items(categoryTotals) { (categoryName, total) ->
+                val percentage = if (totalAmount > 0) (total / totalAmount).toFloat() else 0f
+                val accentColor = if (selectedType == TransactionType.EXPENSE) expenseColor else incomeColor
+                val category = categories.find { it.name == categoryName && it.type == selectedType }
+                val displayColor = category?.color?.let { Color(android.graphics.Color.parseColor(it)) } ?: accentColor
+
+                val density = LocalDensity.current
+                val menuWidth = 80.dp
+                val menuWidthPx = with(density) { menuWidth.toPx() }
+                var offsetX by remember(categoryName, selectedType) { mutableFloatStateOf(0f) }
+                val draggableState = rememberDraggableState { delta ->
+                    val newOffset = (offsetX + delta).coerceIn(-menuWidthPx, 0f)
+                    offsetX = newOffset
+                }
+
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 4.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
+                        .padding(horizontal = 20.dp, vertical = 4.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = category,
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 15.sp
-                            )
-                            Text(
-                                text = "¥${String.format("%.2f", total)}",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp,
-                                color = accentColor
-                            )
+                    // 滑动展示的编辑按钮
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .width(menuWidth)
+                            .fillMaxHeight()
+                            .clickable {
+                                offsetX = 0f
+                                categoryToEdit = category
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.primary)
+                            Text("编辑", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(6.dp)
-                                .clip(RoundedCornerShape(3.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                        ) {
+                    }
+
+                    // 前景内容
+                    Card(
+                        modifier = Modifier
+                            .offset { IntOffset(offsetX.roundToInt(), 0) }
+                            .fillMaxWidth()
+                            .draggable(
+                                state = draggableState,
+                                orientation = Orientation.Horizontal,
+                                onDragStopped = {
+                                    offsetX = if (offsetX < -menuWidthPx / 2) -menuWidthPx else 0f
+                                }
+                            )
+                            .clickable {
+                                navController.navigate("category_transactions/$categoryName/${selectedType.name}")
+                            },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(category?.icon ?: "📋", modifier = Modifier.padding(end = 8.dp))
+                                    Text(
+                                        text = categoryName,
+                                        fontWeight = FontWeight.Medium,
+                                        fontSize = 15.sp
+                                    )
+                                }
+                                Text(
+                                    text = "¥${String.format("%.2f", total)}",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = displayColor
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
                             Box(
                                 modifier = Modifier
-                                    .fillMaxHeight()
-                                    .fillMaxWidth(fraction = (total / maxAmount).toFloat())
+                                    .fillMaxWidth()
+                                    .height(6.dp)
                                     .clip(RoundedCornerShape(3.dp))
-                                    .background(accentColor)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .fillMaxWidth(fraction = percentage)
+                                        .clip(RoundedCornerShape(3.dp))
+                                        .background(displayColor)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "${String.format("%.1f", percentage * 100)}% · ${filteredTransactions.count { it.category == categoryName }} 笔",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "${String.format("%.1f", total / maxAmount * 100)}% · ${filteredTransactions.count { it.category == category }} 笔",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
                 }
             }
         }
+    }
+
+    categoryToEdit?.let { category ->
+        CategoryEditDialog(
+            category = category,
+            type = category.type,
+            onDismiss = { categoryToEdit = null },
+            onConfirm = { name, icon, color ->
+                viewModel.updateCategory(category.copy(name = name, icon = icon, color = color))
+                categoryToEdit = null
+            }
+        )
     }
 }
 

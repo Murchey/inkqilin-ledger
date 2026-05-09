@@ -31,7 +31,7 @@ fun SearchScreen(viewModel: TransactionViewModel) {
 
         LazyColumn {
             items(searchResults) { transaction ->
-                TransactionItem(transaction)
+                TransactionItem(transaction, viewModel)
             }
         }
     }

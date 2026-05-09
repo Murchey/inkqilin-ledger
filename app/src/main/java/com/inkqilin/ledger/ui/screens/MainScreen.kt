@@ -125,10 +125,16 @@ fun MainScreen(viewModel: TransactionViewModel) {
             }
         ) {
             composable("home") { HomeScreen(viewModel) }
-            composable("statistics") { StatisticsScreen(viewModel) }
-            composable("settings") { SettingsScreen(viewModel) }
+            composable("statistics") { StatisticsScreen(viewModel, navController) }
+            composable("settings") { SettingsScreen(viewModel, navController) }
             composable("add_transaction") { AddTransactionScreen(viewModel, navController) }
             composable("search") { SearchScreen(viewModel) }
+            composable("category_management") { CategoryManagementScreen(viewModel) }
+            composable("category_transactions/{categoryName}/{type}") { backStackEntry ->
+                val categoryName = backStackEntry.arguments?.getString("categoryName") ?: ""
+                val type = backStackEntry.arguments?.getString("type") ?: ""
+                CategoryTransactionsScreen(viewModel, categoryName, type)
+            }
         }
     }
 }
