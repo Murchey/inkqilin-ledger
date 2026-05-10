@@ -12,6 +12,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import com.inkqilin.ledger.data.AppDatabase
+import com.inkqilin.ledger.ui.RenQingViewModel
 import com.inkqilin.ledger.ui.TransactionViewModel
 import com.inkqilin.ledger.ui.TransactionViewModelFactory
 import com.inkqilin.ledger.ui.screens.MainScreen
@@ -26,6 +27,16 @@ class MainActivity : ComponentActivity() {
     private val themeManager by lazy { ThemeManager(this) }
     private val viewModel: TransactionViewModel by viewModels {
         TransactionViewModelFactory(
+            database.transactionDao(),
+            database.categoryDao(),
+            themeManager
+        )
+    }
+    private val renQingViewModel: RenQingViewModel by viewModels {
+        RenQingViewModel.Factory(
+            database.renQingContactDao(),
+            database.renQingEventDao(),
+            database.renQingTagDao(),
             database.transactionDao(),
             database.categoryDao(),
             themeManager
@@ -48,7 +59,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    MainScreen(viewModel)
+                    MainScreen(viewModel, renQingViewModel)
                 }
             }
         }

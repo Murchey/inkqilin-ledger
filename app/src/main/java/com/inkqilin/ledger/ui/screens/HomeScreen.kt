@@ -12,7 +12,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -42,7 +44,11 @@ import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(viewModel: TransactionViewModel) {
+fun HomeScreen(
+    viewModel: TransactionViewModel,
+    onNavigateToAddTransaction: () -> Unit = {},
+    @Suppress("UNUSED_PARAMETER") onNavigateToSearch: () -> Unit = {}
+) {
     val allTransactions by viewModel.allTransactions.collectAsState(initial = emptyList())
     var selectedFilter by remember { mutableStateOf("全部") }
     val filterOptions = listOf("全部", "本周", "本月", "本年")
@@ -117,8 +123,15 @@ fun HomeScreen(viewModel: TransactionViewModel) {
     val totalIncome = filteredTransactions.filter { it.type == TransactionType.INCOME }.sumOf { it.amount }
     val totalExpense = filteredTransactions.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
 
+    Scaffold(
+        floatingActionButton = {
+            FloatingActionButton(onClick = onNavigateToAddTransaction) {
+                Icon(Icons.Default.Add, contentDescription = "记一笔")
+            }
+        }
+    ) { scaffoldPadding ->
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().padding(scaffoldPadding),
         contentPadding = PaddingValues(bottom = 88.dp)
     ) {
         item {
@@ -299,6 +312,7 @@ fun HomeScreen(viewModel: TransactionViewModel) {
                 }
             }
         }
+    }
     }
 }
 

@@ -106,7 +106,7 @@ fun SwipeableTransactionItem(
 @Composable
 fun CategoryEditDialog(
     category: com.inkqilin.ledger.data.Category? = null,
-    type: TransactionType,
+    @Suppress("UNUSED_PARAMETER") type: TransactionType,
     onDismiss: () -> Unit,
     onConfirm: (String, String, String) -> Unit
 ) {

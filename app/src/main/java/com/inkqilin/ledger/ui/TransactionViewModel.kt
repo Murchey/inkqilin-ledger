@@ -97,6 +97,14 @@ class TransactionViewModel(
         viewModelScope.launch { themeManager.setExpenseColor(color) }
     }
 
+    val renQingEnabled: StateFlow<Boolean> = themeManager.renQingEnabled.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), false
+    )
+
+    fun setRenQingEnabled(enabled: Boolean) {
+        viewModelScope.launch { themeManager.setRenQingEnabled(enabled) }
+    }
+
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch {
             themeManager.setThemeMode(mode)

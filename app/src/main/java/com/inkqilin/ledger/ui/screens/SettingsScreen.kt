@@ -4,6 +4,8 @@ import android.content.Context
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -11,15 +13,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.inkqilin.ledger.ui.RenQingViewModel
 import com.inkqilin.ledger.ui.TransactionViewModel
 import com.inkqilin.ledger.util.ExcelExporter
 import com.inkqilin.ledger.util.ExcelImporter
+import com.inkqilin.ledger.util.RenQingExporter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -31,10 +36,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.navigation.NavController
 
 @Composable
-fun SettingsScreen(viewModel: TransactionViewModel, navController: NavController) {
+fun SettingsScreen(
+    viewModel: TransactionViewModel,
+    renQingViewModel: RenQingViewModel,
+    onNavigateToCategoryManagement: () -> Unit
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val themeMode by viewModel.themeMode.collectAsState()
@@ -80,6 +88,40 @@ fun SettingsScreen(viewModel: TransactionViewModel, navController: NavController
             uri?.let {
                 viewModel.importTransactions(context, it)
                 Toast.makeText(context, "导入请求已提交，正在后台处理...", Toast.LENGTH_SHORT).show()
+            }
+        }
+    )
+
+    val renQingEventsExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+        onResult = { uri ->
+            uri?.let {
+                scope.launch {
+                    val events = renQingViewModel.allEvents.first()
+                    val success = RenQingExporter.exportEventsToUri(context, it, events)
+                    if (success) {
+                        Toast.makeText(context, "人情账单导出成功！", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "导出失败", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+    )
+
+    val renQingContactsExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+        onResult = { uri ->
+            uri?.let {
+                scope.launch {
+                    val contacts = renQingViewModel.allContacts.first()
+                    val success = RenQingExporter.exportContactsToUri(context, it, contacts)
+                    if (success) {
+                        Toast.makeText(context, "联系人导出成功！", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "导出失败", Toast.LENGTH_SHORT).show()
+                    }
+                }
             }
         }
     )
@@ -147,9 +189,21 @@ fun SettingsScreen(viewModel: TransactionViewModel, navController: NavController
         Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
             ListItem(
                 headlineContent = { Text("账单标签（类别）管理") },
-                supportingContent = { Text("添加、修改或删除收支分类") },
+                supportingContent = { Text("添加、修改或删除收支分类及人情标签") },
                 leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
-                modifier = Modifier.clickable { navController.navigate("category_management") }
+                modifier = Modifier.clickable { onNavigateToCategoryManagement() }
+            )
+        }
+
+        val renQingEnabled by renQingViewModel.renQingEnabled.collectAsState()
+        Text(text = "人情账本", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
+        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+            ListItem(
+                headlineContent = { Text("启用人情账本") },
+                supportingContent = { Text(if (renQingEnabled) "已启用，底部导航栏显示" else "未启用") },
+                trailingContent = {
+                    Switch(checked = renQingEnabled, onCheckedChange = { renQingViewModel.setRenQingEnabled(it) })
+                }
             )
         }
 
@@ -166,8 +220,7 @@ fun SettingsScreen(viewModel: TransactionViewModel, navController: NavController
                             scope.launch {
                                 val transactions = viewModel.allTransactions.first()
                                 if (transactions.isNotEmpty()) {
-                                    val fileName = "墨麒麟记账_${System.currentTimeMillis()}.xlsx"
-                                    exportLauncher.launch(fileName)
+                                    exportLauncher.launch("墨麒麟记账_${System.currentTimeMillis()}.xlsx")
                                 } else {
                                     Toast.makeText(context, "暂无数据可导出", Toast.LENGTH_SHORT).show()
                                 }
@@ -203,11 +256,59 @@ fun SettingsScreen(viewModel: TransactionViewModel, navController: NavController
                         }
                     }
                 )
+                if (renQingEnabled) {
+                    Divider()
+                    ListItem(
+                        headlineContent = { Text("导出人情账单") },
+                        supportingContent = { Text("导出所有人情来往事件记录") },
+                        leadingContent = { Icon(Icons.Default.ExitToApp, contentDescription = null) },
+                        modifier = Modifier.fillMaxWidth(),
+                        trailingContent = {
+                            Button(onClick = {
+                                scope.launch {
+                                    val events = renQingViewModel.allEvents.first()
+                                    if (events.isNotEmpty()) {
+                                        renQingEventsExportLauncher.launch("人情账单_${System.currentTimeMillis()}.xlsx")
+                                    } else {
+                                        Toast.makeText(context, "暂无人情账单可导出", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }) {
+                                Text("导出")
+                            }
+                        }
+                    )
+                    Divider()
+                    ListItem(
+                        headlineContent = { Text("导出联系人") },
+                        supportingContent = { Text("导出所有人情联系人列表") },
+                        leadingContent = { Icon(Icons.Default.ExitToApp, contentDescription = null) },
+                        modifier = Modifier.fillMaxWidth(),
+                        trailingContent = {
+                            Button(onClick = {
+                                scope.launch {
+                                    val contacts = renQingViewModel.allContacts.first()
+                                    if (contacts.isNotEmpty()) {
+                                        renQingContactsExportLauncher.launch("联系人_${System.currentTimeMillis()}.xlsx")
+                                    } else {
+                                        Toast.makeText(context, "暂无联系人可导出", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }) {
+                                Text("导出")
+                            }
+                        }
+                    )
+                }
                 Divider()
                 ListItem(
                     headlineContent = { Text("关于 墨麒麟记账") },
-                    supportingContent = { Text("版本 1.1.0") },
-                    leadingContent = { Icon(Icons.Default.Info, contentDescription = null) }
+                    supportingContent = { Text("版本 1.2.0 · GitHub 仓库") },
+                    leadingContent = { Icon(Icons.Default.Share, contentDescription = null) },
+                    modifier = Modifier.clickable {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Murchey/inkqilin-ledger"))
+                        context.startActivity(intent)
+                    }
                 )
             }
         }
