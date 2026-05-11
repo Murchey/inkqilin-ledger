@@ -23,10 +23,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.inkqilin.ledger.data.*
 import com.inkqilin.ledger.ui.RenQingViewModel
+import com.inkqilin.ledger.ui.theme.InkQilinLedgerTheme
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -1481,6 +1483,45 @@ fun ContactManagementScreen(viewModel: RenQingViewModel) {
                             IconButton(onClick = { showDeleteConfirm = contact }) {
                                 Icon(Icons.Default.Delete, contentDescription = "删除", tint = MaterialTheme.colorScheme.error)
                             }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Preview(showBackground = true, heightDp = 700)
+@Composable
+private fun RenQingMainScreenPreview() {
+    InkQilinLedgerTheme {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
+                Text("人情往来", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 16.dp))
+                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF715CFF))) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text("本月人情 · 随礼", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Column { Text("收到", color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp); Text("¥2,000.00", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold) }
+                            Column(horizontalAlignment = Alignment.End) { Text("给出", color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp); Text("¥500.00", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold) }
+                        }
+                    }
+                }
+                Row(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("全部", "本月", "本年").forEach { FilterChip(selected = it == "本月", onClick = {}, label = { Text(it) }) }
+                }
+                val contacts = listOf("张三" to "朋友", "李四" to "同事", "王五" to "亲属")
+                contacts.forEach { (name, rel) ->
+                    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(0.5.dp)) {
+                        Row(modifier = Modifier.padding(14.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Box(modifier = Modifier.size(44.dp).clip(CircleShape).background(Color(0xFF2196F3).copy(alpha = 0.12f)), contentAlignment = Alignment.Center) { Text(name.take(1), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2196F3)) }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(name, fontWeight = FontWeight.Medium, fontSize = 15.sp)
+                                Text(rel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Text("🎁 随礼 ¥200", fontSize = 12.sp, color = Color(0xFFF44336))
                         }
                     }
                 }

@@ -18,11 +18,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.inkqilin.ledger.data.*
 import com.inkqilin.ledger.ui.RenQingViewModel
 import com.inkqilin.ledger.ui.TransactionViewModel
+import com.inkqilin.ledger.ui.theme.InkQilinLedgerTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -359,6 +361,43 @@ fun CategoryEditDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
     )
+}
+
+@Preview(showBackground = true, heightDp = 700)
+@Composable
+private fun CategoryManagementPreview() {
+    InkQilinLedgerTheme {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            val cats = listOf(
+                Category(1, "餐饮", "🍜", TransactionType.EXPENSE, "#F44336"),
+                Category(2, "交通", "🚌", TransactionType.EXPENSE, "#FF9800"),
+                Category(3, "购物", "🛒", TransactionType.EXPENSE, "#E91E63"),
+                Category(4, "工资", "💰", TransactionType.INCOME, "#4CAF50"),
+                Category(5, "奖金", "🎁", TransactionType.INCOME, "#00BCD4")
+            )
+            val expenseCats = cats.filter { it.type == TransactionType.EXPENSE }
+            val incomeCats = cats.filter { it.type == TransactionType.INCOME }
+            LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                item { Text("支出类别", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+                items(expenseCats) { category -> CategoryPreviewItem(category) }
+                item { Divider(modifier = Modifier.padding(vertical = 8.dp)) }
+                item { Text("收入类别", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+                items(incomeCats) { category -> CategoryPreviewItem(category) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CategoryPreviewItem(category: Category) {
+    val categoryColor = try { Color(android.graphics.Color.parseColor(category.color)) } catch (_: Exception) { MaterialTheme.colorScheme.primary }
+    Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(1.dp)) {
+        Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.size(44.dp).clip(CircleShape).background(categoryColor.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) { Text(category.icon, fontSize = 20.sp) }
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(text = category.name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

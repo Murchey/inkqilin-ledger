@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.inkqilin.ledger.data.Category
@@ -348,6 +349,47 @@ private fun RowScope.CategoryChip(cat: String, icon: String, selected: Boolean, 
             Text(text = cat, fontSize = 12.sp,
                 color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+        }
+    }
+}
+
+@Preview(showBackground = true, heightDp = 750)
+@Composable
+private fun AddTransactionScreenPreview() {
+    InkQilinLedgerTheme {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("记一笔", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    AssistChip(onClick = {}, label = { Text("2024-05-11") }, leadingIcon = { Icon(Icons.Default.DateRange, null, modifier = Modifier.size(18.dp)) })
+                }
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Box(modifier = Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).background(Color(0xFFF44336)).padding(vertical = 12.dp), contentAlignment = Alignment.Center) { Text("支出", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
+                    Box(modifier = Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(vertical = 12.dp), contentAlignment = Alignment.Center) { Text("收入", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 15.sp) }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(1.dp)) {
+                    OutlinedTextField(value = "35.50", onValueChange = {}, label = { Text("金额") }, prefix = { Text("¥ ", fontWeight = FontWeight.Bold, fontSize = 20.sp) }, modifier = Modifier.fillMaxWidth().padding(4.dp), shape = RoundedCornerShape(12.dp), textStyle = LocalTextStyle.current.copy(fontSize = 24.sp, fontWeight = FontWeight.Bold), singleLine = true)
+                }
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("选择分类", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    TextButton(onClick = {}) { Text("+ 新增") }
+                }
+                val cats = listOf("餐饮" to "🍜", "交通" to "🚌", "购物" to "🛒")
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    cats.forEachIndexed { i, (name, icon) ->
+                        Card(modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = if (i == 0) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(if (i == 0) 2.dp else 0.5.dp)) {
+                            Column(modifier = Modifier.padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) { Text(icon, fontSize = 24.sp); Spacer(Modifier.height(4.dp)); Text(name, fontSize = 12.sp, fontWeight = if (i == 0) FontWeight.Bold else FontWeight.Normal) }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(1.dp)) {
+                    OutlinedTextField(value = "午餐", onValueChange = {}, label = { Text("备注（可选）") }, modifier = Modifier.fillMaxWidth().padding(4.dp), shape = RoundedCornerShape(12.dp))
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+                Button(onClick = {}, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(52.dp), shape = RoundedCornerShape(14.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF44336))) { Text("保存", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+            }
         }
     }
 }

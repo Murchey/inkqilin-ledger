@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -17,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.inkqilin.ledger.ui.TransactionViewModel
@@ -540,5 +542,66 @@ private fun getDateRangeForPeriod(
             cal.timeInMillis to System.currentTimeMillis()
         }
         TimePeriod.CUSTOM -> startDate to (endDate + 86400000L - 1)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Preview(showBackground = true, heightDp = 700)
+@Composable
+private fun StatisticsScreenPreview() {
+    InkQilinLedgerTheme {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                Text("统计", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("本周", "本月", "本年", "自定义").forEach { label ->
+                        FilterChip(selected = label == "本月", onClick = {}, label = { Text(label) })
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = true, onClick = {}, label = { Text("支出") })
+                    FilterChip(selected = false, onClick = {}, label = { Text("收入") })
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF44336))) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text("总支出", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
+                        Text("¥1,234.56", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("分类排行", style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+                val categories = listOf(
+                    Triple("🍜", "餐饮", 0.40 to 456.78),
+                    Triple("🛒", "购物", 0.25 to 312.00),
+                    Triple("🚌", "交通", 0.20 to 245.50),
+                    Triple("☕", "饮品", 0.10 to 120.28),
+                    Triple("📱", "通讯", 0.05 to 100.00)
+                )
+                categories.forEach { (icon, name, data) ->
+                    val cardColor = try { Color(android.graphics.Color.parseColor("#715CFF")) } catch (_: Exception) { MaterialTheme.colorScheme.primary }
+                    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(cardColor.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) { Text(icon, fontSize = 18.sp) }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(name, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                LinearProgressIndicator(progress = data.first.toFloat(), modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)), color = Color(0xFFF44336), trackColor = Color(0xFFF44336).copy(alpha = 0.1f))
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("¥${String.format("%.2f", data.second)}", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("${String.format("%.0f", data.first * 100)}%", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

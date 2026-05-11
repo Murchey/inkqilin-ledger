@@ -31,8 +31,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
 import com.inkqilin.ledger.data.Transaction
+import com.inkqilin.ledger.ui.theme.InkQilinLedgerTheme
 import com.inkqilin.ledger.data.TransactionType
 import com.inkqilin.ledger.ui.TransactionViewModel
 import com.inkqilin.ledger.ui.motion.MotionDurations
@@ -302,6 +304,64 @@ fun TransactionItem(transaction: Transaction, viewModel: TransactionViewModel) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 11.sp
                 )
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun TransactionItemPreview() {
+    InkQilinLedgerTheme {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("账单条目预览", style = MaterialTheme.typography.titleSmall)
+                val sdf = java.text.SimpleDateFormat("MM月dd日", java.util.Locale.getDefault())
+                val now = System.currentTimeMillis()
+                val previewTransactions = listOf(
+                    Transaction(1, 35.50, "餐饮", "午餐", now, TransactionType.EXPENSE, "CNY"),
+                    Transaction(2, 5000.00, "工资", "", now - 86400000, TransactionType.INCOME, "CNY"),
+                    Transaction(3, 128.00, "购物", "超市", now - 86400000 * 2, TransactionType.EXPENSE, "CNY")
+                )
+                previewTransactions.forEach { tx ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val isIncome = tx.type == TransactionType.INCOME
+                            val iconColor = if (isIncome) Color(0xFF4CAF50) else Color(0xFFF44336)
+                            val iconEmoji = when(tx.category) { "餐饮" -> "🍜"; "购物" -> "🛒"; "工资" -> "💰"; else -> "📋" }
+                            Box(
+                                modifier = Modifier.size(44.dp).clip(CircleShape)
+                                    .background(iconColor.copy(alpha = 0.12f)),
+                                contentAlignment = Alignment.Center
+                            ) { Text(text = iconEmoji, fontSize = 20.sp) }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(text = tx.category, fontWeight = FontWeight.Medium, fontSize = 15.sp)
+                                if (tx.note.isNotBlank()) {
+                                    Text(text = tx.note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                                }
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = "${if (isIncome) "+" else "-"}¥${String.format("%.2f", tx.amount)}",
+                                    color = iconColor, fontWeight = FontWeight.Bold, fontSize = 16.sp
+                                )
+                                Text(
+                                    text = sdf.format(java.util.Date(tx.date)),
+                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }

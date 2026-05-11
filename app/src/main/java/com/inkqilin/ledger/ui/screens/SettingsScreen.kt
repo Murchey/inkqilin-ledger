@@ -30,6 +30,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
 import com.inkqilin.ledger.ui.RenQingViewModel
 import com.inkqilin.ledger.ui.TransactionViewModel
@@ -54,6 +55,7 @@ import com.inkqilin.ledger.ui.motion.MotionSprings
 import java.text.SimpleDateFormat
 import java.util.*
 import com.inkqilin.ledger.data.CurrencyAsset
+import com.inkqilin.ledger.ui.theme.InkQilinLedgerTheme
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -928,4 +930,41 @@ private fun CurrencyEditDialog(
             TextButton(onClick = onDismiss) { Text("取消") }
         }
     )
+}
+
+@Preview(showBackground = true, heightDp = 800)
+@Composable
+private fun SettingsScreenPreview() {
+    InkQilinLedgerTheme {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+                Text("显示设置", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
+                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+                    Column {
+                        ListItem(headlineContent = { Text("深浅色模式") }, supportingContent = { Text("跟随系统") }, trailingContent = { TextButton(onClick = {}) { Text("切换") } })
+                        Divider()
+                        ListItem(headlineContent = { Text("收入展示颜色") }, trailingContent = { Box(modifier = Modifier.size(32.dp).clip(CircleShape).background(Color(0xFF4CAF50))) })
+                        Divider()
+                        ListItem(headlineContent = { Text("支出展示颜色") }, trailingContent = { Box(modifier = Modifier.size(32.dp).clip(CircleShape).background(Color(0xFFF44336))) })
+                    }
+                }
+                Text("分类管理", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
+                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+                    ListItem(headlineContent = { Text("账单标签（类别）管理") }, supportingContent = { Text("添加、修改或删除收支分类及人情标签") }, leadingContent = { Icon(Icons.Default.Info, null) }, modifier = Modifier.clickable {})
+                }
+                Text("更新检测", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
+                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+                    ListItem(
+                        headlineContent = { Text("启动时检测新版本") },
+                        supportingContent = { Text("已启用，启动时自动检测 GitHub 新版本") },
+                        trailingContent = { Switch(checked = true, onCheckedChange = {}) }
+                    )
+                }
+                Text("关于", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    ListItem(headlineContent = { Text("关于 墨麒麟记账") }, supportingContent = { Text("版本 1.3.0 · GitHub 仓库") }, leadingContent = { Icon(Icons.Default.Info, null) }, modifier = Modifier.clickable {})
+                }
+            }
+        }
+    }
 }
