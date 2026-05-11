@@ -924,8 +924,10 @@ fun RenQingStatsScreen(
     var selectedYear by remember { mutableIntStateOf(currentYear) }
     val allEvents by viewModel.allEvents.collectAsState()
     val yearRange = remember(selectedYear) { viewModel.getYearRange(selectedYear) }
-    val yearGiven by viewModel.getTotalGiven(yearRange.first, yearRange.second).collectAsState()
-    val yearReceived by viewModel.getTotalReceived(yearRange.first, yearRange.second).collectAsState()
+    val yearGivenFlow = remember(yearRange) { viewModel.getTotalGiven(yearRange.first, yearRange.second) }
+    val yearGiven by yearGivenFlow.collectAsState()
+    val yearReceivedFlow = remember(yearRange) { viewModel.getTotalReceived(yearRange.first, yearRange.second) }
+    val yearReceived by yearReceivedFlow.collectAsState()
     val yearEvents = remember(allEvents, selectedYear) { allEvents.filter { it.date in yearRange.first..yearRange.second } }
 
     if (!dataLoaded) {
@@ -1127,7 +1129,8 @@ fun RenQingContactDetailScreen(viewModel: RenQingViewModel, contactId: Long) {
     val dataLoaded by viewModel.dataLoaded.collectAsState()
     val allContacts by viewModel.allContacts.collectAsState()
     val allTags by viewModel.allTags.collectAsState()
-    val contactEvents by viewModel.getEventsByContact(contactId).collectAsState()
+    val contactEventsFlow = remember(contactId) { viewModel.getEventsByContact(contactId) }
+    val contactEvents by contactEventsFlow.collectAsState()
 
     val contact = if (dataLoaded) allContacts.find { it.id == contactId } else null
 
