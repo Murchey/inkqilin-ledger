@@ -1,6 +1,7 @@
 package com.inkqilin.ledger.ui
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -153,6 +154,14 @@ class TransactionViewModel(
         viewModelScope, SharingStarted.WhileSubscribed(5000), false
     )
 
+    val checkUpdateEnabled: StateFlow<Boolean> = themeManager.checkUpdateEnabled.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), true
+    )
+
+    fun setCheckUpdateEnabled(enabled: Boolean) {
+        viewModelScope.launch { themeManager.setCheckUpdateEnabled(enabled) }
+    }
+
     fun setRenQingEnabled(enabled: Boolean) {
         viewModelScope.launch { themeManager.setRenQingEnabled(enabled) }
     }
@@ -218,6 +227,15 @@ class TransactionViewModel(
             result.transactions.forEach { transaction ->
                 transactionDao.insertTransaction(transaction)
             }
+        }
+    }
+
+    fun getCurrentVersionName(context: Context): String {
+        return try {
+            val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+            packageInfo.versionName ?: "0.0.0"
+        } catch (e: PackageManager.NameNotFoundException) {
+            "0.0.0"
         }
     }
 }

@@ -14,11 +14,15 @@ import com.inkqilin.ledger.ui.TransactionViewModel
 fun CategoryTransactionsScreen(
     viewModel: TransactionViewModel,
     categoryName: String,
-    type: String
+    type: String,
+    startDate: Long = 0L,
+    endDate: Long = 0L
 ) {
     val transactionType = if (type == "INCOME") TransactionType.INCOME else TransactionType.EXPENSE
     val transactions by viewModel.getTransactionsByCategory(categoryName).collectAsState(initial = emptyList())
-    val filteredTransactions = transactions.filter { it.type == transactionType }
+    val filteredTransactions = transactions.filter {
+        it.type == transactionType && (startDate == 0L || it.date in startDate..endDate)
+    }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text(

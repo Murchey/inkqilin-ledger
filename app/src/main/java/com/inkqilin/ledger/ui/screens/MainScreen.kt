@@ -341,18 +341,24 @@ fun MainScreen(
                 )
             }
             composable(
-                route = "category_transactions/{categoryName}/{type}",
+                route = "category_transactions/{categoryName}/{type}?startDate={startDate}&endDate={endDate}",
                 arguments = listOf(
                     navArgument("categoryName") { type = NavType.StringType },
-                    navArgument("type") { type = NavType.StringType }
+                    navArgument("type") { type = NavType.StringType },
+                    navArgument("startDate") { type = NavType.LongType; defaultValue = 0L },
+                    navArgument("endDate") { type = NavType.LongType; defaultValue = 0L }
                 )
             ) { backStackEntry ->
                 val categoryName = backStackEntry.arguments?.getString("categoryName") ?: ""
                 val type = backStackEntry.arguments?.getString("type") ?: "EXPENSE"
+                val startDate = backStackEntry.arguments?.getLong("startDate") ?: 0L
+                val endDate = backStackEntry.arguments?.getLong("endDate") ?: 0L
                 CategoryTransactionsScreen(
                     viewModel = viewModel,
                     categoryName = categoryName,
-                    type = type
+                    type = type,
+                    startDate = startDate,
+                    endDate = endDate
                 )
             }
         }

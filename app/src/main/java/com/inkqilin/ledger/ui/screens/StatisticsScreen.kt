@@ -418,7 +418,8 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                                 }
                             )
                             .clickable {
-                                navController.navigate("category_transactions/$categoryName/${selectedType.name}")
+                                val dateRange = getDateRangeForPeriod(selectedPeriod, startDate, endDate)
+                                navController.navigate("category_transactions/$categoryName/${selectedType.name}?startDate=${dateRange.first}&endDate=${dateRange.second}")
                             },
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -500,32 +501,44 @@ private fun filterByPeriod(
     period: TimePeriod,
     now: Calendar
 ): List<Transaction> {
-    val start = Calendar.getInstance()
-    start.timeInMillis = now.timeInMillis
-    when (period) {
+    val range = getDateRangeForPeriod(period, now.timeInMillis, now.timeInMillis)
+    return transactions.filter { it.date >= range.first && it.date <= range.second }
+}
+
+private fun getDateRangeForPeriod(
+    period: TimePeriod,
+    startDate: Long,
+    endDate: Long
+): Pair<Long, Long> {
+    return when (period) {
         TimePeriod.WEEK -> {
-            start.set(Calendar.DAY_OF_WEEK, start.firstDayOfWeek)
-            start.set(Calendar.HOUR_OF_DAY, 0)
-            start.set(Calendar.MINUTE, 0)
-            start.set(Calendar.SECOND, 0)
-            start.set(Calendar.MILLISECOND, 0)
+            val cal = Calendar.getInstance()
+            cal.set(Calendar.DAY_OF_WEEK, cal.firstDayOfWeek)
+            cal.set(Calendar.HOUR_OF_DAY, 0)
+            cal.set(Calendar.MINUTE, 0)
+            cal.set(Calendar.SECOND, 0)
+            cal.set(Calendar.MILLISECOND, 0)
+            cal.timeInMillis to System.currentTimeMillis()
         }
         TimePeriod.MONTH -> {
-            start.set(Calendar.DAY_OF_MONTH, 1)
-            start.set(Calendar.HOUR_OF_DAY, 0)
-            start.set(Calendar.MINUTE, 0)
-            start.set(Calendar.SECOND, 0)
-            start.set(Calendar.MILLISECOND, 0)
+            val cal = Calendar.getInstance()
+            cal.set(Calendar.DAY_OF_MONTH, 1)
+            cal.set(Calendar.HOUR_OF_DAY, 0)
+            cal.set(Calendar.MINUTE, 0)
+            cal.set(Calendar.SECOND, 0)
+            cal.set(Calendar.MILLISECOND, 0)
+            cal.timeInMillis to System.currentTimeMillis()
         }
         TimePeriod.YEAR -> {
-            start.set(Calendar.MONTH, Calendar.JANUARY)
-            start.set(Calendar.DAY_OF_MONTH, 1)
-            start.set(Calendar.HOUR_OF_DAY, 0)
-            start.set(Calendar.MINUTE, 0)
-            start.set(Calendar.SECOND, 0)
-            start.set(Calendar.MILLISECOND, 0)
+            val cal = Calendar.getInstance()
+            cal.set(Calendar.MONTH, Calendar.JANUARY)
+            cal.set(Calendar.DAY_OF_MONTH, 1)
+            cal.set(Calendar.HOUR_OF_DAY, 0)
+            cal.set(Calendar.MINUTE, 0)
+            cal.set(Calendar.SECOND, 0)
+            cal.set(Calendar.MILLISECOND, 0)
+            cal.timeInMillis to System.currentTimeMillis()
         }
-        TimePeriod.CUSTOM -> return transactions // Handled outside
+        TimePeriod.CUSTOM -> startDate to (endDate + 86400000L - 1)
     }
-    return transactions.filter { it.date >= start.timeInMillis }
 }

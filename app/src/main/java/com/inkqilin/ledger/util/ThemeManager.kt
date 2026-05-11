@@ -22,6 +22,7 @@ class ThemeManager(private val context: Context) {
     private val RENQING_ENABLED_KEY = booleanPreferencesKey("renqing_enabled")
     private val MULTI_CURRENCY_ENABLED_KEY = booleanPreferencesKey("multi_currency_enabled")
     private val MONTHLY_BUDGET_KEY = doublePreferencesKey("monthly_budget")
+    private val CHECK_UPDATE_ENABLED_KEY = booleanPreferencesKey("check_update_enabled")
 
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { preferences ->
         val mode = preferences[THEME_KEY] ?: ThemeMode.AUTO.name
@@ -46,6 +47,10 @@ class ThemeManager(private val context: Context) {
 
     val monthlyBudget: Flow<Double> = context.dataStore.data.map { preferences ->
         preferences[MONTHLY_BUDGET_KEY] ?: 0.0
+    }
+
+    val checkUpdateEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[CHECK_UPDATE_ENABLED_KEY] ?: true
     }
 
     suspend fun setThemeMode(mode: ThemeMode) {
@@ -81,6 +86,12 @@ class ThemeManager(private val context: Context) {
     suspend fun setMonthlyBudget(amount: Double) {
         context.dataStore.edit { preferences ->
             preferences[MONTHLY_BUDGET_KEY] = amount
+        }
+    }
+
+    suspend fun setCheckUpdateEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[CHECK_UPDATE_ENABLED_KEY] = enabled
         }
     }
 }

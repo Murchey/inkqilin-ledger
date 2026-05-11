@@ -354,6 +354,20 @@ fun SettingsScreen(
             }
         }
 
+        val checkUpdateEnabled by viewModel.checkUpdateEnabled.collectAsState()
+        Text(text = "更新检测", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
+        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+            Column {
+                ListItem(
+                    headlineContent = { Text("启动时检测新版本") },
+                    supportingContent = { Text(if (checkUpdateEnabled) "已启用，启动时自动检测 GitHub 新版本" else "已关闭") },
+                    trailingContent = {
+                        Switch(checked = checkUpdateEnabled, onCheckedChange = { viewModel.setCheckUpdateEnabled(it) })
+                    }
+                )
+            }
+        }
+
         Text(text = "数据管理", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
         Card(modifier = Modifier.fillMaxWidth()) {
             Column {
@@ -549,7 +563,7 @@ fun SettingsScreen(
                 Divider()
                 ListItem(
                     headlineContent = { Text("关于 墨麒麟记账") },
-                    supportingContent = { Text("版本 1.3.0 · GitHub 仓库") },
+                    supportingContent = { Text("版本 ${viewModel.getCurrentVersionName(context)} · GitHub 仓库") },
                     leadingContent = { Icon(Icons.Default.Share, contentDescription = null) },
                     modifier = Modifier.clickable {
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Murchey/inkqilin-ledger"))

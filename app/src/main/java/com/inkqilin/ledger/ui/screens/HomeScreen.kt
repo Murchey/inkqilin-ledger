@@ -46,6 +46,8 @@ fun HomeScreen(
     val allAssets by viewModel.allAssets.collectAsState()
     val expenseColorHex by viewModel.expenseColor.collectAsState()
     val expenseColor = Color(android.graphics.Color.parseColor(expenseColorHex))
+    val incomeColorHex by viewModel.incomeColor.collectAsState()
+    val incomeColor = Color(android.graphics.Color.parseColor(incomeColorHex))
 
     var selectedPeriod by remember { mutableIntStateOf(2) }
     var selectedChartCurrency by remember { mutableStateOf<String?>(null) }
@@ -341,6 +343,19 @@ fun HomeScreen(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     modifier = Modifier.weight(1f)
                                 ) {
+                                    if (value > 0) {
+                                        Text(
+                                            text = if (value >= 10000) "${String.format("%.1f", value / 10000)}w"
+                                                   else if (value >= 1000) "${String.format("%.0f", value)}"
+                                                   else String.format("%.2f", value),
+                                            fontSize = 8.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            textAlign = TextAlign.Center,
+                                            maxLines = 1
+                                        )
+                                    } else {
+                                        Spacer(modifier = Modifier.height(10.dp))
+                                    }
                                     val barHeight = if (maxVal > 0) (value / maxVal * 80).toFloat().dp else 0.dp
                                     Box(
                                         modifier = Modifier
@@ -505,6 +520,24 @@ fun HomeScreen(
                         }
                     }
                     item {
+                        val dayIncome = transactions
+                            .filter { it.type == TransactionType.INCOME }
+                            .sumOf { it.amount }
+                        val dayExpense = transactions
+                            .filter { it.type == TransactionType.EXPENSE }
+                            .sumOf { it.amount }
+                        val dayBalance = dayIncome - dayExpense
+                        val symbol = defaultAsset?.symbol ?: "¥"
+                        val balanceColor = when {
+                            dayBalance > 0 -> incomeColor
+                            dayBalance < 0 -> expenseColor
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                        val balanceText = when {
+                            dayBalance > 0 -> "+$symbol${String.format("%.2f", dayBalance)}"
+                            dayBalance < 0 -> "-$symbol${String.format("%.2f", -dayBalance)}"
+                            else -> "${symbol}0.00"
+                        }
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -517,6 +550,12 @@ fun HomeScreen(
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = balanceText,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = balanceColor
                             )
                         }
                     }
