@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -43,11 +45,15 @@ fun AddTransactionScreen(
     var date by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var syncToRenQing by remember { mutableStateOf(false) }
     var selectedContact by remember { mutableStateOf<RenQingContact?>(null) }
+    var selectedCurrency by remember { mutableStateOf("CNY") }
 
     val allCategories by viewModel.allCategories.collectAsState(initial = emptyList())
     val categories = allCategories.filter { it.type == type }
     val renQingEnabled by renQingViewModel.renQingEnabled.collectAsState()
     val allContacts by renQingViewModel.allContacts.collectAsState()
+    val multiCurrencyEnabled by viewModel.multiCurrencyEnabled.collectAsState()
+    val allAssets by viewModel.allAssets.collectAsState()
+    val currentAsset = allAssets.firstOrNull { it.code == selectedCurrency } ?: allAssets.firstOrNull()
 
     val incomeColorHex by viewModel.incomeColor.collectAsState()
     val expenseColorHex by viewModel.expenseColor.collectAsState()
@@ -136,12 +142,48 @@ fun AddTransactionScreen(
                     OutlinedTextField(
                         value = amount, onValueChange = { amount = it },
                         label = { Text("金额") },
-                        prefix = { Text("¥ ", fontWeight = FontWeight.Bold, fontSize = 20.sp) },
+                        prefix = { Text("${currentAsset?.symbol ?: "¥"} ", fontWeight = FontWeight.Bold, fontSize = 20.sp) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
                         textStyle = LocalTextStyle.current.copy(fontSize = 24.sp, fontWeight = FontWeight.Bold),
                         singleLine = true
                     )
+                }
+            }
+        }
+
+        if (multiCurrencyEnabled && allAssets.size > 1) {
+            item {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    "选择币种",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(allAssets) { asset ->
+                        val selected = selectedCurrency == asset.code
+                        val assetColor = try {
+                            Color(android.graphics.Color.parseColor(asset.cardColor))
+                        } catch (e: Exception) {
+                            MaterialTheme.colorScheme.primary
+                        }
+                        FilterChip(
+                            selected = selected,
+                            onClick = { selectedCurrency = asset.code },
+                            label = { Text("${asset.symbol} ${asset.code}") },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = assetColor.copy(alpha = 0.15f),
+                                selectedLabelColor = assetColor
+                            )
+                        )
+                    }
                 }
             }
         }
@@ -263,7 +305,8 @@ fun AddTransactionScreen(
                                 category = category,
                                 note = note,
                                 date = date,
-                                type = type
+                                type = type,
+                                currency = selectedCurrency
                             )
                         )
                         if (syncToRenQing) {

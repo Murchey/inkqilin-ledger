@@ -231,6 +231,9 @@ fun TransactionItem(transaction: Transaction, viewModel: TransactionViewModel) {
     val icon = category?.icon ?: "📋"
     val isIncome = transaction.type == TransactionType.INCOME
 
+    val allAssets by viewModel.allAssets.collectAsState()
+    val currencySymbol = allAssets.firstOrNull { it.code == transaction.currency }?.symbol ?: "¥"
+
     val incomeColorHex by viewModel.incomeColor.collectAsState()
     val expenseColorHex by viewModel.expenseColor.collectAsState()
     val incomeColor = Color(android.graphics.Color.parseColor(incomeColorHex))
@@ -288,7 +291,7 @@ fun TransactionItem(transaction: Transaction, viewModel: TransactionViewModel) {
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = "${if (isIncome) "+" else "-"}¥${String.format("%.2f", transaction.amount)}",
+                    text = "${if (isIncome) "+" else "-"}${currencySymbol}${String.format("%.2f", transaction.amount)}",
                     color = if (isIncome) incomeColor else expenseColor,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp

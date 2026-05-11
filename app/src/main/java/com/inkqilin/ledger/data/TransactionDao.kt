@@ -31,4 +31,13 @@ interface TransactionDao {
 
     @Query("SELECT * FROM transactions WHERE date BETWEEN :startTime AND :endTime ORDER BY date DESC")
     fun getTransactionsByDateRange(startTime: Long, endTime: Long): Flow<List<Transaction>>
+
+    @Query("SELECT SUM(amount) FROM transactions WHERE type = 'INCOME' AND currency = :currency")
+    fun getTotalIncomeByCurrency(currency: String): Flow<Double?>
+
+    @Query("SELECT SUM(amount) FROM transactions WHERE type = 'EXPENSE' AND currency = :currency")
+    fun getTotalExpenseByCurrency(currency: String): Flow<Double?>
+
+    @Query("SELECT * FROM transactions WHERE currency = :currency ORDER BY date DESC")
+    fun getTransactionsByCurrency(currency: String): Flow<List<Transaction>>
 }

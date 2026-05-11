@@ -8,8 +8,8 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [Transaction::class, Category::class, RenQingContact::class, RenQingEvent::class, RenQingTag::class],
-    version = 5,
+    entities = [Transaction::class, Category::class, RenQingContact::class, RenQingEvent::class, RenQingTag::class, CurrencyAsset::class],
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -18,6 +18,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun renQingContactDao(): RenQingContactDao
     abstract fun renQingEventDao(): RenQingEventDao
     abstract fun renQingTagDao(): RenQingTagDao
+    abstract fun currencyAssetDao(): CurrencyAssetDao
 
     companion object {
         @Volatile
@@ -74,6 +75,24 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE transactions ADD COLUMN `currency` TEXT NOT NULL DEFAULT 'CNY'")
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `currency_assets` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `code` TEXT NOT NULL,
+                        `symbol` TEXT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `cardColor` TEXT NOT NULL,
+                        `isDefault` INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
+                db.execSQL("INSERT INTO `currency_assets` (`code`, `symbol`, `name`, `cardColor`, `isDefault`) VALUES ('CNY', '¥', '人民币', '#D32F2F', 1)")
+                db.execSQL("INSERT INTO `currency_assets` (`code`, `symbol`, `name`, `cardColor`, `isDefault`) VALUES ('USD', '${"$"}', '美元', '#1565C0', 0)")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -81,7 +100,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "ledger_database"
                 )
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     .fallbackToDestructiveMigrationOnDowngrade()
                     .build()
                 INSTANCE = instance

@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import com.inkqilin.ledger.ui.TransactionViewModel
 import com.inkqilin.ledger.ui.motion.MotionDurations
 import com.inkqilin.ledger.ui.motion.MotionCurves
+import com.inkqilin.ledger.data.CurrencyAsset
 import com.inkqilin.ledger.data.Transaction
 import com.inkqilin.ledger.data.TransactionType
 import com.inkqilin.ledger.ui.theme.*
@@ -49,9 +51,13 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
     val expenseColorHex by viewModel.expenseColor.collectAsState()
     val incomeColor = Color(android.graphics.Color.parseColor(incomeColorHex))
     val expenseColor = Color(android.graphics.Color.parseColor(expenseColorHex))
+    val multiCurrencyEnabled by viewModel.multiCurrencyEnabled.collectAsState()
+    val allAssets by viewModel.allAssets.collectAsState()
+    val defaultAsset = allAssets.firstOrNull { it.isDefault }
 
     var selectedType by remember { mutableStateOf(TransactionType.EXPENSE) }
     var selectedPeriod by remember { mutableStateOf(TimePeriod.MONTH) }
+    var selectedCurrencyCode by remember { mutableStateOf<String?>(null) }
     
     var categoryToEdit by remember { mutableStateOf<Category?>(null) }
     
@@ -103,7 +109,21 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
         }
     }
 
-    val filteredTransactions = filteredByPeriod.filter { it.type == selectedType }
+    val currencySymbol = if (multiCurrencyEnabled) {
+        allAssets.firstOrNull { it.code == selectedCurrencyCode }?.symbol ?: defaultAsset?.symbol ?: "¥"
+    } else {
+        defaultAsset?.symbol ?: "¥"
+    }
+
+    val filteredByCurrency = if (multiCurrencyEnabled && selectedCurrencyCode != null) {
+        filteredByPeriod.filter { it.currency == selectedCurrencyCode }
+    } else if (!multiCurrencyEnabled) {
+        filteredByPeriod.filter { it.currency == (defaultAsset?.code ?: "CNY") }
+    } else {
+        filteredByPeriod
+    }
+
+    val filteredTransactions = filteredByCurrency.filter { it.type == selectedType }
     val totalAmount = filteredTransactions.sumOf { it.amount }
     val categoryTotals = filteredTransactions.groupBy { it.category }
         .mapValues { it.value.sumOf { t -> t.amount } }
@@ -214,6 +234,71 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
             }
         }
 
+        if (multiCurrencyEnabled && allAssets.size > 1) {
+            item {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "币种：",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    var currencyMenuExpanded by remember { mutableStateOf(false) }
+                    Box {
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable { currencyMenuExpanded = true }
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val selectedAsset = allAssets.firstOrNull { it.code == selectedCurrencyCode }
+                            Text(
+                                text = selectedAsset?.name ?: "全部",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Icon(
+                                Icons.Default.ArrowDropDown,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = currencyMenuExpanded,
+                            onDismissRequest = { currencyMenuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("全部") },
+                                onClick = {
+                                    selectedCurrencyCode = null
+                                    currencyMenuExpanded = false
+                                }
+                            )
+                            allAssets.forEach { asset ->
+                                DropdownMenuItem(
+                                    text = { Text("${asset.name} (${asset.code})") },
+                                    onClick = {
+                                        selectedCurrencyCode = asset.code
+                                        currencyMenuExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         item {
             Spacer(modifier = Modifier.height(24.dp))
             Card(
@@ -232,7 +317,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "¥${String.format("%.2f", totalAmount)}",
+                        text = "${currencySymbol}${String.format("%.2f", totalAmount)}",
                         style = MaterialTheme.typography.headlineLarge,
                         fontWeight = FontWeight.Bold,
                         fontSize = 32.sp
@@ -354,7 +439,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                                     )
                                 }
                                 Text(
-                                    text = "¥${String.format("%.2f", total)}",
+                                    text = "${currencySymbol}${String.format("%.2f", total)}",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 15.sp,
                                     color = displayColor

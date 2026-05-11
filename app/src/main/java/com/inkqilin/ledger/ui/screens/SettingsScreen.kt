@@ -17,6 +17,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Share
@@ -26,7 +28,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.inkqilin.ledger.ui.RenQingViewModel
 import com.inkqilin.ledger.ui.TransactionViewModel
 import com.inkqilin.ledger.util.ExcelExporter
@@ -49,6 +53,10 @@ import com.inkqilin.ledger.ui.motion.MotionDurations
 import com.inkqilin.ledger.ui.motion.MotionSprings
 import java.text.SimpleDateFormat
 import java.util.*
+import com.inkqilin.ledger.data.CurrencyAsset
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 
 private enum class ExportTimeRange(val label: String) {
     ALL("全部"),
@@ -62,7 +70,8 @@ fun SettingsScreen(
     viewModel: TransactionViewModel,
     renQingViewModel: RenQingViewModel,
     onNavigateToCategoryManagement: () -> Unit,
-    onNavigateToContactManagement: () -> Unit = {}
+    onNavigateToContactManagement: () -> Unit = {},
+    onNavigateToCurrencyManagement: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -322,6 +331,29 @@ fun SettingsScreen(
             )
         }
 
+        val multiCurrencyEnabled by viewModel.multiCurrencyEnabled.collectAsState()
+        Text(text = "多币种管理", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
+        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+            Column {
+                ListItem(
+                    headlineContent = { Text("多币种资金管理") },
+                    supportingContent = { Text(if (multiCurrencyEnabled) "已启用，首页显示多币种卡片" else "未启用") },
+                    trailingContent = {
+                        Switch(checked = multiCurrencyEnabled, onCheckedChange = { viewModel.setMultiCurrencyEnabled(it) })
+                    }
+                )
+                if (multiCurrencyEnabled) {
+                    Divider()
+                    ListItem(
+                        headlineContent = { Text("币种卡片管理") },
+                        supportingContent = { Text("添加、编辑或删除币种金额卡片") },
+                        leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
+                        modifier = Modifier.clickable { onNavigateToCurrencyManagement() }
+                    )
+                }
+            }
+        }
+
         Text(text = "数据管理", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
         Card(modifier = Modifier.fillMaxWidth()) {
             Column {
@@ -517,7 +549,7 @@ fun SettingsScreen(
                 Divider()
                 ListItem(
                     headlineContent = { Text("关于 墨麒麟记账") },
-                    supportingContent = { Text("版本 1.2.0 · GitHub 仓库") },
+                    supportingContent = { Text("版本 1.3.0 · GitHub 仓库") },
                     leadingContent = { Icon(Icons.Default.Share, contentDescription = null) },
                     modifier = Modifier.clickable {
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Murchey/inkqilin-ledger"))
@@ -558,6 +590,7 @@ private fun AnimatedPressButton(
 @Composable
 fun ColorPickerButton(selectedColor: String, onColorSelected: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
+    var colorInput by remember { mutableStateOf(selectedColor) }
     val colors = listOf("#715CFF", "#51B4FF", "#4CAF50", "#F44336", "#FF9800", "#9C27B0", "#E91E63", "#00BCD4", "#000000", "#795548")
 
     Box {
@@ -566,31 +599,319 @@ fun ColorPickerButton(selectedColor: String, onColorSelected: (String) -> Unit) 
                 .size(32.dp)
                 .clip(CircleShape)
                 .background(Color(android.graphics.Color.parseColor(selectedColor)))
-                .clickable { expanded = true }
+                .clickable { colorInput = selectedColor; expanded = true }
         )
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            Row(modifier = Modifier.padding(8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                colors.take(5).forEach { colorHex ->
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(Color(android.graphics.Color.parseColor(colorHex)))
-                            .clickable { onColorSelected(colorHex); expanded = false }
-                    )
+            Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    colors.take(5).forEach { colorHex ->
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(Color(android.graphics.Color.parseColor(colorHex)))
+                                .clickable { onColorSelected(colorHex); expanded = false }
+                        )
+                    }
                 }
-            }
-            Row(modifier = Modifier.padding(8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                colors.drop(5).forEach { colorHex ->
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    colors.drop(5).forEach { colorHex ->
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(Color(android.graphics.Color.parseColor(colorHex)))
+                                .clickable { onColorSelected(colorHex); expanded = false }
+                        )
+                    }
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val previewColor = try {
+                        Color(android.graphics.Color.parseColor(colorInput))
+                    } catch (e: Exception) {
+                        Color.Transparent
+                    }
                     Box(
                         modifier = Modifier
                             .size(32.dp)
                             .clip(CircleShape)
-                            .background(Color(android.graphics.Color.parseColor(colorHex)))
-                            .clickable { onColorSelected(colorHex); expanded = false }
+                            .background(previewColor)
+                    )
+                    OutlinedTextField(
+                        value = colorInput,
+                        onValueChange = { newVal ->
+                            colorInput = newVal
+                            if (newVal.matches(Regex("^#[0-9A-Fa-f]{6,8}$"))) {
+                                onColorSelected(newVal)
+                            }
+                        },
+                        label = { Text("颜色代码", fontSize = 11.sp) },
+                        placeholder = { Text("#RRGGBB", fontSize = 11.sp) },
+                        singleLine = true,
+                        modifier = Modifier.width(140.dp),
+                        textStyle = LocalTextStyle.current.copy(fontSize = 12.sp)
                     )
                 }
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CurrencyManagementScreen(
+    viewModel: TransactionViewModel
+) {
+    val allAssets by viewModel.allAssets.collectAsState()
+    var showAddDialog by remember { mutableStateOf(false) }
+    var editingAsset by remember { mutableStateOf<CurrencyAsset?>(null) }
+
+    if (showAddDialog) {
+        CurrencyEditDialog(
+            asset = null,
+            onDismiss = { showAddDialog = false },
+            onConfirm = { asset ->
+                viewModel.addCurrencyAsset(asset)
+                showAddDialog = false
+            }
+        )
+    }
+
+    if (editingAsset != null) {
+        CurrencyEditDialog(
+            asset = editingAsset,
+            onDismiss = { editingAsset = null },
+            onConfirm = { asset ->
+                viewModel.updateCurrencyAsset(asset)
+                editingAsset = null
+            }
+        )
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "币种卡片管理",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                FilledTonalButton(onClick = { showAddDialog = true }) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("添加币种")
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "管理您在首页展示的币种金额卡片，每张卡片代表一种货币的资产。点击心形图标可切换默认币种。",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        items(allAssets, key = { it.id }) { asset ->
+            val cardColor = try {
+                Color(android.graphics.Color.parseColor(asset.cardColor))
+            } catch (e: Exception) {
+                MaterialTheme.colorScheme.primary
+            }
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = cardColor)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "${asset.symbol} ${asset.name}",
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = asset.code + if (asset.isDefault) " · 默认" else "",
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 13.sp
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        if (!asset.isDefault) {
+                            TextButton(onClick = {
+                                val currentDefault = allAssets.firstOrNull { it.isDefault }
+                                if (currentDefault != null) {
+                                    viewModel.updateCurrencyAsset(currentDefault.copy(isDefault = false))
+                                }
+                                viewModel.updateCurrencyAsset(asset.copy(isDefault = true))
+                            }) {
+                                Text("设为默认", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
+                            }
+                        }
+                        IconButton(onClick = { editingAsset = asset }) {
+                            Icon(Icons.Default.Edit, contentDescription = "编辑", tint = Color.White)
+                        }
+                        if (!asset.isDefault) {
+                            IconButton(onClick = { viewModel.deleteCurrencyAsset(asset) }) {
+                                Icon(Icons.Default.Delete, contentDescription = "删除", tint = Color.White)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (allAssets.isEmpty()) {
+            item {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(200.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("暂无币种卡片", fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("点击上方按钮添加", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CurrencyEditDialog(
+    asset: CurrencyAsset?,
+    onDismiss: () -> Unit,
+    onConfirm: (CurrencyAsset) -> Unit
+) {
+    var code by remember { mutableStateOf(asset?.code ?: "") }
+    var symbol by remember { mutableStateOf(asset?.symbol ?: "") }
+    var name by remember { mutableStateOf(asset?.name ?: "") }
+    var cardColor by remember { mutableStateOf(asset?.cardColor ?: "#D32F2F") }
+    var colorInput by remember { mutableStateOf(asset?.cardColor ?: "#D32F2F") }
+    val isEdit = asset != null
+    val presetColors = listOf(
+        "#D32F2F", "#1565C0", "#2E7D32", "#E65100",
+        "#6A1B9A", "#00838F", "#4E342E", "#37474F"
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (isEdit) "编辑币种" else "添加币种") },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedTextField(
+                    value = code,
+                    onValueChange = { code = it.uppercase() },
+                    label = { Text("币种代码（如 CNY）") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isEdit
+                )
+                OutlinedTextField(
+                    value = symbol,
+                    onValueChange = { symbol = it },
+                    label = { Text("符号（如 ¥）") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("名称（如 人民币）") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text("卡片颜色", style = MaterialTheme.typography.labelMedium)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(presetColors) { color ->
+                        val c = try {
+                            Color(android.graphics.Color.parseColor(color))
+                        } catch (e: Exception) {
+                            MaterialTheme.colorScheme.primary
+                        }
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(c)
+                                .clickable { cardColor = color; colorInput = color },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (cardColor == color) {
+                                Text("✓", color = Color.White, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val previewColor = try {
+                        Color(android.graphics.Color.parseColor(colorInput))
+                    } catch (e: Exception) {
+                        Color.Transparent
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(previewColor)
+                    )
+                    OutlinedTextField(
+                        value = colorInput,
+                        onValueChange = { newVal ->
+                            colorInput = newVal
+                            if (newVal.matches(Regex("^#[0-9A-Fa-f]{6,8}$"))) {
+                                cardColor = newVal
+                            }
+                        },
+                        label = { Text("自定义颜色代码") },
+                        placeholder = { Text("#RRGGBB") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                if (code.isNotBlank() && symbol.isNotBlank() && name.isNotBlank()) {
+                    onConfirm(
+                        (asset ?: CurrencyAsset(code = code, symbol = symbol, name = name, cardColor = cardColor)).copy(
+                            code = code,
+                            symbol = symbol,
+                            name = name,
+                            cardColor = cardColor
+                        )
+                    )
+                }
+            }) { Text(if (isEdit) "保存" else "添加") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消") }
+        }
+    )
 }

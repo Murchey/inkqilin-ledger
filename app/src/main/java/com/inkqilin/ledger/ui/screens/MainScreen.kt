@@ -75,6 +75,7 @@ fun MainScreen(
         currentRoute?.startsWith("renqing_contact_analysis") == true -> "关系分析"
         currentRoute?.startsWith("category_transactions") == true -> "分类账单"
         currentRoute == "contact_management" -> "联系人管理"
+        currentRoute == "currency_management" -> "币种卡片管理"
         else -> "墨麒麟记账"
     }
 
@@ -88,6 +89,7 @@ fun MainScreen(
         route == "add_transaction" ||
         route == "add_renqing_event" ||
         route == "contact_management" ||
+        route == "currency_management" ||
         route == "search"
     } == true
 
@@ -248,6 +250,9 @@ fun MainScreen(
                     },
                     onNavigateToContactManagement = {
                         navController.navigate("contact_management")
+                    },
+                    onNavigateToCurrencyManagement = {
+                        navController.navigate("currency_management")
                     }
                 )
             }
@@ -259,6 +264,9 @@ fun MainScreen(
             }
             composable("contact_management") {
                 ContactManagementScreen(viewModel = renQingViewModel)
+            }
+            composable("currency_management") {
+                CurrencyManagementScreen(viewModel = viewModel)
             }
             composable("renqing") {
                 RenQingMainScreen(

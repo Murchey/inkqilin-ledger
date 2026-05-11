@@ -15,6 +15,7 @@ data class Transaction(
     val amount: Double,
     val category: String,
     val note: String,
-    val date: Long, // Timestamp
-    val type: TransactionType
+    val date: Long,
+    val type: TransactionType,
+    val currency: String = "CNY"
 )

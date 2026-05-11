@@ -29,6 +29,7 @@ class MainActivity : ComponentActivity() {
         TransactionViewModelFactory(
             database.transactionDao(),
             database.categoryDao(),
+            database.currencyAssetDao(),
             themeManager
         )
     }
