@@ -11,6 +11,7 @@ import com.inkqilin.ledger.util.ThemeManager
 import com.inkqilin.ledger.util.ThemeMode
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.util.Calendar
 
 class TransactionViewModel(
     private val transactionDao: TransactionDao,
@@ -127,6 +128,31 @@ class TransactionViewModel(
 
     fun getCategoriesByType(type: TransactionType): Flow<List<Category>> {
         return categoryDao.getCategoriesByType(type)
+    }
+
+    fun getTransactionsByDateRange(startTime: Long, endTime: Long): Flow<List<Transaction>> {
+        return transactionDao.getTransactionsByDateRange(startTime, endTime)
+    }
+
+    fun getYearRange(year: Int): Pair<Long, Long> {
+        val cal = Calendar.getInstance()
+        cal.set(year, Calendar.JANUARY, 1, 0, 0, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        val start = cal.timeInMillis
+        cal.set(year + 1, Calendar.JANUARY, 1, 0, 0, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        val end = cal.timeInMillis - 1
+        return start to end
+    }
+
+    fun getMonthRange(year: Int, month: Int): Pair<Long, Long> {
+        val cal = Calendar.getInstance()
+        cal.set(year, month, 1, 0, 0, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        val start = cal.timeInMillis
+        cal.set(Calendar.MONTH, month + 1)
+        val end = cal.timeInMillis - 1
+        return start to end
     }
 
     fun importTransactions(context: Context, uri: Uri) {

@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,6 +20,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.inkqilin.ledger.data.Category
+import com.inkqilin.ledger.data.RenQingContact
 import com.inkqilin.ledger.data.Transaction
 import com.inkqilin.ledger.data.TransactionType
 import com.inkqilin.ledger.ui.RenQingViewModel
@@ -40,10 +42,12 @@ fun AddTransactionScreen(
     var type by remember { mutableStateOf(TransactionType.EXPENSE) }
     var date by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var syncToRenQing by remember { mutableStateOf(false) }
+    var selectedContact by remember { mutableStateOf<RenQingContact?>(null) }
 
     val allCategories by viewModel.allCategories.collectAsState(initial = emptyList())
     val categories = allCategories.filter { it.type == type }
     val renQingEnabled by renQingViewModel.renQingEnabled.collectAsState()
+    val allContacts by renQingViewModel.allContacts.collectAsState()
 
     val incomeColorHex by viewModel.incomeColor.collectAsState()
     val expenseColorHex by viewModel.expenseColor.collectAsState()
@@ -181,13 +185,68 @@ fun AddTransactionScreen(
         if (renQingEnabled) {
             item {
                 Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Checkbox(checked = syncToRenQing, onCheckedChange = { syncToRenQing = it })
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("同步添加到人情账本", style = MaterialTheme.typography.bodyMedium)
+                Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(checked = syncToRenQing, onCheckedChange = {
+                                syncToRenQing = it
+                                if (!it) selectedContact = null
+                            })
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("同步添加到人情账本", style = MaterialTheme.typography.bodyMedium)
+                        }
+                        if (syncToRenQing) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            var contactMenuExpanded by remember { mutableStateOf(false) }
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                OutlinedTextField(
+                                    value = selectedContact?.name ?: "",
+                                    onValueChange = {},
+                                    modifier = Modifier.fillMaxWidth().clickable { contactMenuExpanded = true },
+                                    label = { Text("选择联系人") },
+                                    readOnly = true,
+                                    shape = RoundedCornerShape(12.dp),
+                                    trailingIcon = {
+                                        IconButton(onClick = { contactMenuExpanded = true }) {
+                                            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                                        }
+                                    }
+                                )
+                                DropdownMenu(
+                                    expanded = contactMenuExpanded,
+                                    onDismissRequest = { contactMenuExpanded = false },
+                                    modifier = Modifier.fillMaxWidth(0.85f)
+                                ) {
+                                    allContacts.forEach { contact ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                Column {
+                                                    Text(contact.name, fontWeight = FontWeight.Medium)
+                                                    Text(contact.relationship.label, style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                }
+                                            },
+                                            onClick = {
+                                                selectedContact = contact
+                                                contactMenuExpanded = false
+                                            }
+                                        )
+                                    }
+                                    if (allContacts.isEmpty()) {
+                                        DropdownMenuItem(
+                                            text = { Text("暂无联系人，请先添加", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                            onClick = { contactMenuExpanded = false }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -208,7 +267,11 @@ fun AddTransactionScreen(
                             )
                         )
                         if (syncToRenQing) {
-                            renQingViewModel.addRenQingEventFromTransaction(amountDouble, type, category, note, date)
+                            renQingViewModel.addRenQingEventFromTransaction(
+                                amountDouble, type, category, note, date,
+                                contactId = selectedContact?.id ?: 0,
+                                contactName = selectedContact?.name ?: ""
+                            )
                         }
                         onSaved()
                     }

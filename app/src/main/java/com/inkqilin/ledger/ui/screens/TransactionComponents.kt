@@ -1,10 +1,17 @@
 package com.inkqilin.ledger.ui.screens
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -18,6 +25,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -27,6 +35,8 @@ import androidx.compose.ui.unit.sp
 import com.inkqilin.ledger.data.Transaction
 import com.inkqilin.ledger.data.TransactionType
 import com.inkqilin.ledger.ui.TransactionViewModel
+import com.inkqilin.ledger.ui.motion.MotionDurations
+import com.inkqilin.ledger.ui.motion.MotionSprings
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt
@@ -93,7 +103,15 @@ fun SwipeableTransactionItem(
                     state = draggableState,
                     orientation = Orientation.Horizontal,
                     onDragStopped = {
-                        offsetX = if (offsetX < -menuWidthPx / 2) -menuWidthPx else 0f
+                        val target = if (offsetX < -menuWidthPx / 2) -menuWidthPx else 0f
+                        animate(
+                            initialValue = offsetX,
+                            targetValue = target,
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessMedium
+                            )
+                        ) { value, _ -> offsetX = value }
                     }
                 )
         ) {
@@ -202,6 +220,7 @@ fun CategoryEditDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionItem(transaction: Transaction, viewModel: TransactionViewModel) {
     val sdf = SimpleDateFormat("MM月dd日", Locale.getDefault())
@@ -217,11 +236,21 @@ fun TransactionItem(transaction: Transaction, viewModel: TransactionViewModel) {
     val incomeColor = Color(android.graphics.Color.parseColor(incomeColorHex))
     val expenseColor = Color(android.graphics.Color.parseColor(expenseColorHex))
 
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.98f else 1f,
+        animationSpec = if (isPressed) tween(MotionDurations.FAST) else MotionSprings.gentle(),
+        label = "txScale"
+    )
+
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().scale(scale),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
+        interactionSource = interactionSource,
+        onClick = {}
     ) {
         Row(
             modifier = Modifier

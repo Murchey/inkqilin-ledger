@@ -28,4 +28,7 @@ interface TransactionDao {
 
     @Query("SELECT SUM(amount) FROM transactions WHERE type = 'EXPENSE'")
     fun getTotalExpense(): Flow<Double?>
+
+    @Query("SELECT * FROM transactions WHERE date BETWEEN :startTime AND :endTime ORDER BY date DESC")
+    fun getTransactionsByDateRange(startTime: Long, endTime: Long): Flow<List<Transaction>>
 }

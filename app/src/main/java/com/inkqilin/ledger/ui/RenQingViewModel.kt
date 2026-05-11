@@ -30,6 +30,10 @@ class RenQingViewModel(
     val renQingEnabled: StateFlow<Boolean> = themeManager.renQingEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    val dataLoaded: StateFlow<Boolean> = combine(allContacts, allEvents, allTags) { _, _, _ ->
+        true
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     init {
         viewModelScope.launch {
             if (tagDao.getAllTags().first().isEmpty()) {
@@ -130,12 +134,12 @@ class RenQingViewModel(
         )
     }
 
-    fun addRenQingEventFromTransaction(amount: Double, type: TransactionType, @Suppress("UNUSED_PARAMETER") category: String, note: String, date: Long) {
+    fun addRenQingEventFromTransaction(amount: Double, type: TransactionType, @Suppress("UNUSED_PARAMETER") category: String, note: String, date: Long, contactId: Long = 0, contactName: String = "") {
         viewModelScope.launch {
             val direction = if (type == TransactionType.INCOME) RenQingDirection.RECEIVED else RenQingDirection.GIVEN
             val event = RenQingEvent(
-                contactId = 0,
-                contactName = "",
+                contactId = contactId,
+                contactName = contactName,
                 eventType = RenQingEventType.OTHER,
                 direction = direction,
                 amount = amount,

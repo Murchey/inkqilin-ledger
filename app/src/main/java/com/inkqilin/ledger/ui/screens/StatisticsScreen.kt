@@ -1,5 +1,6 @@
 package com.inkqilin.ledger.ui.screens
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,6 +19,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.inkqilin.ledger.ui.TransactionViewModel
+import com.inkqilin.ledger.ui.motion.MotionDurations
+import com.inkqilin.ledger.ui.motion.MotionCurves
 import com.inkqilin.ledger.data.Transaction
 import com.inkqilin.ledger.data.TransactionType
 import com.inkqilin.ledger.ui.theme.*
@@ -318,7 +321,15 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                                 state = draggableState,
                                 orientation = Orientation.Horizontal,
                                 onDragStopped = {
-                                    offsetX = if (offsetX < -menuWidthPx / 2) -menuWidthPx else 0f
+                                    val target = if (offsetX < -menuWidthPx / 2) -menuWidthPx else 0f
+                                    animate(
+                                        initialValue = offsetX,
+                                        targetValue = target,
+                                        animationSpec = spring(
+                                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                                            stiffness = Spring.StiffnessMedium
+                                        )
+                                    ) { value, _ -> offsetX = value }
                                 }
                             )
                             .clickable {
@@ -350,6 +361,14 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                                 )
                             }
                             Spacer(modifier = Modifier.height(8.dp))
+                            val animatedPercentage by animateFloatAsState(
+                                targetValue = percentage,
+                                animationSpec = tween(
+                                    durationMillis = MotionDurations.MEDIUM,
+                                    easing = MotionCurves.EaseOutCubic
+                                ),
+                                label = "categoryPercentage"
+                            )
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -360,7 +379,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                                 Box(
                                     modifier = Modifier
                                         .fillMaxHeight()
-                                        .fillMaxWidth(fraction = percentage)
+                                        .fillMaxWidth(fraction = animatedPercentage)
                                         .clip(RoundedCornerShape(3.dp))
                                         .background(displayColor)
                                 )

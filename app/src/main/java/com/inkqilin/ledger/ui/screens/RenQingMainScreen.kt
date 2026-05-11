@@ -919,6 +919,7 @@ fun RenQingStatsScreen(
     onNavigateToTagStats: (Int) -> Unit = {},
     onNavigateToContactAnalysis: (Int) -> Unit = {}
 ) {
+    val dataLoaded by viewModel.dataLoaded.collectAsState()
     val currentYear = Calendar.getInstance().get(Calendar.YEAR)
     var selectedYear by remember { mutableIntStateOf(currentYear) }
     val allEvents by viewModel.allEvents.collectAsState()
@@ -926,6 +927,13 @@ fun RenQingStatsScreen(
     val yearGiven by viewModel.getTotalGiven(yearRange.first, yearRange.second).collectAsState()
     val yearReceived by viewModel.getTotalReceived(yearRange.first, yearRange.second).collectAsState()
     val yearEvents = remember(allEvents, selectedYear) { allEvents.filter { it.date in yearRange.first..yearRange.second } }
+
+    if (!dataLoaded) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
@@ -1074,12 +1082,20 @@ private fun CategoryStatRow(label: String, value: String, percentage: Double) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RenQingMonthDetailScreen(viewModel: RenQingViewModel, year: Int, month: Int) {
+    val dataLoaded by viewModel.dataLoaded.collectAsState()
     val allEvents by viewModel.allEvents.collectAsState()
     val allTags by viewModel.allTags.collectAsState()
     val range = remember { viewModel.getMonthRange(year, month) }
     val monthEvents = remember(allEvents, year, month) { allEvents.filter { it.date in range.first..range.second } }
     val totalGiven = remember(monthEvents) { monthEvents.filter { it.direction == RenQingDirection.GIVEN }.sumOf { it.amount } }
     val totalReceived = remember(monthEvents) { monthEvents.filter { it.direction == RenQingDirection.RECEIVED }.sumOf { it.amount } }
+
+    if (!dataLoaded) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text("${year}年${month + 1}月详情", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -1108,57 +1124,69 @@ fun RenQingMonthDetailScreen(viewModel: RenQingViewModel, year: Int, month: Int)
 
 @Composable
 fun RenQingContactDetailScreen(viewModel: RenQingViewModel, contactId: Long) {
+    val dataLoaded by viewModel.dataLoaded.collectAsState()
     val allContacts by viewModel.allContacts.collectAsState()
     val allTags by viewModel.allTags.collectAsState()
-    val contact = remember(allContacts) { allContacts.find { it.id == contactId } }
     val contactEvents by viewModel.getEventsByContact(contactId).collectAsState()
+
+    val contact = if (dataLoaded) allContacts.find { it.id == contactId } else null
+
     val totalGiven = remember(contactEvents) { contactEvents.filter { it.direction == RenQingDirection.GIVEN }.sumOf { it.amount } }
     val totalReceived = remember(contactEvents) { contactEvents.filter { it.direction == RenQingDirection.RECEIVED }.sumOf { it.amount } }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        if (contact != null) {
-            val relColor = when (contact.relationship) {
-                RelationshipType.RELATIVE -> Color(0xFFE91E63)
-                RelationshipType.FRIEND -> Color(0xFF2196F3)
-                RelationshipType.COLLEAGUE -> Color(0xFFFF9800)
-                RelationshipType.OTHER -> Color(0xFF9E9E9E)
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.size(56.dp).clip(CircleShape).background(relColor.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
-                    Text(contact.name.take(1), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = relColor)
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Column {
-                    Text(contact.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text("${contact.relationship.label}${if (contact.phone.isNotBlank()) " · ${contact.phone}" else ""}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        when {
+            !dataLoaded -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                StatColumn("支出", String.format("%.2f", totalGiven), MaterialTheme.colorScheme.error)
-                StatColumn("收入", String.format("%.2f", totalReceived), MaterialTheme.colorScheme.primary)
-                val balance = totalReceived - totalGiven
-                StatColumn("结余", String.format("%.2f", balance), if (balance >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
-                StatColumn("笔数", "${contactEvents.size}", MaterialTheme.colorScheme.onSurface)
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("来往记录", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(8.dp))
-        } else {
-            Text("联系人不存在", color = MaterialTheme.colorScheme.error)
-            Spacer(modifier = Modifier.height(16.dp))
-        }
+            contact != null -> {
+                val relColor = when (contact.relationship) {
+                    RelationshipType.RELATIVE -> Color(0xFFE91E63)
+                    RelationshipType.FRIEND -> Color(0xFF2196F3)
+                    RelationshipType.COLLEAGUE -> Color(0xFFFF9800)
+                    RelationshipType.OTHER -> Color(0xFF9E9E9E)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(56.dp).clip(CircleShape).background(relColor.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
+                        Text(contact.name.take(1), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = relColor)
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
+                        Text(contact.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text("${contact.relationship.label}${if (contact.phone.isNotBlank()) " · ${contact.phone}" else ""}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    StatColumn("支出", String.format("%.2f", totalGiven), MaterialTheme.colorScheme.error)
+                    StatColumn("收入", String.format("%.2f", totalReceived), MaterialTheme.colorScheme.primary)
+                    val balance = totalReceived - totalGiven
+                    StatColumn("结余", String.format("%.2f", balance), if (balance >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                    StatColumn("笔数", "${contactEvents.size}", MaterialTheme.colorScheme.onSurface)
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("来往记录", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(8.dp))
 
-        if (contactEvents.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("暂无来往记录", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (contactEvents.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                        Text("暂无来往记录", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                } else {
+                    LazyColumn(modifier = Modifier.fillMaxSize().weight(1f)) {
+                        items(contactEvents, key = { it.id }) { event ->
+                            val tag = allTags.find { it.id == event.tagId }
+                            RenQingEventCard(event, tag, viewModel)
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+                }
             }
-        } else {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(contactEvents, key = { it.id }) { event ->
-                    val tag = allTags.find { it.id == event.tagId }
-                    RenQingEventCard(event, tag, viewModel)
-                    Spacer(modifier = Modifier.height(8.dp))
+            else -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("联系人不存在", color = MaterialTheme.colorScheme.error)
                 }
             }
         }
@@ -1167,10 +1195,18 @@ fun RenQingContactDetailScreen(viewModel: RenQingViewModel, contactId: Long) {
 
 @Composable
 fun RenQingTagStatsScreen(viewModel: RenQingViewModel, year: Int) {
+    val dataLoaded by viewModel.dataLoaded.collectAsState()
     val allEvents by viewModel.allEvents.collectAsState()
     val allTags by viewModel.allTags.collectAsState()
     val yearRange = remember(year) { viewModel.getYearRange(year) }
     val yearEvents = remember(allEvents, year) { allEvents.filter { it.date in yearRange.first..yearRange.second } }
+
+    if (!dataLoaded) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         Text("${year}年按标签统计", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -1249,6 +1285,7 @@ fun RenQingTagStatsScreen(viewModel: RenQingViewModel, year: Int) {
 
 @Composable
 fun RenQingContactAnalysisScreen(viewModel: RenQingViewModel, year: Int) {
+    val dataLoaded by viewModel.dataLoaded.collectAsState()
     val allEvents by viewModel.allEvents.collectAsState()
     val allContacts by viewModel.allContacts.collectAsState()
     val yearRange = remember(year) { viewModel.getYearRange(year) }
@@ -1261,6 +1298,13 @@ fun RenQingContactAnalysisScreen(viewModel: RenQingViewModel, year: Int) {
             val received = events.filter { it.direction == RenQingDirection.RECEIVED }.sumOf { it.amount }
             Triple(name, contact?.relationship?.label ?: "未知", Triple(given, received, events.size))
         }.sortedByDescending { it.third.first + it.third.second }
+    }
+
+    if (!dataLoaded) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
     }
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
@@ -1308,6 +1352,133 @@ fun RenQingContactAnalysisScreen(viewModel: RenQingViewModel, year: Int) {
                             )
                         }
                         Divider(modifier = Modifier.padding(vertical = 4.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ContactManagementScreen(viewModel: RenQingViewModel) {
+    val allContacts by viewModel.allContacts.collectAsState()
+    var showAddDialog by remember { mutableStateOf(false) }
+    var editingContact by remember { mutableStateOf<RenQingContact?>(null) }
+    var showDeleteConfirm by remember { mutableStateOf<RenQingContact?>(null) }
+
+    if (showAddDialog) {
+        AddRenQingContactDialog(
+            onDismiss = { showAddDialog = false },
+            onConfirm = { contact ->
+                viewModel.addContact(contact)
+                showAddDialog = false
+            }
+        )
+    }
+
+    editingContact?.let { contact ->
+        AddRenQingContactDialog(
+            editContact = contact,
+            onDismiss = { editingContact = null },
+            onConfirm = { updated ->
+                viewModel.updateContact(updated)
+                editingContact = null
+            }
+        )
+    }
+
+    showDeleteConfirm?.let { contact ->
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = null },
+            title = { Text("删除联系人") },
+            text = { Text("确定要删除联系人「${contact.name}」吗？该联系人相关的人情记录不会被删除。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteContact(contact)
+                    showDeleteConfirm = null
+                }) { Text("删除", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { showDeleteConfirm = null }) { Text("取消") } }
+        )
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("共 ${allContacts.size} 位联系人", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Button(onClick = { showAddDialog = true }) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("添加联系人")
+            }
+        }
+
+        if (allContacts.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("暂无联系人", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("点击上方按钮添加", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(allContacts, key = { it.id }) { contact ->
+                    val relColor = when (contact.relationship) {
+                        RelationshipType.RELATIVE -> Color(0xFFE91E63)
+                        RelationshipType.FRIEND -> Color(0xFF2196F3)
+                        RelationshipType.COLLEAGUE -> Color(0xFFFF9800)
+                        RelationshipType.OTHER -> Color(0xFF9E9E9E)
+                    }
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        elevation = CardDefaults.cardElevation(1.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier.size(48.dp).clip(CircleShape).background(relColor.copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(contact.name.take(1), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = relColor)
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(contact.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = relColor.copy(alpha = 0.12f)
+                                    ) {
+                                        Text(
+                                            contact.relationship.label,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                            fontSize = 12.sp,
+                                            color = relColor
+                                        )
+                                    }
+                                    if (contact.phone.isNotBlank()) {
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(contact.phone, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                            IconButton(onClick = { editingContact = contact }) {
+                                Icon(Icons.Default.Edit, contentDescription = "编辑", tint = MaterialTheme.colorScheme.primary)
+                            }
+                            IconButton(onClick = { showDeleteConfirm = contact }) {
+                                Icon(Icons.Default.Delete, contentDescription = "删除", tint = MaterialTheme.colorScheme.error)
+                            }
+                        }
                     }
                 }
             }

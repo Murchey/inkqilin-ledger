@@ -6,11 +6,17 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Share
@@ -18,6 +24,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.inkqilin.ledger.ui.RenQingViewModel
@@ -34,14 +41,28 @@ import com.inkqilin.ledger.util.ThemeMode
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import com.inkqilin.ledger.ui.motion.MotionDurations
+import com.inkqilin.ledger.ui.motion.MotionSprings
+import java.text.SimpleDateFormat
+import java.util.*
 
+private enum class ExportTimeRange(val label: String) {
+    ALL("全部"),
+    THIS_YEAR("本年"),
+    CUSTOM("自定义")
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     viewModel: TransactionViewModel,
     renQingViewModel: RenQingViewModel,
-    onNavigateToCategoryManagement: () -> Unit
+    onNavigateToCategoryManagement: () -> Unit,
+    onNavigateToContactManagement: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -49,15 +70,99 @@ fun SettingsScreen(
     val incomeColorHex by viewModel.incomeColor.collectAsState()
     val expenseColorHex by viewModel.expenseColor.collectAsState()
 
+    var exportTimeRange by remember { mutableStateOf(ExportTimeRange.ALL) }
+    var exportStartDate by remember { mutableLongStateOf(
+        Calendar.getInstance().apply { set(Calendar.MONTH, Calendar.JANUARY); set(Calendar.DAY_OF_MONTH, 1); set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0) }.timeInMillis
+    ) }
+    var exportEndDate by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var showExportStartPicker by remember { mutableStateOf(false) }
+    var showExportEndPicker by remember { mutableStateOf(false) }
+
+    var renQingExportTimeRange by remember { mutableStateOf(ExportTimeRange.ALL) }
+    var renQingExportStartDate by remember { mutableLongStateOf(
+        Calendar.getInstance().apply { set(Calendar.MONTH, Calendar.JANUARY); set(Calendar.DAY_OF_MONTH, 1); set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0) }.timeInMillis
+    ) }
+    var renQingExportEndDate by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var showRenQingExportStartPicker by remember { mutableStateOf(false) }
+    var showRenQingExportEndPicker by remember { mutableStateOf(false) }
+
+    val sdf = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
+
+    if (showExportStartPicker) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = exportStartDate)
+        DatePickerDialog(
+            onDismissRequest = { showExportStartPicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { exportStartDate = it }
+                    showExportStartPicker = false
+                }) { Text("确定") }
+            },
+            dismissButton = { TextButton(onClick = { showExportStartPicker = false }) { Text("取消") } }
+        ) { DatePicker(state = datePickerState) }
+    }
+
+    if (showExportEndPicker) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = exportEndDate)
+        DatePickerDialog(
+            onDismissRequest = { showExportEndPicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { exportEndDate = it }
+                    showExportEndPicker = false
+                }) { Text("确定") }
+            },
+            dismissButton = { TextButton(onClick = { showExportEndPicker = false }) { Text("取消") } }
+        ) { DatePicker(state = datePickerState) }
+    }
+
+    if (showRenQingExportStartPicker) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = renQingExportStartDate)
+        DatePickerDialog(
+            onDismissRequest = { showRenQingExportStartPicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { renQingExportStartDate = it }
+                    showRenQingExportStartPicker = false
+                }) { Text("确定") }
+            },
+            dismissButton = { TextButton(onClick = { showRenQingExportStartPicker = false }) { Text("取消") } }
+        ) { DatePicker(state = datePickerState) }
+    }
+
+    if (showRenQingExportEndPicker) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = renQingExportEndDate)
+        DatePickerDialog(
+            onDismissRequest = { showRenQingExportEndPicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { renQingExportEndDate = it }
+                    showRenQingExportEndPicker = false
+                }) { Text("确定") }
+            },
+            dismissButton = { TextButton(onClick = { showRenQingExportEndPicker = false }) { Text("取消") } }
+        ) { DatePicker(state = datePickerState) }
+    }
+
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
         onResult = { uri ->
             uri?.let {
                 scope.launch {
-                    val transactions = viewModel.allTransactions.first()
+                    val transactions = when (exportTimeRange) {
+                        ExportTimeRange.ALL -> viewModel.allTransactions.first()
+                        ExportTimeRange.THIS_YEAR -> {
+                            val range = viewModel.getYearRange(Calendar.getInstance().get(Calendar.YEAR))
+                            viewModel.getTransactionsByDateRange(range.first, range.second).first()
+                        }
+                        ExportTimeRange.CUSTOM -> {
+                            val end = exportEndDate + 86400000L - 1
+                            viewModel.getTransactionsByDateRange(exportStartDate, end).first()
+                        }
+                    }
                     val success = ExcelExporter.exportTransactionsToUri(context, it, transactions)
                     if (success) {
-                        Toast.makeText(context, "导出成功！", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "导出成功！共 ${transactions.size} 条记录", Toast.LENGTH_SHORT).show()
                     } else {
                         Toast.makeText(context, "导出失败", Toast.LENGTH_SHORT).show()
                     }
@@ -97,10 +202,20 @@ fun SettingsScreen(
         onResult = { uri ->
             uri?.let {
                 scope.launch {
-                    val events = renQingViewModel.allEvents.first()
+                    val events = when (renQingExportTimeRange) {
+                        ExportTimeRange.ALL -> renQingViewModel.allEvents.first()
+                        ExportTimeRange.THIS_YEAR -> {
+                            val range = renQingViewModel.getYearRange(Calendar.getInstance().get(Calendar.YEAR))
+                            renQingViewModel.getEventsByDateRange(range.first, range.second).first()
+                        }
+                        ExportTimeRange.CUSTOM -> {
+                            val end = renQingExportEndDate + 86400000L - 1
+                            renQingViewModel.getEventsByDateRange(renQingExportStartDate, end).first()
+                        }
+                    }
                     val success = RenQingExporter.exportEventsToUri(context, it, events)
                     if (success) {
-                        Toast.makeText(context, "人情账单导出成功！", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "人情账单导出成功！共 ${events.size} 条记录", Toast.LENGTH_SHORT).show()
                     } else {
                         Toast.makeText(context, "导出失败", Toast.LENGTH_SHORT).show()
                     }
@@ -212,24 +327,70 @@ fun SettingsScreen(
             Column {
                 ListItem(
                     headlineContent = { Text("导出账单为 Excel") },
-                    supportingContent = { Text("选择位置并保存所有记账记录") },
+                    supportingContent = { Text("选择时间范围并导出记账记录") },
                     leadingContent = { Icon(Icons.Default.ExitToApp, contentDescription = null) },
-                    modifier = Modifier.fillMaxWidth(),
-                    trailingContent = {
-                        Button(onClick = {
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp).animateContentSize()) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ExportTimeRange.entries.forEach { range ->
+                            FilterChip(
+                                selected = exportTimeRange == range,
+                                onClick = { exportTimeRange = range },
+                                label = { Text(range.label) }
+                            )
+                        }
+                    }
+                    if (exportTimeRange == ExportTimeRange.CUSTOM) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            AssistChip(
+                                onClick = { showExportStartPicker = true },
+                                label = { Text(sdf.format(Date(exportStartDate))) },
+                                leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text("至", style = MaterialTheme.typography.bodySmall)
+                            AssistChip(
+                                onClick = { showExportEndPicker = true },
+                                label = { Text(sdf.format(Date(exportEndDate))) },
+                                leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    AnimatedPressButton(
+                        onClick = {
                             scope.launch {
-                                val transactions = viewModel.allTransactions.first()
+                                val transactions = when (exportTimeRange) {
+                                    ExportTimeRange.ALL -> viewModel.allTransactions.first()
+                                    ExportTimeRange.THIS_YEAR -> {
+                                        val range = viewModel.getYearRange(Calendar.getInstance().get(Calendar.YEAR))
+                                        viewModel.getTransactionsByDateRange(range.first, range.second).first()
+                                    }
+                                    ExportTimeRange.CUSTOM -> {
+                                        val end = exportEndDate + 86400000L - 1
+                                        viewModel.getTransactionsByDateRange(exportStartDate, end).first()
+                                    }
+                                }
                                 if (transactions.isNotEmpty()) {
                                     exportLauncher.launch("墨麒麟记账_${System.currentTimeMillis()}.xlsx")
                                 } else {
                                     Toast.makeText(context, "暂无数据可导出", Toast.LENGTH_SHORT).show()
                                 }
                             }
-                        }) {
-                            Text("导出")
-                        }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("导出")
                     }
-                )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
                 Divider()
                 ListItem(
                     headlineContent = { Text("下载账单模板") },
@@ -259,25 +420,78 @@ fun SettingsScreen(
                 if (renQingEnabled) {
                     Divider()
                     ListItem(
+                        headlineContent = { Text("联系人管理") },
+                        supportingContent = { Text("添加、编辑或删除人情联系人") },
+                        leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
+                        modifier = Modifier.clickable { onNavigateToContactManagement() }
+                    )
+                    Divider()
+                    ListItem(
                         headlineContent = { Text("导出人情账单") },
-                        supportingContent = { Text("导出所有人情来往事件记录") },
+                        supportingContent = { Text("选择时间范围并导出人情来往记录") },
                         leadingContent = { Icon(Icons.Default.ExitToApp, contentDescription = null) },
-                        modifier = Modifier.fillMaxWidth(),
-                        trailingContent = {
-                            Button(onClick = {
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp).animateContentSize()) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ExportTimeRange.entries.forEach { range ->
+                                FilterChip(
+                                    selected = renQingExportTimeRange == range,
+                                    onClick = { renQingExportTimeRange = range },
+                                    label = { Text(range.label) }
+                                )
+                            }
+                        }
+                        if (renQingExportTimeRange == ExportTimeRange.CUSTOM) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                AssistChip(
+                                    onClick = { showRenQingExportStartPicker = true },
+                                    label = { Text(sdf.format(Date(renQingExportStartDate))) },
+                                    leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text("至", style = MaterialTheme.typography.bodySmall)
+                                AssistChip(
+                                    onClick = { showRenQingExportEndPicker = true },
+                                    label = { Text(sdf.format(Date(renQingExportEndDate))) },
+                                    leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        AnimatedPressButton(
+                            onClick = {
                                 scope.launch {
-                                    val events = renQingViewModel.allEvents.first()
+                                    val events = when (renQingExportTimeRange) {
+                                        ExportTimeRange.ALL -> renQingViewModel.allEvents.first()
+                                        ExportTimeRange.THIS_YEAR -> {
+                                            val range = renQingViewModel.getYearRange(Calendar.getInstance().get(Calendar.YEAR))
+                                            renQingViewModel.getEventsByDateRange(range.first, range.second).first()
+                                        }
+                                        ExportTimeRange.CUSTOM -> {
+                                            val end = renQingExportEndDate + 86400000L - 1
+                                            renQingViewModel.getEventsByDateRange(renQingExportStartDate, end).first()
+                                        }
+                                    }
                                     if (events.isNotEmpty()) {
                                         renQingEventsExportLauncher.launch("人情账单_${System.currentTimeMillis()}.xlsx")
                                     } else {
                                         Toast.makeText(context, "暂无人情账单可导出", Toast.LENGTH_SHORT).show()
                                     }
                                 }
-                            }) {
-                                Text("导出")
-                            }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("导出")
                         }
-                    )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
                     Divider()
                     ListItem(
                         headlineContent = { Text("导出联系人") },
@@ -313,6 +527,32 @@ fun SettingsScreen(
             }
         }
     }
+}
+
+@Composable
+private fun AnimatedPressButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.96f else 1f,
+        animationSpec = if (isPressed) {
+            androidx.compose.animation.core.tween(MotionDurations.FAST)
+        } else {
+            MotionSprings.gentle()
+        },
+        label = "btnScale"
+    )
+
+    Button(
+        onClick = onClick,
+        modifier = modifier.scale(scale),
+        interactionSource = interactionSource,
+        content = content
+    )
 }
 
 @Composable
