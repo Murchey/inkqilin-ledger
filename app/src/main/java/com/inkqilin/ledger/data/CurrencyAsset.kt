@@ -11,5 +11,6 @@ data class CurrencyAsset(
     val symbol: String,
     val name: String,
     val cardColor: String,
+    val cardColorLight: String? = null,
     val isDefault: Boolean = false
 )

@@ -82,7 +82,13 @@ fun RenQingMainScreen(
     Scaffold(
         floatingActionButton = {
             if (selectedTab != 2) {
-                FloatingActionButton(onClick = onNavigateToAddEvent) {
+                FloatingActionButton(
+                    onClick = onNavigateToAddEvent,
+                    shape = RoundedCornerShape(20.dp),
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp, pressedElevation = 6.dp)
+                ) {
                     Icon(Icons.Default.Add, contentDescription = "添加事件")
                 }
             }
@@ -266,13 +272,13 @@ private fun RenQingEventCard(event: RenQingEvent, tag: RenQingTag?, viewModel: R
     val tagColor = try { Color(android.graphics.Color.parseColor(tag?.color ?: "#715CFF")) } catch (_: Exception) { MaterialTheme.colorScheme.primary }
     val isGiven = event.direction == RenQingDirection.GIVEN
 
-    Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(1.dp)) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
-                modifier = Modifier.size(44.dp).clip(CircleShape).background(tagColor.copy(alpha = 0.15f)),
+                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(tagColor.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(icon, fontSize = 20.sp)
@@ -837,9 +843,10 @@ private fun ContactCard(
 
     Card(
         modifier = Modifier.fillMaxWidth().clickable { onNavigateToContactDetail(contact.id) },
-        elevation = CardDefaults.cardElevation(1.dp)
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(0.dp)
     ) {
-        Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(relationshipColor.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
                 Text(contact.name.take(1), fontWeight = FontWeight.Bold, color = relationshipColor)
             }
@@ -961,7 +968,8 @@ fun RenQingStatsScreen(
         Spacer(modifier = Modifier.height(8.dp))
         Card(
             modifier = Modifier.fillMaxWidth().clickable { onNavigateToTagStats(selectedYear) },
-            elevation = CardDefaults.cardElevation(1.dp)
+            shape = RoundedCornerShape(16.dp),
+            elevation = CardDefaults.cardElevation(0.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -1040,7 +1048,8 @@ fun RenQingStatsScreen(
         }
         Card(
             modifier = Modifier.fillMaxWidth().clickable { onNavigateToContactAnalysis(selectedYear) },
-            elevation = CardDefaults.cardElevation(1.dp)
+            shape = RoundedCornerShape(16.dp),
+            elevation = CardDefaults.cardElevation(0.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -1222,7 +1231,7 @@ fun RenQingTagStatsScreen(viewModel: RenQingViewModel, year: Int) {
                 Text("暂无数据", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
-            Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(1.dp)) {
+            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     allTags.forEach { tag ->
                         val tagEvents = yearEvents.filter { it.tagId == tag.id }
@@ -1321,7 +1330,7 @@ fun RenQingContactAnalysisScreen(viewModel: RenQingViewModel, year: Int) {
                 Text("暂无数据", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
-            Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(1.dp)) {
+            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     contactStats.forEach { (name, rel, stats) ->
                         val (given, received, count) = stats
@@ -1444,7 +1453,8 @@ fun ContactManagementScreen(viewModel: RenQingViewModel) {
                     }
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        elevation = CardDefaults.cardElevation(1.dp)
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = CardDefaults.cardElevation(0.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -1513,9 +1523,9 @@ private fun RenQingMainScreenPreview() {
                 }
                 val contacts = listOf("张三" to "朋友", "李四" to "同事", "王五" to "亲属")
                 contacts.forEach { (name, rel) ->
-                    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(0.5.dp)) {
+                    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(0.dp)) {
                         Row(modifier = Modifier.padding(14.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Box(modifier = Modifier.size(44.dp).clip(CircleShape).background(Color(0xFF2196F3).copy(alpha = 0.12f)), contentAlignment = Alignment.Center) { Text(name.take(1), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2196F3)) }
+                            Box(modifier = Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFF2196F3).copy(alpha = 0.1f)), contentAlignment = Alignment.Center) { Text(name.take(1), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2196F3)) }
                             Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(name, fontWeight = FontWeight.Medium, fontSize = 15.sp)

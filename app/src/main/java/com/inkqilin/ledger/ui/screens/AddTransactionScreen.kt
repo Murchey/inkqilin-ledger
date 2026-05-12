@@ -1,5 +1,7 @@
 package com.inkqilin.ledger.ui.screens
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -16,6 +18,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -28,6 +32,8 @@ import com.inkqilin.ledger.data.Transaction
 import com.inkqilin.ledger.data.TransactionType
 import com.inkqilin.ledger.ui.RenQingViewModel
 import com.inkqilin.ledger.ui.TransactionViewModel
+import com.inkqilin.ledger.ui.motion.MotionCurves
+import com.inkqilin.ledger.ui.motion.MotionDurations
 import com.inkqilin.ledger.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
@@ -334,21 +340,45 @@ fun AddTransactionScreen(
 
 @Composable
 private fun RowScope.CategoryChip(cat: String, icon: String, selected: Boolean, onClick: () -> Unit) {
+    val scale by animateFloatAsState(
+        targetValue = if (selected) 1.05f else 1f,
+        animationSpec = tween(MotionDurations.MEDIUM, easing = MotionCurves.FastOutSlowIn),
+        label = "catScale"
+    )
+    val iconAlpha by animateFloatAsState(
+        targetValue = if (selected) 1f else 0.7f,
+        animationSpec = tween(MotionDurations.SHORT, easing = MotionCurves.FastOutSlowIn),
+        label = "catAlpha"
+    )
+    val accentColor = MaterialTheme.colorScheme.secondary
+
     Card(
-        modifier = Modifier.weight(1f).clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.weight(1f).scale(scale).clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-            else MaterialTheme.colorScheme.surface
+            containerColor = if (selected) accentColor.copy(alpha = 0.15f)
+            else MaterialTheme.colorScheme.surfaceVariant
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (selected) 2.dp else 0.5.dp)
+        border = if (selected) {
+            androidx.compose.foundation.BorderStroke(1.dp, accentColor.copy(alpha = 0.3f))
+        } else null,
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(modifier = Modifier.padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp)
+                .alpha(iconAlpha),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Text(text = icon, fontSize = 24.sp)
             Spacer(modifier = Modifier.height(4.dp))
-            Text(text = cat, fontSize = 12.sp,
-                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+            Text(
+                text = cat,
+                fontSize = 12.sp,
+                color = if (selected) accentColor else MaterialTheme.colorScheme.onSurface,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+            )
         }
     }
 }
@@ -378,8 +408,12 @@ private fun AddTransactionScreenPreview() {
                 val cats = listOf("餐饮" to "🍜", "交通" to "🚌", "购物" to "🛒")
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     cats.forEachIndexed { i, (name, icon) ->
-                        Card(modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = if (i == 0) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(if (i == 0) 2.dp else 0.5.dp)) {
-                            Column(modifier = Modifier.padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) { Text(icon, fontSize = 24.sp); Spacer(Modifier.height(4.dp)); Text(name, fontSize = 12.sp, fontWeight = if (i == 0) FontWeight.Bold else FontWeight.Normal) }
+                        val accent = MaterialTheme.colorScheme.secondary
+                        Card(modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = if (i == 0) accent.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant),
+                            border = if (i == 0) androidx.compose.foundation.BorderStroke(1.dp, accent.copy(alpha = 0.3f)) else null,
+                            elevation = CardDefaults.cardElevation(0.dp)) {
+                            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) { Text(icon, fontSize = 24.sp); Spacer(Modifier.height(4.dp)); Text(name, fontSize = 12.sp, color = if (i == 0) accent else MaterialTheme.colorScheme.onSurface, fontWeight = if (i == 0) FontWeight.SemiBold else FontWeight.Normal) }
                         }
                     }
                 }

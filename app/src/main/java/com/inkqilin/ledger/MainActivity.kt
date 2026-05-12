@@ -70,13 +70,14 @@ class MainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
             val themeMode by viewModel.themeMode.collectAsState()
+            val customPrimaryColorHex by viewModel.customPrimaryColorHex.collectAsState()
             val darkTheme = when (themeMode) {
                 ThemeMode.LIGHT -> false
                 ThemeMode.DARK -> true
                 ThemeMode.AUTO -> isSystemInDarkTheme()
             }
 
-            InkQilinLedgerTheme(darkTheme = darkTheme) {
+            InkQilinLedgerTheme(darkTheme = darkTheme, customPrimaryColorHex = customPrimaryColorHex) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

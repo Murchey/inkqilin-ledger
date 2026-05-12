@@ -6,9 +6,17 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
@@ -16,11 +24,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -55,7 +66,9 @@ import com.inkqilin.ledger.ui.motion.MotionSprings
 import java.text.SimpleDateFormat
 import java.util.*
 import com.inkqilin.ledger.data.CurrencyAsset
+import com.inkqilin.ledger.ui.theme.CardColorPresets
 import com.inkqilin.ledger.ui.theme.InkQilinLedgerTheme
+import com.inkqilin.ledger.ui.theme.resolveCardColor
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -80,6 +93,7 @@ fun SettingsScreen(
     val themeMode by viewModel.themeMode.collectAsState()
     val incomeColorHex by viewModel.incomeColor.collectAsState()
     val expenseColorHex by viewModel.expenseColor.collectAsState()
+    val customPrimaryColorHex by viewModel.customPrimaryColorHex.collectAsState()
 
     var exportTimeRange by remember { mutableStateOf(ExportTimeRange.ALL) }
     var exportStartDate by remember { mutableLongStateOf(
@@ -253,8 +267,16 @@ fun SettingsScreen(
     )
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-        Text(text = "显示设置", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
-        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+        var displaySettingsExpanded by remember { mutableStateOf(false) }
+        Text(
+            text = "显示设置",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { displaySettingsExpanded = !displaySettingsExpanded }
+                .padding(bottom = 8.dp)
+        )
+        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
                 ListItem(
                     headlineContent = { Text("深浅色模式") },
@@ -308,11 +330,130 @@ fun SettingsScreen(
                         )
                     }
                 )
+                Divider()
+                ListItem(
+                    headlineContent = { Text("主题色") },
+                    supportingContent = { Text(if (customPrimaryColorHex != null) "自定义" else "默认靛蓝") },
+                    trailingContent = {
+                        Icon(
+                            if (displaySettingsExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                            contentDescription = null,
+                            modifier = Modifier.clickable { displaySettingsExpanded = !displaySettingsExpanded }
+                        )
+                    },
+                    modifier = Modifier.clickable { displaySettingsExpanded = !displaySettingsExpanded }
+                )
+
+                AnimatedVisibility(
+                    visible = displaySettingsExpanded,
+                    enter = expandVertically(
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = Spring.StiffnessMediumLow
+                        )
+                    ) + fadeIn(
+                        animationSpec = tween(MotionDurations.MEDIUM)
+                    ),
+                    exit = shrinkVertically(
+                        animationSpec = tween(MotionDurations.SHORT)
+                    ) + fadeOut(
+                        animationSpec = tween(MotionDurations.FAST)
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        Divider()
+                        Spacer(modifier = Modifier.height(12.dp))
+                        val currentPrimary = MaterialTheme.colorScheme.primary
+                        val presetThemeColors = listOf(
+                            "#7C5CFF" to "紫罗兰",
+                            "#3F51B5" to "靛蓝",
+                            "#1565C0" to "深蓝",
+                            "#00897B" to "青绿",
+                            "#43A047" to "翠绿",
+                            "#E65100" to "深橙",
+                            "#D32F2F" to "中国红",
+                            "#00838F" to "暗青",
+                            "#5C6BC0" to "蓝紫",
+                            "#EC407A" to "玫粉"
+                        )
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            items(presetThemeColors) { (hex, _) ->
+                                val parsed = try {
+                                    Color(android.graphics.Color.parseColor(hex))
+                                } catch (_: Exception) {
+                                    currentPrimary
+                                }
+                                val isSelected = (customPrimaryColorHex ?: "#3F51B5").equals(hex, ignoreCase = true)
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(parsed)
+                                        .clickable { viewModel.setCustomPrimaryColor(hex) },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (isSelected) {
+                                        Icon(
+                                            Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        var colorInput by remember(customPrimaryColorHex) {
+                            mutableStateOf(customPrimaryColorHex ?: "#3F51B5")
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            val previewColor = try {
+                                Color(android.graphics.Color.parseColor(colorInput))
+                            } catch (_: Exception) {
+                                currentPrimary
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(previewColor)
+                            )
+                            OutlinedTextField(
+                                value = colorInput,
+                                onValueChange = { newVal ->
+                                    colorInput = newVal
+                                    if (newVal.matches(Regex("^#[0-9A-Fa-f]{6}$"))) {
+                                        viewModel.setCustomPrimaryColor(newVal)
+                                    }
+                                },
+                                label = { Text("自定义颜色", fontSize = 12.sp) },
+                                placeholder = { Text("#RRGGBB", fontSize = 12.sp) },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f),
+                                textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                        }
+
+                        if (customPrimaryColorHex != null && customPrimaryColorHex != "#3F51B5") {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            TextButton(onClick = { viewModel.setCustomPrimaryColor(null) }) {
+                                Text("恢复默认主题色")
+                            }
+                        }
+                    }
+                }
             }
         }
 
         Text(text = "分类管理", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
-        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
             ListItem(
                 headlineContent = { Text("账单标签（类别）管理") },
                 supportingContent = { Text("添加、修改或删除收支分类及人情标签") },
@@ -323,7 +464,7 @@ fun SettingsScreen(
 
         val renQingEnabled by renQingViewModel.renQingEnabled.collectAsState()
         Text(text = "人情账本", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
-        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
             ListItem(
                 headlineContent = { Text("启用人情账本") },
                 supportingContent = { Text(if (renQingEnabled) "已启用，底部导航栏显示" else "未启用") },
@@ -335,7 +476,7 @@ fun SettingsScreen(
 
         val multiCurrencyEnabled by viewModel.multiCurrencyEnabled.collectAsState()
         Text(text = "多币种管理", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
-        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
                 ListItem(
                     headlineContent = { Text("多币种资金管理") },
@@ -358,7 +499,7 @@ fun SettingsScreen(
 
         val checkUpdateEnabled by viewModel.checkUpdateEnabled.collectAsState()
         Text(text = "更新检测", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
-        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
                 ListItem(
                     headlineContent = { Text("启动时检测新版本") },
@@ -371,7 +512,7 @@ fun SettingsScreen(
         }
 
         Text(text = "数据管理", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
-        Card(modifier = Modifier.fillMaxWidth()) {
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
                 ListItem(
                     headlineContent = { Text("导出账单为 Excel") },
@@ -586,7 +727,7 @@ private fun AnimatedPressButton(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.96f else 1f,
+        targetValue = if (isPressed) 0.98f else 1f,
         animationSpec = if (isPressed) {
             androidx.compose.animation.core.tween(MotionDurations.FAST)
         } else {
@@ -738,15 +879,17 @@ fun CurrencyManagementScreen(
         }
 
         items(allAssets, key = { it.id }) { asset ->
-            val cardColor = try {
-                Color(android.graphics.Color.parseColor(asset.cardColor))
-            } catch (e: Exception) {
-                MaterialTheme.colorScheme.primary
-            }
+            val isDark = MaterialTheme.colorScheme.background.let { it.red * 0.299f + it.green * 0.587f + it.blue * 0.114f } < 0.5f
+            val resolvedColor = resolveCardColor(asset, isDark)
+            val animatedCardColor by animateColorAsState(
+                targetValue = resolvedColor,
+                animationSpec = tween(300),
+                label = "cardColor_${asset.id}"
+            )
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = cardColor)
+                colors = CardDefaults.cardColors(containerColor = animatedCardColor)
             ) {
                 Row(
                     modifier = Modifier
@@ -820,13 +963,11 @@ private fun CurrencyEditDialog(
     var code by remember { mutableStateOf(asset?.code ?: "") }
     var symbol by remember { mutableStateOf(asset?.symbol ?: "") }
     var name by remember { mutableStateOf(asset?.name ?: "") }
-    var cardColor by remember { mutableStateOf(asset?.cardColor ?: "#D32F2F") }
-    var colorInput by remember { mutableStateOf(asset?.cardColor ?: "#D32F2F") }
+    var cardColor by remember { mutableStateOf(asset?.cardColor ?: "#1E6FFF") }
+    var cardColorLight by remember { mutableStateOf(asset?.cardColorLight ?: asset?.cardColor ?: "#5B87FF") }
+    var colorInput by remember { mutableStateOf(asset?.cardColor ?: "#1E6FFF") }
     val isEdit = asset != null
-    val presetColors = listOf(
-        "#D32F2F", "#1565C0", "#2E7D32", "#E65100",
-        "#6A1B9A", "#00838F", "#4E342E", "#37474F"
-    )
+    val isDark = MaterialTheme.colorScheme.background.let { it.red * 0.299f + it.green * 0.587f + it.blue * 0.114f } < 0.5f
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -860,22 +1001,28 @@ private fun CurrencyEditDialog(
                 )
                 Text("卡片颜色", style = MaterialTheme.typography.labelMedium)
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(presetColors) { color ->
+                    items(CardColorPresets) { preset ->
+                        val displayHex = if (isDark) preset.dark else preset.light
                         val c = try {
-                            Color(android.graphics.Color.parseColor(color))
-                        } catch (e: Exception) {
+                            Color(android.graphics.Color.parseColor(displayHex))
+                        } catch (_: Exception) {
                             MaterialTheme.colorScheme.primary
                         }
+                        val isSelected = cardColor == preset.dark
                         Box(
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(CircleShape)
                                 .background(c)
-                                .clickable { cardColor = color; colorInput = color },
+                                .clickable {
+                                    cardColor = preset.dark
+                                    cardColorLight = preset.light
+                                    colorInput = preset.dark
+                                },
                             contentAlignment = Alignment.Center
                         ) {
-                            if (cardColor == color) {
-                                Text("✓", color = Color.White, fontWeight = FontWeight.Bold)
+                            if (isSelected) {
+                                Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
                             }
                         }
                     }
@@ -916,11 +1063,12 @@ private fun CurrencyEditDialog(
             Button(onClick = {
                 if (code.isNotBlank() && symbol.isNotBlank() && name.isNotBlank()) {
                     onConfirm(
-                        (asset ?: CurrencyAsset(code = code, symbol = symbol, name = name, cardColor = cardColor)).copy(
+                        (asset ?: CurrencyAsset(code = code, symbol = symbol, name = name, cardColor = cardColor, cardColorLight = cardColorLight)).copy(
                             code = code,
                             symbol = symbol,
                             name = name,
-                            cardColor = cardColor
+                            cardColor = cardColor,
+                            cardColorLight = cardColorLight
                         )
                     )
                 }
@@ -939,7 +1087,7 @@ private fun SettingsScreenPreview() {
         Surface(color = MaterialTheme.colorScheme.background) {
             Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
                 Text("显示设置", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
-                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
                     Column {
                         ListItem(headlineContent = { Text("深浅色模式") }, supportingContent = { Text("跟随系统") }, trailingContent = { TextButton(onClick = {}) { Text("切换") } })
                         Divider()
@@ -949,11 +1097,11 @@ private fun SettingsScreenPreview() {
                     }
                 }
                 Text("分类管理", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
-                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
                     ListItem(headlineContent = { Text("账单标签（类别）管理") }, supportingContent = { Text("添加、修改或删除收支分类及人情标签") }, leadingContent = { Icon(Icons.Default.Info, null) }, modifier = Modifier.clickable {})
                 }
                 Text("更新检测", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
-                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
                     ListItem(
                         headlineContent = { Text("启动时检测新版本") },
                         supportingContent = { Text("已启用，启动时自动检测 GitHub 新版本") },
@@ -961,7 +1109,7 @@ private fun SettingsScreenPreview() {
                     )
                 }
                 Text("关于", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
-                Card(modifier = Modifier.fillMaxWidth()) {
+                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
                     ListItem(headlineContent = { Text("关于 墨麒麟记账") }, supportingContent = { Text("版本 1.3.0 · GitHub 仓库") }, leadingContent = { Icon(Icons.Default.Info, null) }, modifier = Modifier.clickable {})
                 }
             }

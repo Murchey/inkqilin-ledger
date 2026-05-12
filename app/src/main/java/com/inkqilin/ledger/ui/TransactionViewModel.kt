@@ -158,8 +158,16 @@ class TransactionViewModel(
         viewModelScope, SharingStarted.WhileSubscribed(5000), true
     )
 
+    val customPrimaryColorHex: StateFlow<String?> = themeManager.customPrimaryColor.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), null
+    )
+
     fun setCheckUpdateEnabled(enabled: Boolean) {
         viewModelScope.launch { themeManager.setCheckUpdateEnabled(enabled) }
+    }
+
+    fun setCustomPrimaryColor(colorHex: String?) {
+        viewModelScope.launch { themeManager.setCustomPrimaryColor(colorHex) }
     }
 
     fun setRenQingEnabled(enabled: Boolean) {

@@ -23,6 +23,7 @@ class ThemeManager(private val context: Context) {
     private val MULTI_CURRENCY_ENABLED_KEY = booleanPreferencesKey("multi_currency_enabled")
     private val MONTHLY_BUDGET_KEY = doublePreferencesKey("monthly_budget")
     private val CHECK_UPDATE_ENABLED_KEY = booleanPreferencesKey("check_update_enabled")
+    private val CUSTOM_PRIMARY_COLOR_KEY = stringPreferencesKey("custom_primary_color")
 
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { preferences ->
         val mode = preferences[THEME_KEY] ?: ThemeMode.AUTO.name
@@ -51,6 +52,10 @@ class ThemeManager(private val context: Context) {
 
     val checkUpdateEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[CHECK_UPDATE_ENABLED_KEY] ?: true
+    }
+
+    val customPrimaryColor: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[CUSTOM_PRIMARY_COLOR_KEY]
     }
 
     suspend fun setThemeMode(mode: ThemeMode) {
@@ -92,6 +97,16 @@ class ThemeManager(private val context: Context) {
     suspend fun setCheckUpdateEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[CHECK_UPDATE_ENABLED_KEY] = enabled
+        }
+    }
+
+    suspend fun setCustomPrimaryColor(colorHex: String?) {
+        context.dataStore.edit { preferences ->
+            if (colorHex == null) {
+                preferences.remove(CUSTOM_PRIMARY_COLOR_KEY)
+            } else {
+                preferences[CUSTOM_PRIMARY_COLOR_KEY] = colorHex
+            }
         }
     }
 }

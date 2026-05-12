@@ -2,22 +2,37 @@ package com.inkqilin.ledger.ui.screens
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.foundation.Canvas
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -36,6 +51,7 @@ import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.graphics.toArgb
 import androidx.navigation.NavController
 import com.inkqilin.ledger.data.Category
 import kotlin.math.roundToInt
@@ -43,6 +59,20 @@ import kotlin.math.roundToInt
 enum class TimePeriod(val label: String) {
     WEEK("本周"), MONTH("本月"), YEAR("本年"), CUSTOM("自定义")
 }
+
+private fun Modifier.frostedGlass(
+    shape: RoundedCornerShape,
+    isDark: Boolean
+): Modifier = this
+    .background(
+        color = if (isDark) FrostedDark else FrostedLight.copy(alpha = 0.9f),
+        shape = shape
+    )
+    .border(
+        width = 1.dp,
+        color = if (isDark) FrostedBorderDark else FrostedBorderLight.copy(alpha = 0.8f),
+        shape = shape
+    )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -111,16 +141,20 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
         }
     }
 
+    val effectiveCurrencyCode = if (multiCurrencyEnabled) {
+        selectedCurrencyCode ?: defaultAsset?.code
+    } else {
+        defaultAsset?.code ?: "CNY"
+    }
+
     val currencySymbol = if (multiCurrencyEnabled) {
-        allAssets.firstOrNull { it.code == selectedCurrencyCode }?.symbol ?: defaultAsset?.symbol ?: "¥"
+        allAssets.firstOrNull { it.code == effectiveCurrencyCode }?.symbol ?: defaultAsset?.symbol ?: "¥"
     } else {
         defaultAsset?.symbol ?: "¥"
     }
 
-    val filteredByCurrency = if (multiCurrencyEnabled && selectedCurrencyCode != null) {
-        filteredByPeriod.filter { it.currency == selectedCurrencyCode }
-    } else if (!multiCurrencyEnabled) {
-        filteredByPeriod.filter { it.currency == (defaultAsset?.code ?: "CNY") }
+    val filteredByCurrency = if (effectiveCurrencyCode != null) {
+        filteredByPeriod.filter { it.currency == effectiveCurrencyCode }
     } else {
         filteredByPeriod
     }
@@ -131,6 +165,127 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
         .mapValues { it.value.sumOf { t -> t.amount } }
         .toList()
         .sortedByDescending { it.second }
+
+    val previousPeriodTransactions = remember(transactions, selectedPeriod, selectedCurrencyCode, startDate, endDate, multiCurrencyEnabled) {
+        val prevRange = when (selectedPeriod) {
+            TimePeriod.WEEK -> {
+                val c = Calendar.getInstance().apply {
+                    add(Calendar.WEEK_OF_YEAR, -1)
+                    set(Calendar.DAY_OF_WEEK, firstDayOfWeek)
+                    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                }
+                c.timeInMillis to (c.timeInMillis + 7 * 86400000L)
+            }
+            TimePeriod.MONTH -> {
+                val c = Calendar.getInstance().apply {
+                    add(Calendar.MONTH, -1)
+                    set(Calendar.DAY_OF_MONTH, 1)
+                    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                }
+                val end = Calendar.getInstance().apply {
+                    set(Calendar.DAY_OF_MONTH, 1)
+                    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                }.timeInMillis
+                c.timeInMillis to end
+            }
+            TimePeriod.YEAR -> {
+                val c = Calendar.getInstance().apply {
+                    add(Calendar.YEAR, -1)
+                    set(Calendar.MONTH, Calendar.JANUARY); set(Calendar.DAY_OF_MONTH, 1)
+                    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                }
+                val end = Calendar.getInstance().apply {
+                    set(Calendar.MONTH, Calendar.JANUARY); set(Calendar.DAY_OF_MONTH, 1)
+                    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                }.timeInMillis
+                c.timeInMillis to end
+            }
+            TimePeriod.CUSTOM -> startDate to endDate
+        }
+        val prevFiltered = transactions.filter { it.date in prevRange.first..prevRange.second }
+        val prevCurrency = if (effectiveCurrencyCode != null) {
+            prevFiltered.filter { it.currency == effectiveCurrencyCode }
+        } else {
+            prevFiltered
+        }
+        prevCurrency.filter { it.type == selectedType }
+    }
+
+    val previousTotal = previousPeriodTransactions.sumOf { it.amount }
+    val changePercent = if (previousTotal > 0) ((totalAmount - previousTotal) / previousTotal * 100) else if (totalAmount > 0) 100.0 else 0.0
+
+    val barChartData = remember(filteredByPeriod, selectedPeriod, selectedType, selectedCurrencyCode, multiCurrencyEnabled) {
+        val currencyFilter: (Transaction) -> Boolean = { t ->
+            effectiveCurrencyCode == null || t.currency == effectiveCurrencyCode
+        }
+        val groups = mutableListOf<Pair<String, Double>>()
+        when (selectedPeriod) {
+            TimePeriod.WEEK -> {
+                val dayNames = listOf("日", "一", "二", "三", "四", "五", "六")
+                val c = Calendar.getInstance().apply {
+                    set(Calendar.DAY_OF_WEEK, firstDayOfWeek)
+                    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                }
+                for (i in 0..6) {
+                    val start = c.timeInMillis
+                    val end = start + 86400000L
+                    val sum = filteredByPeriod.filter { it.type == selectedType && currencyFilter(it) && it.date in start until end }.sumOf { it.amount }
+                    groups.add(dayNames[i] to sum)
+                    c.add(Calendar.DAY_OF_YEAR, 1)
+                }
+            }
+            TimePeriod.MONTH -> {
+                val cal = Calendar.getInstance()
+                val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
+                for (day in 1..daysInMonth) {
+                    val c = Calendar.getInstance().apply {
+                        set(Calendar.DAY_OF_MONTH, day)
+                        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                        set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                    }
+                    val start = c.timeInMillis
+                    val end = start + 86400000L
+                    val sum = filteredByPeriod.filter { it.type == selectedType && currencyFilter(it) && it.date in start until end }.sumOf { it.amount }
+                    groups.add("$day" to sum)
+                }
+            }
+            TimePeriod.YEAR -> {
+                for (month in 1..12) {
+                    val c = Calendar.getInstance().apply {
+                        set(Calendar.MONTH, month - 1); set(Calendar.DAY_OF_MONTH, 1)
+                        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                        set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                    }
+                    val start = c.timeInMillis
+                    c.set(Calendar.MONTH, month)
+                    val end = c.timeInMillis
+                    val sum = filteredByPeriod.filter { it.type == selectedType && currencyFilter(it) && it.date in start until end }.sumOf { it.amount }
+                    groups.add("${month}月" to sum)
+                }
+            }
+            TimePeriod.CUSTOM -> {
+                val sdf = SimpleDateFormat("MM/dd", Locale.getDefault())
+                val cal = Calendar.getInstance()
+                cal.timeInMillis = startDate
+                cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0)
+                cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0)
+                while (cal.timeInMillis <= endDate) {
+                    val start = cal.timeInMillis
+                    val end = start + 86400000L
+                    val sum = filteredByPeriod.filter { it.type == selectedType && currencyFilter(it) && it.date in start until end }.sumOf { it.amount }
+                    groups.add(sdf.format(Date(start)) to sum)
+                    cal.add(Calendar.DAY_OF_YEAR, 1)
+                }
+            }
+        }
+        groups
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -211,7 +366,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
             ) {
                 listOf(TransactionType.EXPENSE to "支出", TransactionType.INCOME to "收入").forEach { (type, label) ->
                     val selected = selectedType == type
-                    val accentColor = if (type == TransactionType.EXPENSE) InkRed else InkGreen
+                    val accentColor = if (type == TransactionType.EXPENSE) expenseColor else incomeColor
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -263,7 +418,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                         ) {
                             val selectedAsset = allAssets.firstOrNull { it.code == selectedCurrencyCode }
                             Text(
-                                text = selectedAsset?.name ?: "全部",
+                                text = selectedAsset?.name ?: (defaultAsset?.name ?: "全部"),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -303,13 +458,16 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
 
         item {
             Spacer(modifier = Modifier.height(24.dp))
+            val totalShape = RoundedCornerShape(20.dp)
+            val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    .padding(horizontal = 20.dp)
+                    .frostedGlass(totalShape, isDark),
+                shape = totalShape,
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text(
@@ -330,6 +488,131 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+            }
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(12.dp))
+            val compShape = RoundedCornerShape(16.dp)
+            val isDarkComp = MaterialTheme.colorScheme.background.luminance() < 0.5f
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .frostedGlass(compShape, isDarkComp),
+                shape = compShape,
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "环比上期",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val isUp = changePercent >= 0
+                        Icon(
+                            imageVector = if (isUp) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                            contentDescription = null,
+                            tint = if (isUp) expenseColor else incomeColor,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "${if (isUp) "+" else ""}${String.format("%.1f", changePercent)}%",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = if (isUp) expenseColor else incomeColor
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "上期 ${currencySymbol}${String.format("%.2f", previousTotal)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
+        if (barChartData.isNotEmpty()) {
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "趋势图",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                val accentColor = if (selectedType == TransactionType.EXPENSE) expenseColor else incomeColor
+                var tooltipIndex by remember { mutableStateOf<Int?>(null) }
+                val hasAnyData = barChartData.any { it.second > 0 }
+
+                val chartShape = RoundedCornerShape(20.dp)
+                val isDarkChart = MaterialTheme.colorScheme.background.luminance() < 0.5f
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .frostedGlass(chartShape, isDarkChart),
+                    shape = chartShape,
+                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    if (hasAnyData) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            AnimatedBarChart(
+                                data = barChartData,
+                                accentColor = accentColor,
+                                onBarLongPress = { index -> tooltipIndex = index },
+                                onBarRelease = { tooltipIndex = null },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp)
+                                    .horizontalScroll(rememberScrollState())
+                            )
+
+                            if (tooltipIndex != null && tooltipIndex!! < barChartData.size) {
+                                val (label, value) = barChartData[tooltipIndex!!]
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.inverseSurface,
+                                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                                ) {
+                                    Text(
+                                        text = "$label · ${currencySymbol}${String.format("%.2f", value)}",
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                        color = MaterialTheme.colorScheme.inverseOnSurface,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "暂无数据",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -378,7 +661,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp, vertical = 4.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(16.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     // 滑动展示的编辑按钮
@@ -423,11 +706,11 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                                 val dateRange = getDateRangeForPeriod(selectedPeriod, startDate, endDate)
                                 navController.navigate("category_transactions/$categoryName/${selectedType.name}?startDate=${dateRange.first}&endDate=${dateRange.second}")
                             },
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
+                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -545,6 +828,106 @@ private fun getDateRangeForPeriod(
     }
 }
 
+@Composable
+private fun AnimatedBarChart(
+    data: List<Pair<String, Double>>,
+    accentColor: Color,
+    onBarLongPress: (Int) -> Unit,
+    onBarRelease: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val maxVal = data.maxOfOrNull { it.second } ?: 1.0
+    val barCount = data.size
+    val minBarWidth = 32.dp
+    val barSpacing = 6.dp
+    val totalBarArea = minBarWidth * barCount + barSpacing * (barCount - 1) + 32.dp
+    val chartHeight = 170.dp
+
+    val animProgress = remember { Animatable(0f) }
+    LaunchedEffect(data) {
+        animProgress.snapTo(0f)
+        animProgress.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(
+                durationMillis = MotionDurations.LONG,
+                easing = MotionCurves.EaseOutCubic
+            )
+        )
+    }
+
+    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
+
+    Canvas(
+        modifier = modifier
+            .width(totalBarArea)
+            .height(chartHeight)
+            .pointerInput(data) {
+                detectTapGestures(
+                    onLongPress = { offset ->
+                        val barTotalWidth = size.width / barCount
+                        val index = (offset.x / barTotalWidth).toInt().coerceIn(0, barCount - 1)
+                        onBarLongPress(index)
+                    },
+                    onPress = {
+                        awaitRelease()
+                        onBarRelease()
+                    }
+                )
+            }
+    ) {
+        val canvasW = size.width
+        val canvasH = size.height
+        val barAreaWidth = canvasW / barCount
+        val barWidthPx = barAreaWidth * 0.55f
+        val topPadding = 36f
+        val bottomPadding = 32f
+        val chartAreaHeight = canvasH - topPadding - bottomPadding
+
+        val labelPaint = android.graphics.Paint().apply {
+            color = onSurfaceVariant.toArgb()
+            textSize = 24f
+            textAlign = android.graphics.Paint.Align.CENTER
+            isAntiAlias = true
+        }
+        val valuePaint = android.graphics.Paint().apply {
+            textSize = 22f
+            textAlign = android.graphics.Paint.Align.CENTER
+            isAntiAlias = true
+        }
+
+        data.forEachIndexed { index, (label, value) ->
+            val barHeight = if (maxVal > 0) (value / maxVal).toFloat() * chartAreaHeight * animProgress.value else 0f
+            val x = barAreaWidth * index + (barAreaWidth - barWidthPx) / 2
+            val y = canvasH - bottomPadding - barHeight
+
+            drawRoundRect(
+                color = accentColor.copy(alpha = 0.85f),
+                topLeft = Offset(x, y),
+                size = Size(barWidthPx, barHeight),
+                cornerRadius = CornerRadius(barWidthPx / 2f, barWidthPx / 2f)
+            )
+
+            val textX = x + barWidthPx / 2
+
+            drawContext.canvas.nativeCanvas.apply {
+                drawText(label, textX, canvasH - 6f, labelPaint)
+
+                if (value > 0 && animProgress.value > 0.8f) {
+                    val valueText = if (value >= 10000) {
+                        "${String.format("%.1f", value / 10000)}w"
+                    } else if (value >= 1000) {
+                        String.format("%.0f", value)
+                    } else {
+                        String.format("%.2f", value)
+                    }
+                    valuePaint.color = accentColor.toArgb()
+                    drawText(valueText, textX, y - 8f, valuePaint)
+                }
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true, heightDp = 700)
 @Composable
@@ -565,7 +948,7 @@ private fun StatisticsScreenPreview() {
                     FilterChip(selected = false, onClick = {}, label = { Text("收入") })
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF44336))) {
+                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF44336)), elevation = CardDefaults.cardElevation(0.dp)) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text("总支出", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
                         Text("¥1,234.56", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
@@ -583,10 +966,10 @@ private fun StatisticsScreenPreview() {
                 )
                 categories.forEach { (icon, name, data) ->
                     val cardColor = try { Color(android.graphics.Color.parseColor("#715CFF")) } catch (_: Exception) { MaterialTheme.colorScheme.primary }
-                    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(0.dp)) {
                         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(cardColor.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) { Text(icon, fontSize = 18.sp) }
+                            Box(modifier = Modifier.size(36.dp).clip(RoundedCornerShape(14.dp)).background(cardColor.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) { Text(icon, fontSize = 18.sp) }
                             Spacer(modifier = Modifier.width(10.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(name, fontWeight = FontWeight.Medium, fontSize = 14.sp)

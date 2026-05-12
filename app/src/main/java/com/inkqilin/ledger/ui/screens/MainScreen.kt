@@ -2,15 +2,20 @@ package com.inkqilin.ledger.ui.screens
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavType
@@ -23,7 +28,6 @@ import com.inkqilin.ledger.ui.RenQingViewModel
 import com.inkqilin.ledger.ui.TransactionViewModel
 import com.inkqilin.ledger.ui.motion.MotionDurations
 import com.inkqilin.ledger.ui.motion.MotionCurves
-import com.inkqilin.ledger.ui.motion.MotionSprings
 
 data class BottomNavItem(
     val route: String,
@@ -100,24 +104,27 @@ fun MainScreen(
                     AnimatedContent(
                         targetState = topBarTitle,
                         transitionSpec = {
-                            fadeIn(animationSpec = tween(MotionDurations.SHORT, easing = MotionCurves.EaseOutCubic)) togetherWith
+                            fadeIn(animationSpec = tween(MotionDurations.MEDIUM, easing = MotionCurves.FastOutSlowIn)) togetherWith
                             fadeOut(animationSpec = tween(MotionDurations.FAST))
                         },
                         label = "topBarTitle"
                     ) { title ->
-                        Text(title)
+                        Text(title, style = MaterialTheme.typography.titleMedium)
                     }
                 },
                 navigationIcon = {
                     AnimatedVisibility(
                         visible = showBackButton,
-                        enter = fadeIn(tween(MotionDurations.SHORT)) + scaleIn(
-                            animationSpec = tween(MotionDurations.SHORT),
-                            initialScale = 0.8f
+                        enter = fadeIn(tween(MotionDurations.MEDIUM)) + scaleIn(
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                stiffness = Spring.StiffnessMediumLow
+                            ),
+                            initialScale = 0.85f
                         ),
                         exit = fadeOut(tween(MotionDurations.FAST)) + scaleOut(
                             animationSpec = tween(MotionDurations.FAST),
-                            targetScale = 0.8f
+                            targetScale = 0.85f
                         )
                     ) {
                         IconButton(onClick = { navController.popBackStack() }) {
@@ -128,7 +135,7 @@ fun MainScreen(
                 actions = {
                     AnimatedVisibility(
                         visible = currentRoute == "home",
-                        enter = fadeIn(tween(MotionDurations.SHORT)),
+                        enter = fadeIn(tween(MotionDurations.MEDIUM)),
                         exit = fadeOut(tween(MotionDurations.FAST))
                     ) {
                         IconButton(onClick = { navController.navigate("search") }) {
@@ -150,18 +157,27 @@ fun MainScreen(
                     targetOffsetY = { it }
                 ) + fadeOut(tween(MotionDurations.SHORT))
             ) {
-                NavigationBar {
+                val bgLuminance = MaterialTheme.colorScheme.background.let {
+                    it.red * 0.299f + it.green * 0.587f + it.blue * 0.114f
+                }
+                val isDarkMode = bgLuminance < 0.5f
+                val unselectedColor = if (isDarkMode) Color(0xFFAAAAAA) else Color(0xFF666666)
+
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 0.dp
+                ) {
                     bottomItems.forEach { item ->
                         val selected = currentRoute == item.route
-                        val scale by animateFloatAsState(
-                            targetValue = if (selected) 1.1f else 1f,
-                            animationSpec = MotionSprings.gentle(),
-                            label = "navIconScale_${item.route}"
+                        val itemScale by animateFloatAsState(
+                            targetValue = if (selected) 1.05f else 1f,
+                            animationSpec = tween(MotionDurations.MEDIUM, easing = MotionCurves.FastOutSlowIn),
+                            label = "navScale_${item.route}"
                         )
-                        val iconAlpha by animateFloatAsState(
-                            targetValue = if (selected) 1f else 0.6f,
-                            animationSpec = tween(MotionDurations.SHORT),
-                            label = "navIconAlpha_${item.route}"
+                        val itemAlpha by animateFloatAsState(
+                            targetValue = if (selected) 1f else 0.7f,
+                            animationSpec = tween(200, easing = MotionCurves.FastOutSlowIn),
+                            label = "navAlpha_${item.route}"
                         )
 
                         NavigationBarItem(
@@ -170,13 +186,29 @@ fun MainScreen(
                                     item.icon,
                                     contentDescription = item.label,
                                     modifier = Modifier
-                                        .size(if (selected) 26.dp else 24.dp)
-                                        .scale(scale)
-                                        .alpha(iconAlpha)
+                                        .size(24.dp)
+                                        .scale(itemScale)
+                                        .alpha(itemAlpha)
                                 )
                             },
-                            label = { Text(item.label) },
+                            label = {
+                                Text(
+                                    item.label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier
+                                        .scale(itemScale)
+                                        .alpha(itemAlpha)
+                                )
+                            },
                             selected = selected,
+                            alwaysShowLabel = true,
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                unselectedIconColor = unselectedColor,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                unselectedTextColor = unselectedColor,
+                                indicatorColor = MaterialTheme.colorScheme.surfaceVariant
+                            ),
                             onClick = {
                                 navController.navigate(item.route) {
                                     popUpTo(navController.graph.startDestinationId) {
@@ -197,27 +229,27 @@ fun MainScreen(
             startDestination = "home",
             modifier = Modifier.padding(innerPadding),
             enterTransition = {
-                fadeIn(animationSpec = tween(MotionDurations.MEDIUM, easing = MotionCurves.EaseOutCubic)) +
+                fadeIn(animationSpec = tween(MotionDurations.MEDIUM, easing = MotionCurves.FastOutSlowIn)) +
                 slideInHorizontally(
-                    animationSpec = tween(MotionDurations.MEDIUM, easing = MotionCurves.EaseOutCubic),
-                    initialOffsetX = { (it * 0.05f).toInt() }
+                    animationSpec = tween(MotionDurations.MEDIUM, easing = MotionCurves.FastOutSlowIn),
+                    initialOffsetX = { (it * 0.06f).toInt() }
                 )
             },
             exitTransition = {
-                fadeOut(animationSpec = tween(MotionDurations.FAST))
+                fadeOut(animationSpec = tween(MotionDurations.FAST, easing = MotionCurves.StandardAccelerate))
             },
             popEnterTransition = {
-                fadeIn(animationSpec = tween(MotionDurations.MEDIUM, easing = MotionCurves.EaseOutCubic)) +
+                fadeIn(animationSpec = tween(MotionDurations.MEDIUM, easing = MotionCurves.FastOutSlowIn)) +
                 slideInHorizontally(
-                    animationSpec = tween(MotionDurations.MEDIUM, easing = MotionCurves.EaseOutCubic),
-                    initialOffsetX = { -(it * 0.05f).toInt() }
+                    animationSpec = tween(MotionDurations.MEDIUM, easing = MotionCurves.FastOutSlowIn),
+                    initialOffsetX = { -(it * 0.06f).toInt() }
                 )
             },
             popExitTransition = {
-                fadeOut(animationSpec = tween(MotionDurations.FAST)) +
+                fadeOut(animationSpec = tween(MotionDurations.MEDIUM, easing = MotionCurves.StandardAccelerate)) +
                 slideOutHorizontally(
                     animationSpec = tween(MotionDurations.MEDIUM, easing = MotionCurves.StandardAccelerate),
-                    targetOffsetX = { (it * 0.1f).toInt() }
+                    targetOffsetX = { (it * 0.08f).toInt() }
                 )
             }
         ) {
@@ -226,6 +258,15 @@ fun MainScreen(
                     viewModel = viewModel,
                     onNavigateToAddTransaction = {
                         navController.navigate("add_transaction")
+                    },
+                    onNavigateToStatistics = {
+                        navController.navigate("statistics") {
+                            launchSingleTop = true
+                            restoreState = true
+                            popUpTo("home") {
+                                saveState = true
+                            }
+                        }
                     },
                     onNavigateToSearch = {
                         navController.navigate("search")

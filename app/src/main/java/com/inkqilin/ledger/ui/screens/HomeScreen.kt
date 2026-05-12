@@ -1,19 +1,21 @@
 package com.inkqilin.ledger.ui.screens
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -32,14 +34,35 @@ import com.inkqilin.ledger.data.Transaction
 import com.inkqilin.ledger.data.TransactionType
 import com.inkqilin.ledger.ui.TransactionViewModel
 import com.inkqilin.ledger.ui.theme.InkQilinLedgerTheme
+import com.inkqilin.ledger.ui.theme.NeonBlue
+import com.inkqilin.ledger.ui.theme.FrostedDark
+import com.inkqilin.ledger.ui.theme.FrostedLight
+import com.inkqilin.ledger.ui.theme.FrostedBorderDark
+import com.inkqilin.ledger.ui.theme.FrostedBorderLight
+import com.inkqilin.ledger.ui.theme.resolveCardColor
 import java.text.SimpleDateFormat
 import java.util.*
+
+private fun Modifier.frostedGlass(
+    shape: RoundedCornerShape,
+    isDark: Boolean
+): Modifier = this
+    .background(
+        color = if (isDark) FrostedDark else FrostedLight.copy(alpha = 0.9f),
+        shape = shape
+    )
+    .border(
+        width = 1.dp,
+        color = if (isDark) FrostedBorderDark else FrostedBorderLight.copy(alpha = 0.8f),
+        shape = shape
+    )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     viewModel: TransactionViewModel,
     onNavigateToAddTransaction: () -> Unit = {},
+    onNavigateToStatistics: () -> Unit = {},
     @Suppress("UNUSED_PARAMETER") onNavigateToSearch: () -> Unit = {}
 ) {
     val allTransactions by viewModel.allTransactions.collectAsState(initial = emptyList())
@@ -52,16 +75,36 @@ fun HomeScreen(
     val incomeColor = Color(android.graphics.Color.parseColor(incomeColorHex))
 
     var selectedPeriod by remember { mutableIntStateOf(2) }
-    var selectedChartCurrency by remember { mutableStateOf<String?>(null) }
+    var selectedYearMonth by remember {
+        mutableStateOf(Calendar.getInstance().let { it.get(Calendar.YEAR) to it.get(Calendar.MONTH) })
+    }
+    var showMonthPicker by remember { mutableStateOf(false) }
 
     val defaultAsset = remember(allAssets) { allAssets.firstOrNull { it.isDefault } }
-    LaunchedEffect(allAssets, multiCurrencyEnabled) {
-        if (multiCurrencyEnabled && selectedChartCurrency == null) {
-            selectedChartCurrency = defaultAsset?.code
-        }
-    }
     val periodOptions = listOf("日", "周", "月", "年")
-    val calendar = remember { Calendar.getInstance() }
+
+    if (showMonthPicker) {
+        val initMillis = Calendar.getInstance().apply {
+            set(selectedYearMonth.first, selectedYearMonth.second, 1, 0, 0, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initMillis)
+        DatePickerDialog(
+            onDismissRequest = { showMonthPicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val cal = Calendar.getInstance().apply { timeInMillis = millis }
+                        selectedYearMonth = cal.get(Calendar.YEAR) to cal.get(Calendar.MONTH)
+                    }
+                    showMonthPicker = false
+                }) { Text("确定") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showMonthPicker = false }) { Text("取消") }
+            }
+        ) { DatePicker(state = datePickerState) }
+    }
 
     var transactionToDelete by remember { mutableStateOf<Transaction?>(null) }
     var transactionToEdit by remember { mutableStateOf<Transaction?>(null) }
@@ -102,7 +145,14 @@ fun HomeScreen(
         )
     }
 
-    val periodTransactions = remember(allTransactions, selectedPeriod) {
+    val displayCalendar = remember(selectedYearMonth) {
+        Calendar.getInstance().apply {
+            set(selectedYearMonth.first, selectedYearMonth.second, 1, 0, 0, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+    }
+
+    val periodTransactions = remember(allTransactions, selectedPeriod, selectedYearMonth) {
         val cal = Calendar.getInstance()
         when (selectedPeriod) {
             0 -> {
@@ -120,109 +170,48 @@ fun HomeScreen(
                 allTransactions.filter { it.date >= cal.timeInMillis }
             }
             2 -> {
-                cal.set(Calendar.DAY_OF_MONTH, 1)
-                cal.set(Calendar.HOUR_OF_DAY, 0)
-                cal.set(Calendar.MINUTE, 0)
-                cal.set(Calendar.SECOND, 0)
-                allTransactions.filter { it.date >= cal.timeInMillis }
+                val start = Calendar.getInstance().apply {
+                    set(selectedYearMonth.first, selectedYearMonth.second, 1, 0, 0, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }.timeInMillis
+                val end = Calendar.getInstance().apply {
+                    set(selectedYearMonth.first, selectedYearMonth.second + 1, 1, 0, 0, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }.timeInMillis
+                allTransactions.filter { it.date in start until end }
             }
             3 -> {
-                cal.set(Calendar.DAY_OF_YEAR, 1)
-                cal.set(Calendar.HOUR_OF_DAY, 0)
-                cal.set(Calendar.MINUTE, 0)
-                cal.set(Calendar.SECOND, 0)
-                allTransactions.filter { it.date >= cal.timeInMillis }
+                val start = Calendar.getInstance().apply {
+                    set(selectedYearMonth.first, Calendar.JANUARY, 1, 0, 0, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }.timeInMillis
+                val end = Calendar.getInstance().apply {
+                    set(selectedYearMonth.first + 1, Calendar.JANUARY, 1, 0, 0, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }.timeInMillis
+                allTransactions.filter { it.date in start until end }
             }
             else -> allTransactions
         }
     }
 
     val periodIncome = periodTransactions
-        .filter { it.type == TransactionType.INCOME && (!multiCurrencyEnabled || selectedChartCurrency == null || it.currency == selectedChartCurrency) }
+        .filter { it.type == TransactionType.INCOME }
         .sumOf { it.amount }
     val periodExpense = periodTransactions
-        .filter { it.type == TransactionType.EXPENSE && (!multiCurrencyEnabled || selectedChartCurrency == null || it.currency == selectedChartCurrency) }
+        .filter { it.type == TransactionType.EXPENSE }
         .sumOf { it.amount }
-
-    val chartData = remember(periodTransactions, selectedPeriod, selectedChartCurrency, multiCurrencyEnabled) {
-        val currencyFilter: (Transaction) -> Boolean = { t ->
-            !multiCurrencyEnabled || selectedChartCurrency == null || t.currency == selectedChartCurrency
-        }
-        val groups = mutableListOf<Pair<String, Double>>()
-        when (selectedPeriod) {
-            0 -> {
-                for (i in 6 downTo 0) {
-                    val c = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -i) }
-                    c.set(Calendar.HOUR_OF_DAY, 0); c.set(Calendar.MINUTE, 0); c.set(Calendar.SECOND, 0); c.set(Calendar.MILLISECOND, 0)
-                    val start = c.timeInMillis
-                    val end = start + 86400000L
-                    val sum = periodTransactions.filter { it.type == TransactionType.EXPENSE && currencyFilter(it) && it.date in start until end }.sumOf { it.amount }
-                    groups.add("${c.get(Calendar.DAY_OF_MONTH)}" to sum)
-                }
-            }
-            1 -> {
-                val dayNames = listOf("日", "一", "二", "三", "四", "五", "六")
-                val c = Calendar.getInstance().apply {
-                    set(Calendar.DAY_OF_WEEK, firstDayOfWeek)
-                    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-                }
-                for (i in 0..6) {
-                    val start = c.timeInMillis
-                    val end = start + 86400000L
-                    val sum = periodTransactions.filter { it.type == TransactionType.EXPENSE && currencyFilter(it) && it.date in start until end }.sumOf { it.amount }
-                    groups.add(dayNames[i] to sum)
-                    c.add(Calendar.DAY_OF_YEAR, 1)
-                }
-            }
-            2 -> {
-                for (i in 1..12) {
-                    val c2 = Calendar.getInstance().apply {
-                        set(Calendar.MONTH, i - 1); set(Calendar.DAY_OF_MONTH, 1)
-                        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-                    }
-                    val start = c2.timeInMillis
-                    c2.set(Calendar.MONTH, i)
-                    val end = c2.timeInMillis
-                    val sum = allTransactions.filter { it.type == TransactionType.EXPENSE && currencyFilter(it) && it.date in start until end }.sumOf { it.amount }
-                    groups.add("${i}月" to sum)
-                }
-            }
-            3 -> {
-                val y = Calendar.getInstance().get(Calendar.YEAR)
-                for (i in y - 4..y) {
-                    val start = Calendar.getInstance().apply { set(i, Calendar.JANUARY, 1, 0, 0, 0); set(Calendar.MILLISECOND, 0) }.timeInMillis
-                    val end = Calendar.getInstance().apply { set(i + 1, Calendar.JANUARY, 1, 0, 0, 0); set(Calendar.MILLISECOND, 0) }.timeInMillis
-                    val sum = allTransactions.filter { it.type == TransactionType.EXPENSE && currencyFilter(it) && it.date in start until end }.sumOf { it.amount }
-                    groups.add("${i}" to sum)
-                }
-            }
-        }
-        groups
-    }
-
-    val categoryBudgets = remember(periodTransactions) {
-        periodTransactions
-            .filter { it.type == TransactionType.EXPENSE }
-            .groupBy { it.category }
-            .map { (cat, txns) -> cat to txns.sumOf { it.amount } }
-            .sortedByDescending { it.second }
-            .take(4)
-    }
-    val totalPeriodExpense = categoryBudgets.sumOf { it.second }
-    val categoryColors = listOf(
-        Color(0xFFFF6B6B),
-        Color(0xFF4ECDC4),
-        Color(0xFF45B7D1),
-        Color(0xFFFFA07A),
-        Color(0xFF98D8C8),
-        Color(0xFFF7DC6F)
-    )
 
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onNavigateToAddTransaction,
-                containerColor = Color(0xFF6C63FF)
+                containerColor = MaterialTheme.colorScheme.primary,
+                elevation = FloatingActionButtonDefaults.elevation(
+                    defaultElevation = 4.dp,
+                    pressedElevation = 8.dp
+                ),
+                shape = RoundedCornerShape(16.dp)
             ) {
                 Icon(Icons.Default.Add, contentDescription = "记一笔", tint = Color.White)
             }
@@ -240,107 +229,86 @@ fun HomeScreen(
                     MultiCurrencyOverviewCards(
                         allAssets = allAssets,
                         periodTransactions = periodTransactions,
-                        calendar = calendar,
+                        displayCalendar = displayCalendar,
                         periodOptions = periodOptions,
                         selectedPeriod = selectedPeriod,
-                        onPeriodSelected = { selectedPeriod = it }
+                        onPeriodSelected = { selectedPeriod = it },
+                        onMonthClick = { showMonthPicker = true }
                     )
                 } else {
                     SingleCurrencyOverviewCard(
                         periodIncome = periodIncome,
                         periodExpense = periodExpense,
                         monthlyBudget = monthlyBudget,
-                        calendar = calendar,
+                        displayCalendar = displayCalendar,
                         defaultAsset = allAssets.firstOrNull { it.isDefault },
                         periodOptions = periodOptions,
                         selectedPeriod = selectedPeriod,
-                        onPeriodSelected = { selectedPeriod = it }
+                        onPeriodSelected = { selectedPeriod = it },
+                        onMonthClick = { showMonthPicker = true }
                     )
                 }
             }
 
             item {
                 Spacer(modifier = Modifier.height(16.dp))
-                val selectedAsset = allAssets.firstOrNull { it.code == selectedChartCurrency }
 
+                val recentDays = remember(allTransactions) {
+                    val groups = mutableListOf<Pair<String, Double>>()
+                    for (i in 6 downTo 0) {
+                        val c = Calendar.getInstance().apply {
+                            add(Calendar.DAY_OF_YEAR, -i)
+                            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                        }
+                        val start = c.timeInMillis
+                        val end = start + 86400000L
+                        val sum = allTransactions.filter {
+                            it.type == TransactionType.EXPENSE && it.date in start until end
+                        }.sumOf { t -> t.amount }
+                        groups.add("${c.get(Calendar.DAY_OF_MONTH)}" to sum)
+                    }
+                    groups
+                }
+                val maxVal = recentDays.maxOfOrNull { it.second } ?: 1.0
+
+                val trendShape = RoundedCornerShape(20.dp)
+                val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                        .padding(horizontal = 16.dp)
+                        .frostedGlass(trendShape, isDark)
+                        .clickable { onNavigateToStatistics() },
+                    shape = trendShape,
+                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "支出统计",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
+                                text = "近7日支出趋势",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
-                            if (multiCurrencyEnabled && allAssets.isNotEmpty()) {
-                                var currencyMenuExpanded by remember { mutableStateOf(false) }
-                                Box {
-                                    Row(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                                            .clickable { currencyMenuExpanded = true }
-                                            .padding(horizontal = 10.dp, vertical = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = selectedAsset?.code ?: "全部",
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.Medium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                        Icon(
-                                            Icons.Default.ArrowDropDown,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
-                                    DropdownMenu(
-                                        expanded = currencyMenuExpanded,
-                                        onDismissRequest = { currencyMenuExpanded = false }
-                                    ) {
-                                        DropdownMenuItem(
-                                            text = { Text("全部") },
-                                            onClick = {
-                                                selectedChartCurrency = null
-                                                currencyMenuExpanded = false
-                                            }
-                                        )
-                                        allAssets.forEach { asset ->
-                                            DropdownMenuItem(
-                                                text = { Text("${asset.name} (${asset.code})") },
-                                                onClick = {
-                                                    selectedChartCurrency = asset.code
-                                                    currencyMenuExpanded = false
-                                                }
-                                            )
-                                        }
-                                    }
-                                }
-                            }
+                            Text(
+                                text = "查看详情 ▸",
+                                fontSize = 12.sp,
+                                color = NeonBlue
+                            )
                         }
-
                         Spacer(modifier = Modifier.height(12.dp))
-                        val maxVal = chartData.maxOfOrNull { it.second } ?: 1.0
-
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.Bottom
                         ) {
-                            chartData.forEach { (label, value) ->
+                            recentDays.forEach { (label, value) ->
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     modifier = Modifier.weight(1f)
@@ -348,8 +316,8 @@ fun HomeScreen(
                                     if (value > 0) {
                                         Text(
                                             text = if (value >= 10000) "${String.format("%.1f", value / 10000)}w"
-                                                   else if (value >= 1000) "${String.format("%.0f", value)}"
-                                                   else String.format("%.2f", value),
+                                                   else if (value >= 1000) String.format("%.0f", value)
+                                                   else String.format("%.0f", value),
                                             fontSize = 8.sp,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             textAlign = TextAlign.Center,
@@ -358,112 +326,21 @@ fun HomeScreen(
                                     } else {
                                         Spacer(modifier = Modifier.height(10.dp))
                                     }
-                                    val barHeight = if (maxVal > 0) (value / maxVal * 80).toFloat().dp else 0.dp
+                                    val barHeight = if (maxVal > 0) (value / maxVal * 56).toFloat().dp else 0.dp
                                     Box(
                                         modifier = Modifier
-                                            .width(24.dp)
+                                            .width(20.dp)
                                             .height(barHeight.coerceAtLeast(2.dp))
                                             .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                                            .background(expenseColor)
+                                            .background(NeonBlue.copy(alpha = 0.85f))
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
                                         text = label,
-                                        fontSize = 9.sp,
+                                        fontSize = 10.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         textAlign = TextAlign.Center
                                     )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (monthlyBudget > 0) {
-                item {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                text = "预算",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            val budgetProgress = if (monthlyBudget > 0) (periodExpense / monthlyBudget).toFloat().coerceIn(0f, 1.5f) else 0f
-                            val budgetColor = when {
-                                budgetProgress <= 0.5f -> Color(0xFF4CAF50)
-                                budgetProgress <= 0.8f -> Color(0xFFFF9800)
-                                budgetProgress <= 1.0f -> Color(0xFFFF5722)
-                                else -> Color(0xFFF44336)
-                            }
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text("本月总预算", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("¥${String.format("%.2f", periodExpense)} / ¥${String.format("%.2f", monthlyBudget)}", fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            LinearProgressIndicator(
-                                progress = budgetProgress.coerceAtMost(1f),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(8.dp)
-                                    .clip(RoundedCornerShape(4.dp)),
-                                color = budgetColor,
-                                trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                            )
-
-                            if (categoryBudgets.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(16.dp))
-                                categoryBudgets.forEachIndexed { index, (cat, amount) ->
-                                    val color = categoryColors[index % categoryColors.size]
-                                    val progress = if (totalPeriodExpense > 0) (amount / totalPeriodExpense).toFloat() else 0f
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 4.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(8.dp)
-                                                    .clip(CircleShape)
-                                                    .background(color)
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(cat, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
-                                        }
-                                        Text(
-                                            "¥${String.format("%.2f", amount)}",
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.Medium,
-                                            modifier = Modifier.padding(end = 8.dp)
-                                        )
-                                        LinearProgressIndicator(
-                                            progress = progress,
-                                            modifier = Modifier
-                                                .width(60.dp)
-                                                .height(4.dp)
-                                                .clip(RoundedCornerShape(2.dp)),
-                                            color = color,
-                                            trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                                        )
-                                    }
                                 }
                             }
                         }
@@ -516,8 +393,9 @@ fun HomeScreen(
                     if (groupIndex > 0) {
                         item {
                             Divider(
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                                color = MaterialTheme.colorScheme.outlineVariant
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                                thickness = 0.5.dp
                             )
                         }
                     }
@@ -543,21 +421,21 @@ fun HomeScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                                .padding(horizontal = 20.dp, vertical = 10.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
                                 text = daySdf.format(Date(dateKey)),
                                 style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                             )
                             Text(
                                 text = balanceText,
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Medium,
-                                color = balanceColor
+                                color = balanceColor.copy(alpha = 0.85f)
                             )
                         }
                     }
@@ -578,31 +456,37 @@ fun HomeScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SingleCurrencyOverviewCard(
     periodIncome: Double,
     periodExpense: Double,
     monthlyBudget: Double,
-    calendar: Calendar,
+    displayCalendar: Calendar,
     defaultAsset: CurrencyAsset?,
     periodOptions: List<String>,
     selectedPeriod: Int,
-    onPeriodSelected: (Int) -> Unit
+    onPeriodSelected: (Int) -> Unit,
+    onMonthClick: () -> Unit
 ) {
     val symbol = defaultAsset?.symbol ?: "¥"
-    val cardColor = try {
-        defaultAsset?.cardColor?.let { Color(android.graphics.Color.parseColor(it)) }
-    } catch (e: Exception) { null } ?: Color(0xFF6C63FF)
+    val isDark = MaterialTheme.colorScheme.background.let { it.red * 0.299f + it.green * 0.587f + it.blue * 0.114f } < 0.5f
+    val resolvedColor = if (defaultAsset != null) resolveCardColor(defaultAsset, isDark) else Color(0xFF6C63FF)
+    val cardColor by animateColorAsState(
+        targetValue = resolvedColor,
+        animationSpec = tween(300),
+        label = "singleCardColor"
+    )
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = cardColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.padding(24.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -623,27 +507,28 @@ private fun SingleCurrencyOverviewCard(
                 }
                 Card(
                     shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.15f))
+                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.15f)),
+                    onClick = onMonthClick
                 ) {
                     Text(
-                        text = "${calendar.get(Calendar.YEAR)}.${String.format("%02d", calendar.get(Calendar.MONTH) + 1)} ▾",
+                        text = "${displayCalendar.get(Calendar.YEAR)}.${String.format("%02d", displayCalendar.get(Calendar.MONTH) + 1)} ▾",
                         color = Color.White,
                         fontSize = 13.sp,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             Text(
                 text = "${symbol}${String.format("%.2f", periodIncome - periodExpense)}",
                 color = Color.White,
-                fontSize = 28.sp,
+                fontSize = 32.sp,
                 fontWeight = FontWeight.Bold
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -652,32 +537,32 @@ private fun SingleCurrencyOverviewCard(
                 Column {
                     Text(
                         text = "收入",
-                        color = Color.White.copy(alpha = 0.7f),
+                        color = Color.White.copy(alpha = 0.6f),
                         fontSize = 12.sp
                     )
                     Text(
                         text = "${symbol}${String.format("%.2f", periodIncome)}",
                         color = Color.White,
                         fontSize = 18.sp,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
                         text = "支出",
-                        color = Color.White.copy(alpha = 0.7f),
+                        color = Color.White.copy(alpha = 0.6f),
                         fontSize = 12.sp
                     )
                     Text(
                         text = "${symbol}${String.format("%.2f", periodExpense)}",
                         color = Color.White,
                         fontSize = 18.sp,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -687,7 +572,7 @@ private fun SingleCurrencyOverviewCard(
                     val isSelected = selectedPeriod == index
                     Text(
                         text = label,
-                        color = if (isSelected) Color.White else Color.White.copy(alpha = 0.5f),
+                        color = if (isSelected) Color.White else Color.White.copy(alpha = 0.45f),
                         fontSize = 13.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         modifier = Modifier
@@ -700,25 +585,29 @@ private fun SingleCurrencyOverviewCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MultiCurrencyOverviewCards(
     allAssets: List<CurrencyAsset>,
     periodTransactions: List<Transaction>,
-    calendar: Calendar,
+    displayCalendar: Calendar,
     periodOptions: List<String>,
     selectedPeriod: Int,
-    onPeriodSelected: (Int) -> Unit
+    onPeriodSelected: (Int) -> Unit,
+    onMonthClick: () -> Unit
 ) {
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     LazyRow(
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         items(allAssets, key = { it.id }) { asset ->
-            val cardColor = try {
-                Color(android.graphics.Color.parseColor(asset.cardColor))
-            } catch (e: Exception) {
-                Color(0xFF6C63FF)
-            }
+            val resolvedColor = resolveCardColor(asset, isDark)
+            val cardColor by animateColorAsState(
+                targetValue = resolvedColor,
+                animationSpec = tween(300),
+                label = "multiCardColor_${asset.id}"
+            )
             val income = periodTransactions
                 .filter { it.type == TransactionType.INCOME && it.currency == asset.code }
                 .sumOf { it.amount }
@@ -733,11 +622,11 @@ private fun MultiCurrencyOverviewCards(
                     .let {
                         if (isDefault) it else it
                     },
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = cardColor),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                Column(modifier = Modifier.padding(20.dp)) {
+                Column(modifier = Modifier.padding(24.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -765,33 +654,34 @@ private fun MultiCurrencyOverviewCards(
                             }
                             Text(
                                 text = "本${periodOptions[selectedPeriod]}收支",
-                                color = Color.White.copy(alpha = 0.7f),
+                                color = Color.White.copy(alpha = 0.6f),
                                 fontSize = 12.sp
                             )
                         }
                         Card(
                             shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.15f))
+                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.15f)),
+                            onClick = onMonthClick
                         ) {
                             Text(
-                                text = "${calendar.get(Calendar.YEAR)}.${String.format("%02d", calendar.get(Calendar.MONTH) + 1)} ▾",
+                                text = "${displayCalendar.get(Calendar.YEAR)}.${String.format("%02d", displayCalendar.get(Calendar.MONTH) + 1)} ▾",
                                 color = Color.White,
                                 fontSize = 13.sp,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
                     Text(
                         text = "${asset.symbol}${String.format("%.2f", income - expense)}",
                         color = Color.White,
-                        fontSize = 28.sp,
+                        fontSize = 32.sp,
                         fontWeight = FontWeight.Bold
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -800,32 +690,32 @@ private fun MultiCurrencyOverviewCards(
                         Column {
                             Text(
                                 text = "收入",
-                                color = Color.White.copy(alpha = 0.7f),
+                                color = Color.White.copy(alpha = 0.6f),
                                 fontSize = 12.sp
                             )
                             Text(
                                 text = "${asset.symbol}${String.format("%.2f", income)}",
                                 color = Color.White,
                                 fontSize = 18.sp,
-                                fontWeight = FontWeight.Medium
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                         Column(horizontalAlignment = Alignment.End) {
                             Text(
                                 text = "支出",
-                                color = Color.White.copy(alpha = 0.7f),
+                                color = Color.White.copy(alpha = 0.6f),
                                 fontSize = 12.sp
                             )
                             Text(
                                 text = "${asset.symbol}${String.format("%.2f", expense)}",
                                 color = Color.White,
                                 fontSize = 18.sp,
-                                fontWeight = FontWeight.Medium
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -835,7 +725,7 @@ private fun MultiCurrencyOverviewCards(
                             val isSelected = selectedPeriod == index
                             Text(
                                 text = label,
-                                color = if (isSelected) Color.White else Color.White.copy(alpha = 0.5f),
+                                color = if (isSelected) Color.White else Color.White.copy(alpha = 0.45f),
                                 fontSize = 13.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                 modifier = Modifier
@@ -1022,13 +912,13 @@ private fun HomeScreenPreview() {
 
             LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp)) {
                 item {
-                    Card(modifier = Modifier.fillMaxWidth().padding(12.dp), shape = RoundedCornerShape(16.dp),
+                    Card(modifier = Modifier.fillMaxWidth().padding(12.dp), shape = RoundedCornerShape(24.dp),
                         colors = CardDefaults.cardColors(containerColor = Color(0xFF4CAF50))) {
-                        Column(modifier = Modifier.padding(20.dp)) {
+                        Column(modifier = Modifier.padding(24.dp)) {
                             Text("总览", color = Color.White, fontSize = 13.sp)
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Column { Text("收入", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp); Text("¥5,000.00", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold) }
-                                Column(horizontalAlignment = Alignment.End) { Text("支出", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp); Text("¥336.50", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold) }
+                                Column { Text("收入", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp); Text("¥5,000.00", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold) }
+                                Column(horizontalAlignment = Alignment.End) { Text("支出", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp); Text("¥336.50", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold) }
                             }
                             Spacer(modifier = Modifier.height(8.dp))
                             Text("结余 ¥4,663.50", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
@@ -1060,22 +950,22 @@ private fun HomeScreenPreview() {
                         }
                     }
                     items(txs) { tx ->
-                        Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp), shape = RoundedCornerShape(12.dp),
+                        Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp), shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)) {
-                            Row(modifier = Modifier.padding(14.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
+                            Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                 val isIncome = tx.type == TransactionType.INCOME
                                 val accent = if (isIncome) Color(0xFF4CAF50) else Color(0xFFF44336)
                                 val emoji = mapOf("餐饮" to "🍜", "交通" to "🚌", "购物" to "🛒", "工资" to "💰")
-                                Box(modifier = Modifier.size(44.dp).clip(CircleShape).background(accent.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                                Box(modifier = Modifier.size(46.dp).clip(RoundedCornerShape(14.dp)).background(accent.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
                                     Text(emoji[tx.category] ?: "📋", fontSize = 20.sp)
                                 }
-                                Spacer(modifier = Modifier.width(12.dp))
+                                Spacer(modifier = Modifier.width(14.dp))
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(tx.category, fontWeight = FontWeight.Medium, fontSize = 15.sp)
+                                    Text(tx.category, fontWeight = FontWeight.Medium, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
                                     if (tx.note.isNotBlank()) Text(tx.note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
-                                Text("${if (isIncome) "+" else "-"}¥${String.format("%.2f", tx.amount)}", color = accent, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                Text("${if (isIncome) "+" else "-"}¥${String.format("%.2f", tx.amount)}", color = accent, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                             }
                         }
                     }

@@ -7,6 +7,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.SpringSpec
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
@@ -22,13 +23,15 @@ import androidx.compose.foundation.interaction.PressInteraction
 import kotlinx.coroutines.flow.collectLatest
 
 object MotionDurations {
-    const val FAST = 150
+    const val EXTRA_FAST = 120
+    const val FAST = 180
     const val SHORT = 220
-    const val MEDIUM = 300
-    const val LONG = 400
+    const val MEDIUM = 260
+    const val LONG = 340
 }
 
 object MotionCurves {
+    val FastOutSlowIn = CubicBezierEasing(0.2f, 0f, 0f, 1f)
     val EaseOutCubic = CubicBezierEasing(0.33f, 1f, 0.68f, 1f)
     val EaseInOutCubic = CubicBezierEasing(0.65f, 0f, 0.35f, 1f)
     val StandardDecelerate = CubicBezierEasing(0f, 0f, 0f, 1f)
@@ -36,26 +39,37 @@ object MotionCurves {
 }
 
 object MotionSprings {
-    fun <T> default(): AnimationSpec<T> = spring(
+    fun <T> default(): SpringSpec<T> = spring(
         dampingRatio = Spring.DampingRatioMediumBouncy,
         stiffness = Spring.StiffnessMedium
     )
 
-    fun <T> gentle(): AnimationSpec<T> = spring(
+    fun <T> gentle(): SpringSpec<T> = spring(
         dampingRatio = Spring.DampingRatioNoBouncy,
         stiffness = Spring.StiffnessMediumLow
     )
 
-    fun <T> snappy(): AnimationSpec<T> = spring(
+    fun <T> snappy(): SpringSpec<T> = spring(
         dampingRatio = Spring.DampingRatioMediumBouncy,
         stiffness = Spring.StiffnessHigh
     )
+
+    fun <T> responsive(): SpringSpec<T> = spring(
+        dampingRatio = 0.85f,
+        stiffness = Spring.StiffnessMedium
+    )
+}
+
+object MotionAnimSpecs {
+    fun <T> fastTween() = tween<T>(MotionDurations.FAST, easing = MotionCurves.FastOutSlowIn)
+    fun <T> shortTween() = tween<T>(MotionDurations.SHORT, easing = MotionCurves.EaseOutCubic)
+    fun <T> mediumTween() = tween<T>(MotionDurations.MEDIUM, easing = MotionCurves.EaseOutCubic)
 }
 
 @Composable
 fun animatePressScale(
     interactionSource: InteractionSource,
-    pressedScale: Float = 0.97f
+    pressedScale: Float = 0.98f
 ): State<Float> {
     val isPressed = remember { mutableStateOf(false) }
 
@@ -72,7 +86,7 @@ fun animatePressScale(
     return animateFloatAsState(
         targetValue = if (isPressed.value) pressedScale else 1f,
         animationSpec = if (isPressed.value) {
-            tween(MotionDurations.FAST)
+            tween(MotionDurations.EXTRA_FAST)
         } else {
             MotionSprings.snappy()
         },
@@ -82,7 +96,7 @@ fun animatePressScale(
 
 fun Modifier.pressScale(
     interactionSource: InteractionSource,
-    pressedScale: Float = 0.97f
+    pressedScale: Float = 0.98f
 ): Modifier = composed {
     val scaleState = animatePressScale(interactionSource, pressedScale)
     scale(scaleState.value)
@@ -94,11 +108,11 @@ fun Modifier.fadeSlideIn(
 ): Modifier = composed {
     val alpha by animateFloatAsState(
         targetValue = if (visible) 1f else 0f,
-        animationSpec = tween(durationMillis, easing = MotionCurves.EaseOutCubic),
+        animationSpec = tween(durationMillis, easing = MotionCurves.FastOutSlowIn),
         label = "fadeAlpha"
     )
     val offsetY by animateDpAsState(
-        targetValue = if (visible) 0.dp else 12.dp,
+        targetValue = if (visible) 0.dp else 10.dp,
         animationSpec = tween(durationMillis, easing = MotionCurves.EaseOutCubic),
         label = "slideOffset"
     )

@@ -66,9 +66,9 @@ fun SwipeableTransactionItem(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 4.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
     ) {
         Row(
             modifier = Modifier
@@ -100,7 +100,7 @@ fun SwipeableTransactionItem(
             modifier = Modifier
                 .offset { IntOffset(offsetX.roundToInt(), 0) }
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface)
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f))
                 .draggable(
                     state = draggableState,
                     orientation = Orientation.Horizontal,
@@ -110,7 +110,7 @@ fun SwipeableTransactionItem(
                             initialValue = offsetX,
                             targetValue = target,
                             animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                dampingRatio = 0.8f,
                                 stiffness = Spring.StiffnessMedium
                             )
                         ) { value, _ -> offsetX = value }
@@ -163,7 +163,7 @@ fun CategoryEditDialog(
                         Box(
                             modifier = Modifier
                                 .size(40.dp)
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(12.dp))
                                 .background(
                                     if (selected) MaterialTheme.colorScheme.primaryContainer
                                     else MaterialTheme.colorScheme.surfaceVariant
@@ -245,44 +245,55 @@ fun TransactionItem(transaction: Transaction, viewModel: TransactionViewModel) {
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.98f else 1f,
-        animationSpec = if (isPressed) tween(MotionDurations.FAST) else MotionSprings.gentle(),
+        animationSpec = if (isPressed) tween(MotionDurations.EXTRA_FAST) else spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
         label = "txScale"
     )
 
     Card(
         modifier = Modifier.fillMaxWidth().scale(scale),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            disabledContainerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 0.dp,
+            pressedElevation = 0.dp
+        ),
         interactionSource = interactionSource,
         onClick = {}
     ) {
         Row(
             modifier = Modifier
-                .padding(16.dp)
+                .padding(horizontal = 16.dp, vertical = 14.dp)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
+                    .size(46.dp)
+                    .clip(RoundedCornerShape(14.dp))
                     .background(
-                        if (isIncome) incomeColor.copy(alpha = 0.12f)
-                        else expenseColor.copy(alpha = 0.12f)
+                        if (isIncome) incomeColor.copy(alpha = 0.1f)
+                        else expenseColor.copy(alpha = 0.1f)
                     ),
                 contentAlignment = Alignment.Center
             ) {
                 Text(text = icon, fontSize = 20.sp)
             }
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = transaction.category,
                     fontWeight = FontWeight.Medium,
-                    fontSize = 15.sp
+                    fontSize = 15.sp,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 if (transaction.note.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = transaction.note,
                         style = MaterialTheme.typography.bodySmall,
@@ -296,8 +307,9 @@ fun TransactionItem(transaction: Transaction, viewModel: TransactionViewModel) {
                     text = "${if (isIncome) "+" else "-"}${currencySymbol}${String.format("%.2f", transaction.amount)}",
                     color = if (isIncome) incomeColor else expenseColor,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
+                    fontSize = 15.sp
                 )
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = dateStr,
                     style = MaterialTheme.typography.bodySmall,
@@ -326,25 +338,25 @@ private fun TransactionItemPreview() {
                 previewTransactions.forEach { tx ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Row(
-                            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp).fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             val isIncome = tx.type == TransactionType.INCOME
                             val iconColor = if (isIncome) Color(0xFF4CAF50) else Color(0xFFF44336)
                             val iconEmoji = when(tx.category) { "餐饮" -> "🍜"; "购物" -> "🛒"; "工资" -> "💰"; else -> "📋" }
                             Box(
-                                modifier = Modifier.size(44.dp).clip(CircleShape)
-                                    .background(iconColor.copy(alpha = 0.12f)),
+                                modifier = Modifier.size(46.dp).clip(RoundedCornerShape(14.dp))
+                                    .background(iconColor.copy(alpha = 0.1f)),
                                 contentAlignment = Alignment.Center
                             ) { Text(text = iconEmoji, fontSize = 20.sp) }
-                            Spacer(modifier = Modifier.width(12.dp))
+                            Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(text = tx.category, fontWeight = FontWeight.Medium, fontSize = 15.sp)
+                                Text(text = tx.category, fontWeight = FontWeight.Medium, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
                                 if (tx.note.isNotBlank()) {
                                     Text(text = tx.note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                                 }
@@ -352,7 +364,7 @@ private fun TransactionItemPreview() {
                             Column(horizontalAlignment = Alignment.End) {
                                 Text(
                                     text = "${if (isIncome) "+" else "-"}¥${String.format("%.2f", tx.amount)}",
-                                    color = iconColor, fontWeight = FontWeight.Bold, fontSize = 16.sp
+                                    color = iconColor, fontWeight = FontWeight.Bold, fontSize = 15.sp
                                 )
                                 Text(
                                     text = sdf.format(java.util.Date(tx.date)),
