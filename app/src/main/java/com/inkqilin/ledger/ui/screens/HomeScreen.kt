@@ -176,26 +176,31 @@ fun HomeScreen(
             buildRecentExpenseTrend(allTransactions)
         }
     }
-    val groupedTransactionsState = produceState(
-        initialValue = null as List<DayTransactionGroup>?,
-        allTransactions
+    val homeDataState = produceState(
+        initialValue = HomeData(),
+        allTransactions,
+        selectedPeriod,
+        selectedYearMonth
     ) {
         value = withContext(Dispatchers.Default) {
-            buildDayTransactionGroups(allTransactions)
+            val periodSummary = buildPeriodSummary(allTransactions, selectedPeriod, selectedYearMonth)
+            val recentDays = buildRecentExpenseTrend(allTransactions)
+            val groupedTransactions = buildDayTransactionGroups(allTransactions)
+            val currencySummaries = buildCurrencySummaries(periodSummary.transactions)
+            
+            HomeData(
+                periodSummary = periodSummary,
+                recentDays = recentDays,
+                groupedTransactions = groupedTransactions,
+                currencySummaries = currencySummaries,
+                isLoaded = true
+            )
         }
     }
-    val groupedTransactions = groupedTransactionsState.value ?: emptyList()
-    val isDataLoading = groupedTransactionsState.value == null && allTransactions.isNotEmpty()
 
-    val currencySummaries by produceState(
-        initialValue = emptyMap<String, CurrencyPeriodSummary>(),
-        periodSummary.transactions
-    ) {
-        value = withContext(Dispatchers.Default) {
-            buildCurrencySummaries(periodSummary.transactions)
-        }
-    }
-    val maxTrendValue = remember(recentDays) { recentDays.maxOfOrNull { it.second } ?: 1.0 }
+    val homeData = homeDataState.value
+    val isDataLoading = !homeData.isLoaded && allTransactions.isNotEmpty()
+    val maxTrendValue = remember(homeData.recentDays) { homeData.recentDays.maxOfOrNull { it.second } ?: 1.0 }
 
     Scaffold(
         floatingActionButton = {
@@ -228,7 +233,7 @@ fun HomeScreen(
                 } else if (multiCurrencyEnabled && allAssets.isNotEmpty()) {
                     MultiCurrencyOverviewCards(
                         allAssets = allAssets,
-                        currencySummaries = currencySummaries,
+                        currencySummaries = homeData.currencySummaries,
                         displayCalendar = displayCalendar,
                         periodOptions = periodOptions,
                         selectedPeriod = selectedPeriod,
@@ -238,8 +243,8 @@ fun HomeScreen(
                     )
                 } else {
                     SingleCurrencyOverviewCard(
-                        periodIncome = periodSummary.income,
-                        periodExpense = periodSummary.expense,
+                        periodIncome = homeData.periodSummary.income,
+                        periodExpense = homeData.periodSummary.expense,
                         monthlyBudget = monthlyBudget,
                         displayCalendar = displayCalendar,
                         defaultAsset = allAssets.firstOrNull { it.isDefault },
@@ -294,7 +299,7 @@ fun HomeScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.Bottom
                             ) {
-                                recentDays.forEach { (label, value) ->
+                                homeData.recentDays.forEach { (label, value) ->
                                     Column(
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                         modifier = Modifier.weight(1f)
@@ -371,7 +376,7 @@ fun HomeScreen(
                 }
             } else {
                 val daySdf = SimpleDateFormat("MM月dd日 EEEE", Locale.getDefault())
-                groupedTransactions.forEachIndexed { groupIndex, group ->
+                homeData.groupedTransactions.forEachIndexed { groupIndex, group ->
                     if (groupIndex > 0) {
                         item {
                             Divider(
@@ -874,6 +879,14 @@ private fun TransactionItemSkeleton() {
         }
     }
 }
+
+private data class HomeData(
+    val periodSummary: PeriodSummary = PeriodSummary(),
+    val recentDays: List<Pair<String, Double>> = emptyList(),
+    val groupedTransactions: List<DayTransactionGroup> = emptyList(),
+    val currencySummaries: Map<String, CurrencyPeriodSummary> = emptyMap(),
+    val isLoaded: Boolean = false
+)
 
 private data class PeriodSummary(
     val transactions: List<Transaction> = emptyList(),

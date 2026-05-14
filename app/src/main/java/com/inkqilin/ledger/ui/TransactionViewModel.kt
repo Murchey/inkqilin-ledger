@@ -12,6 +12,7 @@ import com.inkqilin.ledger.util.DEFAULT_INCOME_COLOR_HEX
 import com.inkqilin.ledger.util.ExcelImporter
 import com.inkqilin.ledger.util.ThemeManager
 import com.inkqilin.ledger.util.ThemeMode
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -41,7 +42,7 @@ class TransactionViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             if (categoryDao.getAllCategories().first().isEmpty()) {
                 initializeDefaultCategories()
             }
@@ -164,6 +165,10 @@ class TransactionViewModel(
         viewModelScope, SharingStarted.WhileSubscribed(5000), null
     )
 
+    val autoRecordEnabled: StateFlow<Boolean> = themeManager.autoRecordEnabled.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), false
+    )
+
     fun setCheckUpdateEnabled(enabled: Boolean) {
         viewModelScope.launch { themeManager.setCheckUpdateEnabled(enabled) }
     }
@@ -174,6 +179,10 @@ class TransactionViewModel(
 
     fun setRenQingEnabled(enabled: Boolean) {
         viewModelScope.launch { themeManager.setRenQingEnabled(enabled) }
+    }
+
+    fun setAutoRecordEnabled(enabled: Boolean) {
+        viewModelScope.launch { themeManager.setAutoRecordEnabled(enabled) }
     }
 
     fun setThemeMode(mode: ThemeMode) {

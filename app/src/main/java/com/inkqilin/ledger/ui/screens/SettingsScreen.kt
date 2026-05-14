@@ -3,6 +3,7 @@ package com.inkqilin.ledger.ui.screens
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -25,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.app.NotificationManagerCompat
 import com.inkqilin.ledger.data.*
 import com.inkqilin.ledger.ui.*
 import com.inkqilin.ledger.ui.motion.*
@@ -39,6 +41,11 @@ private enum class ExportTimeRange(val label: String) {
     ALL("全部"),
     THIS_YEAR("本年"),
     CUSTOM("自定义")
+}
+
+private fun isNotificationServiceEnabled(context: Context): Boolean {
+    val packageNames = NotificationManagerCompat.getEnabledListenerPackages(context)
+    return packageNames.contains(context.packageName)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -56,6 +63,7 @@ fun SettingsScreen(
     val incomeColorHex by viewModel.incomeColor.collectAsState()
     val expenseColorHex by viewModel.expenseColor.collectAsState()
     val customPrimaryColorHex by viewModel.customPrimaryColorHex.collectAsState()
+    val autoRecordEnabled by viewModel.autoRecordEnabled.collectAsState()
 
     var exportTimeRange by remember { mutableStateOf(ExportTimeRange.ALL) }
     var exportStartDate by remember { mutableLongStateOf(
@@ -470,6 +478,45 @@ fun SettingsScreen(
                         Switch(checked = checkUpdateEnabled, onCheckedChange = { viewModel.setCheckUpdateEnabled(it) })
                     }
                 )
+            }
+        }
+
+        Text(text = "实验室功能", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
+        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+            Column {
+                ListItem(
+                    headlineContent = { Text("自动记账") },
+                    supportingContent = { Text("捕获支付宝/微信支付通知，自动记录账单。需要在手机的“自启动管理”和“电池优化”中把“墨麒麟记账”设为“不受限制”") },
+                    trailingContent = {
+                        Switch(
+                            checked = autoRecordEnabled,
+                            onCheckedChange = { enabled ->
+                                if (enabled && !isNotificationServiceEnabled(context)) {
+                                    // 引导开启权限
+                                    val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                                    context.startActivity(intent)
+                                    Toast.makeText(context, "请先开启通知监听权限", Toast.LENGTH_LONG).show()
+                                }
+                                viewModel.setAutoRecordEnabled(enabled)
+                            }
+                        )
+                    }
+                )
+                if (autoRecordEnabled && !isNotificationServiceEnabled(context)) {
+                    Divider()
+                    ListItem(
+                        headlineContent = { Text("未开启监听权限", color = MaterialTheme.colorScheme.error) },
+                        supportingContent = { Text("点击去开启，否则自动记账无法生效") },
+                        trailingContent = {
+                            TextButton(onClick = {
+                                val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                                context.startActivity(intent)
+                            }) {
+                                Text("去开启")
+                            }
+                        }
+                    )
+                }
             }
         }
 

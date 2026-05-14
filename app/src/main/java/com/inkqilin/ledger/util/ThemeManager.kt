@@ -28,6 +28,7 @@ class ThemeManager(private val context: Context) {
     private val MONTHLY_BUDGET_KEY = doublePreferencesKey("monthly_budget")
     private val CHECK_UPDATE_ENABLED_KEY = booleanPreferencesKey("check_update_enabled")
     private val CUSTOM_PRIMARY_COLOR_KEY = stringPreferencesKey("custom_primary_color")
+    private val AUTO_RECORD_ENABLED_KEY = booleanPreferencesKey("auto_record_enabled")
 
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { preferences ->
         val mode = preferences[THEME_KEY] ?: ThemeMode.AUTO.name
@@ -60,6 +61,10 @@ class ThemeManager(private val context: Context) {
 
     val customPrimaryColor: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[CUSTOM_PRIMARY_COLOR_KEY]
+    }
+
+    val autoRecordEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[AUTO_RECORD_ENABLED_KEY] ?: false
     }
 
     suspend fun setThemeMode(mode: ThemeMode) {
@@ -111,6 +116,12 @@ class ThemeManager(private val context: Context) {
             } else {
                 preferences[CUSTOM_PRIMARY_COLOR_KEY] = colorHex
             }
+        }
+    }
+
+    suspend fun setAutoRecordEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[AUTO_RECORD_ENABLED_KEY] = enabled
         }
     }
 }

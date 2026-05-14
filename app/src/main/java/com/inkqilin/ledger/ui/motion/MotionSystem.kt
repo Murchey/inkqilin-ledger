@@ -4,8 +4,12 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
@@ -93,7 +97,7 @@ fun Modifier.shimmer(): Modifier = composed {
         label = "shimmerOffset"
     )
 
-    background(
+    this.background(
         brush = Brush.linearGradient(
             colors = listOf(
                 Color.LightGray.copy(alpha = 0.3f),
