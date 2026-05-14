@@ -61,14 +61,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
-import com.inkqilin.ledger.ui.motion.MotionDurations
-import com.inkqilin.ledger.ui.motion.MotionSprings
+import com.inkqilin.ledger.ui.motion.*
 import java.text.SimpleDateFormat
 import java.util.*
 import com.inkqilin.ledger.data.CurrencyAsset
 import com.inkqilin.ledger.ui.theme.CardColorPresets
 import com.inkqilin.ledger.ui.theme.InkQilinLedgerTheme
 import com.inkqilin.ledger.ui.theme.resolveCardColor
+import com.inkqilin.ledger.util.DEFAULT_PRIMARY_COLOR_HEX
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -366,7 +366,7 @@ fun SettingsScreen(
                         val currentPrimary = MaterialTheme.colorScheme.primary
                         val presetThemeColors = listOf(
                             "#7C5CFF" to "紫罗兰",
-                            "#3F51B5" to "靛蓝",
+                            DEFAULT_PRIMARY_COLOR_HEX to "青翠绿",
                             "#1565C0" to "深蓝",
                             "#00897B" to "青绿",
                             "#43A047" to "翠绿",
@@ -383,7 +383,7 @@ fun SettingsScreen(
                                 } catch (_: Exception) {
                                     currentPrimary
                                 }
-                                val isSelected = (customPrimaryColorHex ?: "#3F51B5").equals(hex, ignoreCase = true)
+                                val isSelected = (customPrimaryColorHex ?: DEFAULT_PRIMARY_COLOR_HEX).equals(hex, ignoreCase = true)
                                 Box(
                                     modifier = Modifier
                                         .size(40.dp)
@@ -407,7 +407,7 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.height(14.dp))
 
                         var colorInput by remember(customPrimaryColorHex) {
-                            mutableStateOf(customPrimaryColorHex ?: "#3F51B5")
+                            mutableStateOf(customPrimaryColorHex ?: DEFAULT_PRIMARY_COLOR_HEX)
                         }
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -441,7 +441,7 @@ fun SettingsScreen(
                             )
                         }
 
-                        if (customPrimaryColorHex != null && customPrimaryColorHex != "#3F51B5") {
+                        if (customPrimaryColorHex != null && customPrimaryColorHex != DEFAULT_PRIMARY_COLOR_HEX) {
                             Spacer(modifier = Modifier.height(8.dp))
                             TextButton(onClick = { viewModel.setCustomPrimaryColor(null) }) {
                                 Text("恢复默认主题色")
@@ -725,20 +725,10 @@ private fun AnimatedPressButton(
     content: @Composable RowScope.() -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.98f else 1f,
-        animationSpec = if (isPressed) {
-            androidx.compose.animation.core.tween(MotionDurations.FAST)
-        } else {
-            MotionSprings.gentle()
-        },
-        label = "btnScale"
-    )
-
+    
     Button(
         onClick = onClick,
-        modifier = modifier.scale(scale),
+        modifier = modifier.pressScale(interactionSource), // iOS-style interactive feedback
         interactionSource = interactionSource,
         content = content
     )
@@ -883,13 +873,18 @@ fun CurrencyManagementScreen(
             val resolvedColor = resolveCardColor(asset, isDark)
             val animatedCardColor by animateColorAsState(
                 targetValue = resolvedColor,
-                animationSpec = tween(300),
+                animationSpec = MotionSprings.interactive(), // iOS-like bouncy card color
                 label = "cardColor_${asset.id}"
             )
+            val assetInteractionSource = remember { MutableInteractionSource() }
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .pressScale(assetInteractionSource), // iOS-style interactive feedback
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = animatedCardColor)
+                colors = CardDefaults.cardColors(containerColor = animatedCardColor),
+                interactionSource = assetInteractionSource,
+                onClick = {}
             ) {
                 Row(
                     modifier = Modifier

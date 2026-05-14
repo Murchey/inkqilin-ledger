@@ -37,8 +37,7 @@ import com.inkqilin.ledger.data.Transaction
 import com.inkqilin.ledger.ui.theme.InkQilinLedgerTheme
 import com.inkqilin.ledger.data.TransactionType
 import com.inkqilin.ledger.ui.TransactionViewModel
-import com.inkqilin.ledger.ui.motion.MotionDurations
-import com.inkqilin.ledger.ui.motion.MotionSprings
+import com.inkqilin.ledger.ui.motion.*
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt
@@ -109,10 +108,7 @@ fun SwipeableTransactionItem(
                         animate(
                             initialValue = offsetX,
                             targetValue = target,
-                            animationSpec = spring(
-                                dampingRatio = 0.8f,
-                                stiffness = Spring.StiffnessMedium
-                            )
+                            animationSpec = MotionSprings.interactive() // iOS-like bouncy menu snap
                         ) { value, _ -> offsetX = value }
                     }
                 )
@@ -242,18 +238,11 @@ fun TransactionItem(transaction: Transaction, viewModel: TransactionViewModel) {
     val expenseColor = Color(android.graphics.Color.parseColor(expenseColorHex))
 
     val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.98f else 1f,
-        animationSpec = if (isPressed) tween(MotionDurations.EXTRA_FAST) else spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
-        label = "txScale"
-    )
-
+    
     Card(
-        modifier = Modifier.fillMaxWidth().scale(scale),
+        modifier = Modifier
+            .fillMaxWidth()
+            .pressScale(interactionSource), // Use our custom iOS-style press down
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,

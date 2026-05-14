@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -32,8 +33,10 @@ import com.inkqilin.ledger.data.Transaction
 import com.inkqilin.ledger.data.TransactionType
 import com.inkqilin.ledger.ui.RenQingViewModel
 import com.inkqilin.ledger.ui.TransactionViewModel
-import com.inkqilin.ledger.ui.motion.MotionCurves
 import com.inkqilin.ledger.ui.motion.MotionDurations
+import com.inkqilin.ledger.ui.motion.MotionCurves
+import com.inkqilin.ledger.ui.motion.MotionSprings
+import com.inkqilin.ledger.ui.motion.pressScale
 import com.inkqilin.ledger.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
@@ -302,6 +305,7 @@ fun AddTransactionScreen(
 
         item {
             Spacer(modifier = Modifier.height(24.dp))
+            val saveInteractionSource = remember { MutableInteractionSource() }
             Button(
                 onClick = {
                     val amountDouble = amount.toDoubleOrNull() ?: 0.0
@@ -326,11 +330,16 @@ fun AddTransactionScreen(
                         onSaved()
                     }
                 },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(52.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .height(52.dp)
+                    .pressScale(saveInteractionSource), // iOS-style interactive feedback
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (type == TransactionType.EXPENSE) expenseColor else incomeColor
-                )
+                ),
+                interactionSource = saveInteractionSource
             ) {
                 Text("保存", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
@@ -340,20 +349,28 @@ fun AddTransactionScreen(
 
 @Composable
 private fun RowScope.CategoryChip(cat: String, icon: String, selected: Boolean, onClick: () -> Unit) {
+    val chipInteractionSource = remember { MutableInteractionSource() }
     val scale by animateFloatAsState(
         targetValue = if (selected) 1.05f else 1f,
-        animationSpec = tween(MotionDurations.MEDIUM, easing = MotionCurves.FastOutSlowIn),
+        animationSpec = MotionSprings.interactive(), // iOS-like bouncy selection
         label = "catScale"
     )
     val iconAlpha by animateFloatAsState(
         targetValue = if (selected) 1f else 0.7f,
-        animationSpec = tween(MotionDurations.SHORT, easing = MotionCurves.FastOutSlowIn),
+        animationSpec = MotionSprings.interactive(),
         label = "catAlpha"
     )
     val accentColor = MaterialTheme.colorScheme.secondary
 
     Card(
-        modifier = Modifier.weight(1f).scale(scale).clickable(onClick = onClick),
+        modifier = Modifier
+            .weight(1f)
+            .scale(scale)
+            .pressScale(chipInteractionSource) // iOS-style interactive feedback
+            .clickable(
+                interactionSource = chipInteractionSource,
+                indication = null
+            ) { onClick() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (selected) accentColor.copy(alpha = 0.15f)

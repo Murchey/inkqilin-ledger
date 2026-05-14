@@ -3,9 +3,9 @@ package com.inkqilin.ledger.ui.theme
 import androidx.compose.ui.graphics.Color
 import com.inkqilin.ledger.data.CurrencyAsset
 
-val InkPrimary = Color(0xFF3F51B5)
-val InkPrimaryLight = Color(0xFF3F51B5)
-val InkPrimaryDark = Color(0xFF3F51B5)
+val InkPrimary = Color(0xFF04BE02)
+val InkPrimaryLight = Color(0xFF04BE02)
+val InkPrimaryDark = Color(0xFF04BE02)
 
 val GoogleBlue = InkPrimaryLight
 val GoogleBlueLight = Color(0xFF8C7AFF)
@@ -51,14 +51,14 @@ val FrostedBorderLight = Color(0xFFE0E4EA)
 data class CardColorPreset(val dark: String, val light: String, val label: String)
 
 val CardColorPresets = listOf(
-    CardColorPreset("#1E6FFF", "#5B87FF", "蓝"),
-    CardColorPreset("#FF7C2E", "#FF944C", "橙"),
-    CardColorPreset("#9B5CFF", "#B78BFF", "紫"),
-    CardColorPreset("#2DD6C9", "#3ADDD1", "青"),
-    CardColorPreset("#FF4C6D", "#FF5C73", "红"),
-    CardColorPreset("#2AC769", "#3DE786", "绿"),
-    CardColorPreset("#FFD64C", "#FFE066", "黄"),
-    CardColorPreset("#FF82C4", "#FF97D1", "粉")
+    CardColorPreset("#1859CC", "#496CCC", "蓝"),
+    CardColorPreset("#CC6325", "#CC763D", "橙"),
+    CardColorPreset("#7C4ACC", "#926FCC", "紫"),
+    CardColorPreset("#24ABA1", "#2EB1A7", "青"),
+    CardColorPreset("#CC3D57", "#CC4A5C", "红"),
+    CardColorPreset("#229F54", "#31B96B", "绿"),
+    CardColorPreset("#CCAB3D", "#CCB352", "黄"),
+    CardColorPreset("#CC689D", "#CC79A7", "粉")
 )
 
 fun resolveCardColor(asset: CurrencyAsset, isDark: Boolean): Color {

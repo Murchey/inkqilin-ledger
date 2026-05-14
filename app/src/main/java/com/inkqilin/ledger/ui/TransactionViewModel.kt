@@ -7,6 +7,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.inkqilin.ledger.data.*
+import com.inkqilin.ledger.util.DEFAULT_EXPENSE_COLOR_HEX
+import com.inkqilin.ledger.util.DEFAULT_INCOME_COLOR_HEX
 import com.inkqilin.ledger.util.ExcelImporter
 import com.inkqilin.ledger.util.ThemeManager
 import com.inkqilin.ledger.util.ThemeMode
@@ -136,10 +138,10 @@ class TransactionViewModel(
     }
 
     val incomeColor: StateFlow<String> = themeManager.incomeColor.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), "#4CAF50"
+        viewModelScope, SharingStarted.WhileSubscribed(5000), DEFAULT_INCOME_COLOR_HEX
     )
     val expenseColor: StateFlow<String> = themeManager.expenseColor.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), "#F44336"
+        viewModelScope, SharingStarted.WhileSubscribed(5000), DEFAULT_EXPENSE_COLOR_HEX
     )
 
     fun setIncomeColor(color: String) {

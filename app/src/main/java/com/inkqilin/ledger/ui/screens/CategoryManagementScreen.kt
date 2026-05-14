@@ -1,6 +1,7 @@
 package com.inkqilin.ledger.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -25,6 +26,8 @@ import com.inkqilin.ledger.data.*
 import com.inkqilin.ledger.ui.RenQingViewModel
 import com.inkqilin.ledger.ui.TransactionViewModel
 import com.inkqilin.ledger.ui.theme.InkQilinLedgerTheme
+import com.inkqilin.ledger.ui.motion.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -160,8 +163,16 @@ private fun CategoryItem(
         )
     }
 
+    val interactionSource = remember { MutableInteractionSource() }
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .pressScale(interactionSource) // iOS-style interactive feedback
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = {}
+            ),
         elevation = CardDefaults.cardElevation(1.dp)
     ) {
         Row(
@@ -220,8 +231,16 @@ private fun RenQingTagItem(
         )
     }
 
+    val interactionSource = remember { MutableInteractionSource() }
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .pressScale(interactionSource) // iOS-style interactive feedback
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = {}
+            ),
         elevation = CardDefaults.cardElevation(1.dp)
     ) {
         Row(

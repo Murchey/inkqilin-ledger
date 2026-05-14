@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -24,6 +25,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -37,6 +39,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.inkqilin.ledger.ui.TransactionViewModel
+import com.inkqilin.ledger.ui.motion.MotionSprings
+import com.inkqilin.ledger.ui.motion.pressScale
 import com.inkqilin.ledger.ui.motion.MotionDurations
 import com.inkqilin.ledger.ui.motion.MotionCurves
 import com.inkqilin.ledger.data.CurrencyAsset
@@ -64,13 +68,18 @@ private fun Modifier.frostedGlass(
     shape: RoundedCornerShape,
     isDark: Boolean
 ): Modifier = this
+    /*.then(
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            Modifier.blur(20.dp) // iOS-style deep blur on Android 12+
+        } else Modifier
+    )*/
     .background(
-        color = if (isDark) FrostedDark else FrostedLight.copy(alpha = 0.9f),
+        color = if (isDark) FrostedDark.copy(alpha = 0.85f) else FrostedLight.copy(alpha = 0.7f),
         shape = shape
     )
     .border(
-        width = 1.dp,
-        color = if (isDark) FrostedBorderDark else FrostedBorderLight.copy(alpha = 0.8f),
+        width = 0.5.dp, // Thinner iOS-style border
+        color = if (isDark) FrostedBorderDark.copy(alpha = 0.5f) else FrostedBorderLight.copy(alpha = 0.3f),
         shape = shape
     )
 
@@ -460,10 +469,12 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
             Spacer(modifier = Modifier.height(24.dp))
             val totalShape = RoundedCornerShape(20.dp)
             val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+            val totalInteractionSource = remember { MutableInteractionSource() }
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp)
+                    .pressScale(totalInteractionSource)
                     .frostedGlass(totalShape, isDark),
                 shape = totalShape,
                 colors = CardDefaults.cardColors(containerColor = Color.Transparent),
@@ -496,10 +507,12 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
             Spacer(modifier = Modifier.height(12.dp))
             val compShape = RoundedCornerShape(16.dp)
             val isDarkComp = MaterialTheme.colorScheme.background.luminance() < 0.5f
+            val compInteractionSource = remember { MutableInteractionSource() }
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp)
+                    .pressScale(compInteractionSource)
                     .frostedGlass(compShape, isDarkComp),
                 shape = compShape,
                 colors = CardDefaults.cardColors(containerColor = Color.Transparent),
@@ -559,10 +572,12 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
 
                 val chartShape = RoundedCornerShape(20.dp)
                 val isDarkChart = MaterialTheme.colorScheme.background.luminance() < 0.5f
+                val chartInteractionSource = remember { MutableInteractionSource() }
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp)
+                        .pressScale(chartInteractionSource) // iOS-style interactive feedback
                         .frostedGlass(chartShape, isDarkChart),
                     shape = chartShape,
                     colors = CardDefaults.cardColors(containerColor = Color.Transparent),
@@ -683,10 +698,12 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                     }
 
                     // 前景内容
+                    val cardInteractionSource = remember { MutableInteractionSource() }
                     Card(
                         modifier = Modifier
                             .offset { IntOffset(offsetX.roundToInt(), 0) }
                             .fillMaxWidth()
+                            .pressScale(cardInteractionSource) // iOS-style interactive feedback
                             .draggable(
                                 state = draggableState,
                                 orientation = Orientation.Horizontal,
@@ -695,14 +712,14 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                                     animate(
                                         initialValue = offsetX,
                                         targetValue = target,
-                                        animationSpec = spring(
-                                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                                            stiffness = Spring.StiffnessMedium
-                                        )
+                                        animationSpec = MotionSprings.interactive() // iOS-like bouncy menu snap
                                     ) { value, _ -> offsetX = value }
                                 }
                             )
-                            .clickable {
+                            .clickable(
+                                interactionSource = cardInteractionSource,
+                                indication = null
+                            ) {
                                 val dateRange = getDateRangeForPeriod(selectedPeriod, startDate, endDate)
                                 navController.navigate("category_transactions/$categoryName/${selectedType.name}?startDate=${dateRange.first}&endDate=${dateRange.second}")
                             },
@@ -734,10 +751,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                             Spacer(modifier = Modifier.height(8.dp))
                             val animatedPercentage by animateFloatAsState(
                                 targetValue = percentage,
-                                animationSpec = tween(
-                                    durationMillis = MotionDurations.MEDIUM,
-                                    easing = MotionCurves.EaseOutCubic
-                                ),
+                                animationSpec = MotionSprings.interactive(), // iOS-like bouncy progress
                                 label = "categoryPercentage"
                             )
                             Box(
@@ -848,10 +862,7 @@ private fun AnimatedBarChart(
         animProgress.snapTo(0f)
         animProgress.animateTo(
             targetValue = 1f,
-            animationSpec = tween(
-                durationMillis = MotionDurations.LONG,
-                easing = MotionCurves.EaseOutCubic
-            )
+            animationSpec = MotionSprings.appearance() // iOS-like smooth spring entry
         )
     }
 

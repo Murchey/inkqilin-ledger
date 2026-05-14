@@ -11,6 +11,10 @@ import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "settings")
 
+const val DEFAULT_PRIMARY_COLOR_HEX = "#04BE02"
+const val DEFAULT_INCOME_COLOR_HEX = "#4CAF50"
+const val DEFAULT_EXPENSE_COLOR_HEX = "#FF9800"
+
 enum class ThemeMode {
     AUTO, LIGHT, DARK
 }
@@ -31,11 +35,11 @@ class ThemeManager(private val context: Context) {
     }
 
     val incomeColor: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[INCOME_COLOR_KEY] ?: "#4CAF50"
+        preferences[INCOME_COLOR_KEY] ?: DEFAULT_INCOME_COLOR_HEX
     }
 
     val expenseColor: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[EXPENSE_COLOR_KEY] ?: "#F44336"
+        preferences[EXPENSE_COLOR_KEY] ?: DEFAULT_EXPENSE_COLOR_HEX
     }
 
     val renQingEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->

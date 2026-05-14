@@ -1,6 +1,7 @@
 package com.inkqilin.ledger.ui.screens
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -22,6 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -40,6 +42,12 @@ import com.inkqilin.ledger.ui.theme.FrostedLight
 import com.inkqilin.ledger.ui.theme.FrostedBorderDark
 import com.inkqilin.ledger.ui.theme.FrostedBorderLight
 import com.inkqilin.ledger.ui.theme.resolveCardColor
+import com.inkqilin.ledger.ui.motion.MotionSprings
+import com.inkqilin.ledger.ui.motion.pressScale
+import com.inkqilin.ledger.ui.motion.staggeredAppearance
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -47,13 +55,18 @@ private fun Modifier.frostedGlass(
     shape: RoundedCornerShape,
     isDark: Boolean
 ): Modifier = this
+    /*.then(
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            Modifier.blur(20.dp) // iOS-style deep blur on Android 12+
+        } else Modifier
+    )*/
     .background(
-        color = if (isDark) FrostedDark else FrostedLight.copy(alpha = 0.9f),
+        color = if (isDark) FrostedDark.copy(alpha = 0.85f) else FrostedLight.copy(alpha = 0.7f),
         shape = shape
     )
     .border(
-        width = 1.dp,
-        color = if (isDark) FrostedBorderDark else FrostedBorderLight.copy(alpha = 0.8f),
+        width = 0.5.dp, // Thinner iOS-style border
+        color = if (isDark) FrostedBorderDark.copy(alpha = 0.5f) else FrostedBorderLight.copy(alpha = 0.3f),
         shape = shape
     )
 
@@ -79,9 +92,15 @@ fun HomeScreen(
         mutableStateOf(Calendar.getInstance().let { it.get(Calendar.YEAR) to it.get(Calendar.MONTH) })
     }
     var showMonthPicker by remember { mutableStateOf(false) }
+    var enableCardAnimations by remember { mutableStateOf(false) }
 
     val defaultAsset = remember(allAssets) { allAssets.firstOrNull { it.isDefault } }
     val periodOptions = listOf("日", "周", "月", "年")
+
+    LaunchedEffect(Unit) {
+        withFrameNanos { }
+        enableCardAnimations = true
+    }
 
     if (showMonthPicker) {
         val initMillis = Calendar.getInstance().apply {
@@ -152,66 +171,55 @@ fun HomeScreen(
         }
     }
 
-    val periodTransactions = remember(allTransactions, selectedPeriod, selectedYearMonth) {
-        val cal = Calendar.getInstance()
-        when (selectedPeriod) {
-            0 -> {
-                cal.set(Calendar.HOUR_OF_DAY, 0)
-                cal.set(Calendar.MINUTE, 0)
-                cal.set(Calendar.SECOND, 0)
-                cal.set(Calendar.MILLISECOND, 0)
-                allTransactions.filter { it.date >= cal.timeInMillis }
-            }
-            1 -> {
-                cal.set(Calendar.DAY_OF_WEEK, cal.firstDayOfWeek)
-                cal.set(Calendar.HOUR_OF_DAY, 0)
-                cal.set(Calendar.MINUTE, 0)
-                cal.set(Calendar.SECOND, 0)
-                allTransactions.filter { it.date >= cal.timeInMillis }
-            }
-            2 -> {
-                val start = Calendar.getInstance().apply {
-                    set(selectedYearMonth.first, selectedYearMonth.second, 1, 0, 0, 0)
-                    set(Calendar.MILLISECOND, 0)
-                }.timeInMillis
-                val end = Calendar.getInstance().apply {
-                    set(selectedYearMonth.first, selectedYearMonth.second + 1, 1, 0, 0, 0)
-                    set(Calendar.MILLISECOND, 0)
-                }.timeInMillis
-                allTransactions.filter { it.date in start until end }
-            }
-            3 -> {
-                val start = Calendar.getInstance().apply {
-                    set(selectedYearMonth.first, Calendar.JANUARY, 1, 0, 0, 0)
-                    set(Calendar.MILLISECOND, 0)
-                }.timeInMillis
-                val end = Calendar.getInstance().apply {
-                    set(selectedYearMonth.first + 1, Calendar.JANUARY, 1, 0, 0, 0)
-                    set(Calendar.MILLISECOND, 0)
-                }.timeInMillis
-                allTransactions.filter { it.date in start until end }
-            }
-            else -> allTransactions
+    val periodSummary by produceState(
+        initialValue = PeriodSummary(),
+        allTransactions,
+        selectedPeriod,
+        selectedYearMonth
+    ) {
+        value = withContext(Dispatchers.Default) {
+            buildPeriodSummary(allTransactions, selectedPeriod, selectedYearMonth)
         }
     }
-
-    val periodIncome = periodTransactions
-        .filter { it.type == TransactionType.INCOME }
-        .sumOf { it.amount }
-    val periodExpense = periodTransactions
-        .filter { it.type == TransactionType.EXPENSE }
-        .sumOf { it.amount }
+    val recentDays by produceState(
+        initialValue = emptyList<Pair<String, Double>>(),
+        allTransactions
+    ) {
+        value = withContext(Dispatchers.Default) {
+            buildRecentExpenseTrend(allTransactions)
+        }
+    }
+    val groupedTransactions by produceState(
+        initialValue = emptyList<DayTransactionGroup>(),
+        allTransactions
+    ) {
+        value = withContext(Dispatchers.Default) {
+            buildDayTransactionGroups(allTransactions)
+        }
+    }
+    val currencySummaries by produceState(
+        initialValue = emptyMap<String, CurrencyPeriodSummary>(),
+        periodSummary.transactions
+    ) {
+        value = withContext(Dispatchers.Default) {
+            buildCurrencySummaries(periodSummary.transactions)
+        }
+    }
+    val maxTrendValue = remember(recentDays) { recentDays.maxOfOrNull { it.second } ?: 1.0 }
 
     Scaffold(
         floatingActionButton = {
+            val fabInteractionSource = remember { MutableInteractionSource() }
             FloatingActionButton(
                 onClick = onNavigateToAddTransaction,
                 containerColor = MaterialTheme.colorScheme.primary,
                 elevation = FloatingActionButtonDefaults.elevation(
                     defaultElevation = 4.dp,
-                    pressedElevation = 8.dp
+                    pressedElevation = 0.dp // We use scale instead
                 ),
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(16.dp),
+                interactionSource = fabInteractionSource,
+                modifier = Modifier.pressScale(fabInteractionSource)
             ) {
                 Icon(Icons.Default.Add, contentDescription = "记一笔", tint = Color.White)
             }
@@ -228,49 +236,32 @@ fun HomeScreen(
                 if (multiCurrencyEnabled && allAssets.isNotEmpty()) {
                     MultiCurrencyOverviewCards(
                         allAssets = allAssets,
-                        periodTransactions = periodTransactions,
+                        currencySummaries = currencySummaries,
                         displayCalendar = displayCalendar,
                         periodOptions = periodOptions,
                         selectedPeriod = selectedPeriod,
                         onPeriodSelected = { selectedPeriod = it },
-                        onMonthClick = { showMonthPicker = true }
+                        onMonthClick = { showMonthPicker = true },
+                        enableAnimations = enableCardAnimations
                     )
                 } else {
                     SingleCurrencyOverviewCard(
-                        periodIncome = periodIncome,
-                        periodExpense = periodExpense,
+                        periodIncome = periodSummary.income,
+                        periodExpense = periodSummary.expense,
                         monthlyBudget = monthlyBudget,
                         displayCalendar = displayCalendar,
                         defaultAsset = allAssets.firstOrNull { it.isDefault },
                         periodOptions = periodOptions,
                         selectedPeriod = selectedPeriod,
                         onPeriodSelected = { selectedPeriod = it },
-                        onMonthClick = { showMonthPicker = true }
+                        onMonthClick = { showMonthPicker = true },
+                        enableAnimations = enableCardAnimations
                     )
                 }
             }
 
             item {
                 Spacer(modifier = Modifier.height(16.dp))
-
-                val recentDays = remember(allTransactions) {
-                    val groups = mutableListOf<Pair<String, Double>>()
-                    for (i in 6 downTo 0) {
-                        val c = Calendar.getInstance().apply {
-                            add(Calendar.DAY_OF_YEAR, -i)
-                            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
-                            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-                        }
-                        val start = c.timeInMillis
-                        val end = start + 86400000L
-                        val sum = allTransactions.filter {
-                            it.type == TransactionType.EXPENSE && it.date in start until end
-                        }.sumOf { t -> t.amount }
-                        groups.add("${c.get(Calendar.DAY_OF_MONTH)}" to sum)
-                    }
-                    groups
-                }
-                val maxVal = recentDays.maxOfOrNull { it.second } ?: 1.0
 
                 val trendShape = RoundedCornerShape(20.dp)
                 val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
@@ -326,7 +317,7 @@ fun HomeScreen(
                                     } else {
                                         Spacer(modifier = Modifier.height(10.dp))
                                     }
-                                    val barHeight = if (maxVal > 0) (value / maxVal * 56).toFloat().dp else 0.dp
+                                    val barHeight = if (maxTrendValue > 0) (value / maxTrendValue * 56).toFloat().dp else 0.dp
                                     Box(
                                         modifier = Modifier
                                             .width(20.dp)
@@ -380,16 +371,7 @@ fun HomeScreen(
                 }
             } else {
                 val daySdf = SimpleDateFormat("MM月dd日 EEEE", Locale.getDefault())
-                val groupedTransactions = allTransactions.groupBy { transaction ->
-                    val cal = Calendar.getInstance().apply { timeInMillis = transaction.date }
-                    cal.set(Calendar.HOUR_OF_DAY, 0)
-                    cal.set(Calendar.MINUTE, 0)
-                    cal.set(Calendar.SECOND, 0)
-                    cal.set(Calendar.MILLISECOND, 0)
-                    cal.timeInMillis
-                }.toSortedMap(compareByDescending { it })
-
-                groupedTransactions.entries.forEachIndexed { groupIndex, (dateKey, transactions) ->
+                groupedTransactions.forEachIndexed { groupIndex, group ->
                     if (groupIndex > 0) {
                         item {
                             Divider(
@@ -400,22 +382,15 @@ fun HomeScreen(
                         }
                     }
                     item {
-                        val dayIncome = transactions
-                            .filter { it.type == TransactionType.INCOME }
-                            .sumOf { it.amount }
-                        val dayExpense = transactions
-                            .filter { it.type == TransactionType.EXPENSE }
-                            .sumOf { it.amount }
-                        val dayBalance = dayIncome - dayExpense
                         val symbol = defaultAsset?.symbol ?: "¥"
                         val balanceColor = when {
-                            dayBalance > 0 -> incomeColor
-                            dayBalance < 0 -> expenseColor
+                            group.balance > 0 -> incomeColor
+                            group.balance < 0 -> expenseColor
                             else -> MaterialTheme.colorScheme.onSurfaceVariant
                         }
                         val balanceText = when {
-                            dayBalance > 0 -> "+$symbol${String.format("%.2f", dayBalance)}"
-                            dayBalance < 0 -> "-$symbol${String.format("%.2f", -dayBalance)}"
+                            group.balance > 0 -> "+$symbol${String.format("%.2f", group.balance)}"
+                            group.balance < 0 -> "-$symbol${String.format("%.2f", -group.balance)}"
                             else -> "${symbol}0.00"
                         }
                         Row(
@@ -426,7 +401,7 @@ fun HomeScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = daySdf.format(Date(dateKey)),
+                                text = daySdf.format(Date(group.dateKey)),
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
@@ -440,15 +415,23 @@ fun HomeScreen(
                         }
                     }
                     items(
-                        items = transactions,
+                        items = group.transactions,
                         key = { it.id }
                     ) { transaction ->
-                        SwipeableTransactionItem(
-                            transaction = transaction,
-                            viewModel = viewModel,
-                            onDelete = { transactionToDelete = transaction },
-                            onEdit = { transactionToEdit = transaction }
-                        )
+                        // iOS-style staggered entry
+                        var itemVisible by remember { mutableStateOf(false) }
+                        LaunchedEffect(Unit) {
+                            itemVisible = true
+                        }
+                        
+                        Box(modifier = Modifier.staggeredAppearance(0, itemVisible)) {
+                            SwipeableTransactionItem(
+                                transaction = transaction,
+                                viewModel = viewModel,
+                                onDelete = { transactionToDelete = transaction },
+                                onEdit = { transactionToEdit = transaction }
+                            )
+                        }
                     }
                 }
             }
@@ -467,21 +450,29 @@ private fun SingleCurrencyOverviewCard(
     periodOptions: List<String>,
     selectedPeriod: Int,
     onPeriodSelected: (Int) -> Unit,
-    onMonthClick: () -> Unit
+    onMonthClick: () -> Unit,
+    enableAnimations: Boolean
 ) {
     val symbol = defaultAsset?.symbol ?: "¥"
     val isDark = MaterialTheme.colorScheme.background.let { it.red * 0.299f + it.green * 0.587f + it.blue * 0.114f } < 0.5f
     val resolvedColor = if (defaultAsset != null) resolveCardColor(defaultAsset, isDark) else Color(0xFF6C63FF)
     val cardColor by animateColorAsState(
         targetValue = resolvedColor,
-        animationSpec = tween(300),
+        animationSpec = if (enableAnimations) MotionSprings.interactive() else snap(),
         label = "singleCardColor"
     )
 
+    val interactionSource = remember { MutableInteractionSource() }
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+            .padding(horizontal = 16.dp)
+            .pressScale(interactionSource) // iOS-style interactive feedback
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = {}
+            ),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = cardColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -589,12 +580,13 @@ private fun SingleCurrencyOverviewCard(
 @Composable
 private fun MultiCurrencyOverviewCards(
     allAssets: List<CurrencyAsset>,
-    periodTransactions: List<Transaction>,
+    currencySummaries: Map<String, CurrencyPeriodSummary>,
     displayCalendar: Calendar,
     periodOptions: List<String>,
     selectedPeriod: Int,
     onPeriodSelected: (Int) -> Unit,
-    onMonthClick: () -> Unit
+    onMonthClick: () -> Unit,
+    enableAnimations: Boolean
 ) {
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     LazyRow(
@@ -605,23 +597,24 @@ private fun MultiCurrencyOverviewCards(
             val resolvedColor = resolveCardColor(asset, isDark)
             val cardColor by animateColorAsState(
                 targetValue = resolvedColor,
-                animationSpec = tween(300),
+                animationSpec = if (enableAnimations) MotionSprings.interactive() else snap(),
                 label = "multiCardColor_${asset.id}"
             )
-            val income = periodTransactions
-                .filter { it.type == TransactionType.INCOME && it.currency == asset.code }
-                .sumOf { it.amount }
-            val expense = periodTransactions
-                .filter { it.type == TransactionType.EXPENSE && it.currency == asset.code }
-                .sumOf { it.amount }
+            val summary = currencySummaries[asset.code] ?: CurrencyPeriodSummary()
+            val income = summary.income
+            val expense = summary.expense
             val isDefault = asset.isDefault
 
+            val interactionSource = remember { MutableInteractionSource() }
             Card(
                 modifier = Modifier
                     .width(300.dp)
-                    .let {
-                        if (isDefault) it else it
-                    },
+                    .pressScale(interactionSource) // iOS-style interactive feedback
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = null,
+                        onClick = {}
+                    ),
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = cardColor),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -738,6 +731,153 @@ private fun MultiCurrencyOverviewCards(
             }
         }
     }
+}
+
+private data class PeriodSummary(
+    val transactions: List<Transaction> = emptyList(),
+    val income: Double = 0.0,
+    val expense: Double = 0.0
+)
+
+private data class CurrencyPeriodSummary(
+    val income: Double = 0.0,
+    val expense: Double = 0.0
+)
+
+private data class DayTransactionGroup(
+    val dateKey: Long,
+    val transactions: List<Transaction>,
+    val income: Double,
+    val expense: Double
+) {
+    val balance: Double
+        get() = income - expense
+}
+
+private fun buildPeriodSummary(
+    allTransactions: List<Transaction>,
+    selectedPeriod: Int,
+    selectedYearMonth: Pair<Int, Int>
+): PeriodSummary {
+    val calendar = Calendar.getInstance()
+    val transactions = when (selectedPeriod) {
+        0 -> {
+            calendar.set(Calendar.HOUR_OF_DAY, 0)
+            calendar.set(Calendar.MINUTE, 0)
+            calendar.set(Calendar.SECOND, 0)
+            calendar.set(Calendar.MILLISECOND, 0)
+            allTransactions.filter { it.date >= calendar.timeInMillis }
+        }
+        1 -> {
+            calendar.set(Calendar.DAY_OF_WEEK, calendar.firstDayOfWeek)
+            calendar.set(Calendar.HOUR_OF_DAY, 0)
+            calendar.set(Calendar.MINUTE, 0)
+            calendar.set(Calendar.SECOND, 0)
+            calendar.set(Calendar.MILLISECOND, 0)
+            allTransactions.filter { it.date >= calendar.timeInMillis }
+        }
+        2 -> {
+            val start = Calendar.getInstance().apply {
+                set(selectedYearMonth.first, selectedYearMonth.second, 1, 0, 0, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+            val end = Calendar.getInstance().apply {
+                set(selectedYearMonth.first, selectedYearMonth.second + 1, 1, 0, 0, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+            allTransactions.filter { it.date in start until end }
+        }
+        3 -> {
+            val start = Calendar.getInstance().apply {
+                set(selectedYearMonth.first, Calendar.JANUARY, 1, 0, 0, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+            val end = Calendar.getInstance().apply {
+                set(selectedYearMonth.first + 1, Calendar.JANUARY, 1, 0, 0, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+            allTransactions.filter { it.date in start until end }
+        }
+        else -> allTransactions
+    }
+
+    var income = 0.0
+    var expense = 0.0
+    transactions.forEach { transaction ->
+        when (transaction.type) {
+            TransactionType.INCOME -> income += transaction.amount
+            TransactionType.EXPENSE -> expense += transaction.amount
+        }
+    }
+    return PeriodSummary(transactions = transactions, income = income, expense = expense)
+}
+
+private fun buildRecentExpenseTrend(allTransactions: List<Transaction>): List<Pair<String, Double>> {
+    val groups = mutableListOf<Pair<String, Double>>()
+    for (i in 6 downTo 0) {
+        val calendar = Calendar.getInstance().apply {
+            add(Calendar.DAY_OF_YEAR, -i)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val start = calendar.timeInMillis
+        val end = start + 86400000L
+        var sum = 0.0
+        allTransactions.forEach { transaction ->
+            if (transaction.type == TransactionType.EXPENSE && transaction.date in start until end) {
+                sum += transaction.amount
+            }
+        }
+        groups.add("${calendar.get(Calendar.DAY_OF_MONTH)}" to sum)
+    }
+    return groups
+}
+
+private fun buildDayTransactionGroups(allTransactions: List<Transaction>): List<DayTransactionGroup> {
+    return allTransactions
+        .groupBy { transaction ->
+            Calendar.getInstance().apply {
+                timeInMillis = transaction.date
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+        }
+        .toSortedMap(compareByDescending { it })
+        .map { (dateKey, transactions) ->
+            var income = 0.0
+            var expense = 0.0
+            transactions.forEach { transaction ->
+                when (transaction.type) {
+                    TransactionType.INCOME -> income += transaction.amount
+                    TransactionType.EXPENSE -> expense += transaction.amount
+                }
+            }
+            DayTransactionGroup(
+                dateKey = dateKey,
+                transactions = transactions,
+                income = income,
+                expense = expense
+            )
+        }
+}
+
+private fun buildCurrencySummaries(
+    transactions: List<Transaction>
+): Map<String, CurrencyPeriodSummary> {
+    val summaries = linkedMapOf<String, CurrencyPeriodSummary>()
+    transactions.forEach { transaction ->
+        val current = summaries[transaction.currency] ?: CurrencyPeriodSummary()
+        val updated = when (transaction.type) {
+            TransactionType.INCOME -> current.copy(income = current.income + transaction.amount)
+            TransactionType.EXPENSE -> current.copy(expense = current.expense + transaction.amount)
+        }
+        summaries[transaction.currency] = updated
+    }
+    return summaries
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -974,5 +1114,3 @@ private fun HomeScreenPreview() {
         }
     }
 }
-
-

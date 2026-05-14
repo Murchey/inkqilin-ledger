@@ -28,6 +28,8 @@ import com.inkqilin.ledger.ui.RenQingViewModel
 import com.inkqilin.ledger.ui.TransactionViewModel
 import com.inkqilin.ledger.ui.motion.MotionDurations
 import com.inkqilin.ledger.ui.motion.MotionCurves
+import com.inkqilin.ledger.ui.motion.MotionSprings
+import com.inkqilin.ledger.ui.motion.pressScale
 
 data class BottomNavItem(
     val route: String,
@@ -39,7 +41,8 @@ data class BottomNavItem(
 @Composable
 fun MainScreen(
     viewModel: TransactionViewModel,
-    renQingViewModel: RenQingViewModel
+    renQingViewModel: RenQingViewModel,
+    enableAnimations: Boolean = true
 ) {
     val navController = rememberNavController()
     val renQingEnabled by renQingViewModel.renQingEnabled.collectAsState()
@@ -104,8 +107,14 @@ fun MainScreen(
                     AnimatedContent(
                         targetState = topBarTitle,
                         transitionSpec = {
-                            fadeIn(animationSpec = tween(MotionDurations.MEDIUM, easing = MotionCurves.FastOutSlowIn)) togetherWith
-                            fadeOut(animationSpec = tween(MotionDurations.FAST))
+                            if (enableAnimations) {
+                                // iOS-style fade + slight vertical slide for titles
+                                (fadeIn(animationSpec = MotionSprings.appearance()) +
+                                        slideInVertically(animationSpec = MotionSprings.appearance()) { -it / 4 }) togetherWith
+                                        fadeOut(animationSpec = MotionSprings.appearance())
+                            } else {
+                                EnterTransition.None togetherWith ExitTransition.None
+                            }
                         },
                         label = "topBarTitle"
                     ) { title ->
@@ -115,17 +124,23 @@ fun MainScreen(
                 navigationIcon = {
                     AnimatedVisibility(
                         visible = showBackButton,
-                        enter = fadeIn(tween(MotionDurations.MEDIUM)) + scaleIn(
-                            animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioNoBouncy,
-                                stiffness = Spring.StiffnessMediumLow
-                            ),
-                            initialScale = 0.85f
-                        ),
-                        exit = fadeOut(tween(MotionDurations.FAST)) + scaleOut(
-                            animationSpec = tween(MotionDurations.FAST),
-                            targetScale = 0.85f
-                        )
+                        enter = if (enableAnimations) {
+                            // iOS-style scale and fade for buttons
+                            fadeIn(MotionSprings.interactive()) + scaleIn(
+                                animationSpec = MotionSprings.interactive(),
+                                initialScale = 0.8f
+                            )
+                        } else {
+                            EnterTransition.None
+                        },
+                        exit = if (enableAnimations) {
+                            fadeOut(MotionSprings.interactive()) + scaleOut(
+                                animationSpec = MotionSprings.interactive(),
+                                targetScale = 0.8f
+                            )
+                        } else {
+                            ExitTransition.None
+                        }
                     ) {
                         IconButton(onClick = { navController.popBackStack() }) {
                             Icon(Icons.Default.ArrowBack, contentDescription = "返回")
@@ -135,8 +150,8 @@ fun MainScreen(
                 actions = {
                     AnimatedVisibility(
                         visible = currentRoute == "home",
-                        enter = fadeIn(tween(MotionDurations.MEDIUM)),
-                        exit = fadeOut(tween(MotionDurations.FAST))
+                        enter = if (enableAnimations) fadeIn(MotionSprings.interactive()) else EnterTransition.None,
+                        exit = if (enableAnimations) fadeOut(MotionSprings.interactive()) else ExitTransition.None
                     ) {
                         IconButton(onClick = { navController.navigate("search") }) {
                             Icon(Icons.Default.Search, contentDescription = "搜索")
@@ -148,14 +163,22 @@ fun MainScreen(
         bottomBar = {
             AnimatedVisibility(
                 visible = showBottomBar,
-                enter = slideInVertically(
-                    animationSpec = tween(MotionDurations.MEDIUM, easing = MotionCurves.StandardDecelerate),
-                    initialOffsetY = { it }
-                ) + fadeIn(tween(MotionDurations.MEDIUM)),
-                exit = slideOutVertically(
-                    animationSpec = tween(MotionDurations.SHORT),
-                    targetOffsetY = { it }
-                ) + fadeOut(tween(MotionDurations.SHORT))
+                enter = if (enableAnimations) {
+                    slideInVertically(
+                        animationSpec = MotionSprings.appearance(),
+                        initialOffsetY = { it }
+                    ) + fadeIn(animationSpec = MotionSprings.appearance())
+                } else {
+                    EnterTransition.None
+                },
+                exit = if (enableAnimations) {
+                    slideOutVertically(
+                        animationSpec = MotionSprings.appearance(),
+                        targetOffsetY = { it }
+                    ) + fadeOut(animationSpec = MotionSprings.appearance())
+                } else {
+                    ExitTransition.None
+                }
             ) {
                 val bgLuminance = MaterialTheme.colorScheme.background.let {
                     it.red * 0.299f + it.green * 0.587f + it.blue * 0.114f
@@ -171,12 +194,20 @@ fun MainScreen(
                         val selected = currentRoute == item.route
                         val itemScale by animateFloatAsState(
                             targetValue = if (selected) 1.05f else 1f,
-                            animationSpec = tween(MotionDurations.MEDIUM, easing = MotionCurves.FastOutSlowIn),
+                            animationSpec = if (enableAnimations) {
+                                MotionSprings.interactive()
+                            } else {
+                                snap()
+                            },
                             label = "navScale_${item.route}"
                         )
                         val itemAlpha by animateFloatAsState(
                             targetValue = if (selected) 1f else 0.7f,
-                            animationSpec = tween(200, easing = MotionCurves.FastOutSlowIn),
+                            animationSpec = if (enableAnimations) {
+                                MotionSprings.interactive()
+                            } else {
+                                snap()
+                            },
                             label = "navAlpha_${item.route}"
                         )
 
@@ -229,28 +260,48 @@ fun MainScreen(
             startDestination = "home",
             modifier = Modifier.padding(innerPadding),
             enterTransition = {
-                fadeIn(animationSpec = tween(MotionDurations.MEDIUM, easing = MotionCurves.FastOutSlowIn)) +
-                slideInHorizontally(
-                    animationSpec = tween(MotionDurations.MEDIUM, easing = MotionCurves.FastOutSlowIn),
-                    initialOffsetX = { (it * 0.06f).toInt() }
-                )
+                if (enableAnimations) {
+                    fadeIn(animationSpec = MotionSprings.appearance()) +
+                        slideInHorizontally(
+                            animationSpec = MotionSprings.appearance(),
+                            initialOffsetX = { it } // iOS-style full slide from right
+                        )
+                } else {
+                    EnterTransition.None
+                }
             },
             exitTransition = {
-                fadeOut(animationSpec = tween(MotionDurations.FAST, easing = MotionCurves.StandardAccelerate))
+                if (enableAnimations) {
+                    fadeOut(animationSpec = MotionSprings.appearance()) +
+                        slideOutHorizontally(
+                            animationSpec = MotionSprings.appearance(),
+                            targetOffsetX = { -it / 3 } // Subtle slide out to left
+                        )
+                } else {
+                    ExitTransition.None
+                }
             },
             popEnterTransition = {
-                fadeIn(animationSpec = tween(MotionDurations.MEDIUM, easing = MotionCurves.FastOutSlowIn)) +
-                slideInHorizontally(
-                    animationSpec = tween(MotionDurations.MEDIUM, easing = MotionCurves.FastOutSlowIn),
-                    initialOffsetX = { -(it * 0.06f).toInt() }
-                )
+                if (enableAnimations) {
+                    fadeIn(animationSpec = MotionSprings.appearance()) +
+                        slideInHorizontally(
+                            animationSpec = MotionSprings.appearance(),
+                            initialOffsetX = { -it / 3 }
+                        )
+                } else {
+                    EnterTransition.None
+                }
             },
             popExitTransition = {
-                fadeOut(animationSpec = tween(MotionDurations.MEDIUM, easing = MotionCurves.StandardAccelerate)) +
-                slideOutHorizontally(
-                    animationSpec = tween(MotionDurations.MEDIUM, easing = MotionCurves.StandardAccelerate),
-                    targetOffsetX = { (it * 0.08f).toInt() }
-                )
+                if (enableAnimations) {
+                    fadeOut(animationSpec = MotionSprings.appearance()) +
+                        slideOutHorizontally(
+                            animationSpec = MotionSprings.appearance(),
+                            targetOffsetX = { it } // iOS-style full slide to right
+                        )
+                } else {
+                    ExitTransition.None
+                }
             }
         ) {
             composable("home") {

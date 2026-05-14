@@ -26,6 +26,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -42,6 +43,7 @@ import com.inkqilin.ledger.util.ThemeMode
 import com.inkqilin.ledger.util.UpdateInfo
 
 import androidx.core.view.WindowCompat
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     private val database by lazy { AppDatabase.getDatabase(this) }
@@ -84,10 +86,17 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val checkUpdateEnabled by viewModel.checkUpdateEnabled.collectAsState()
                     var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
+                    var enableStartupAnimations by remember { mutableStateOf(false) }
                     val context = LocalContext.current
+
+                    LaunchedEffect(Unit) {
+                        withFrameNanos { }
+                        enableStartupAnimations = true
+                    }
 
                     LaunchedEffect(checkUpdateEnabled) {
                         if (checkUpdateEnabled) {
+                            delay(1200)
                             val result = AppUpdateChecker.checkForUpdate(context)
                             if (result != null) {
                                 updateInfo = result
@@ -131,7 +140,11 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    MainScreen(viewModel, renQingViewModel)
+                    MainScreen(
+                        viewModel = viewModel,
+                        renQingViewModel = renQingViewModel,
+                        enableAnimations = enableStartupAnimations
+                    )
                 }
             }
         }

@@ -21,8 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
-import com.inkqilin.ledger.ui.motion.MotionDurations
-import com.inkqilin.ledger.ui.motion.MotionCurves
+import com.inkqilin.ledger.ui.motion.*
 
 private fun dynamicDarkColorScheme(primary: Color) = darkColorScheme(
     primary = primary,
@@ -93,8 +92,8 @@ fun parseHexColor(hex: String): Color? {
     }
 }
 
-val DarkDefaultPrimary = Color(0xFF3F51B5)
-val LightDefaultPrimary = Color(0xFF3F51B5)
+val DarkDefaultPrimary = Color(0xFF04BE02)
+val LightDefaultPrimary = Color(0xFF04BE02)
 
 @Composable
 fun InkQilinLedgerTheme(
@@ -111,10 +110,7 @@ fun InkQilinLedgerTheme(
 
     val animatedPrimary = animateColorAsState(
         targetValue = customPrimary ?: defaultPrimary,
-        animationSpec = tween(
-            durationMillis = MotionDurations.MEDIUM,
-            easing = MotionCurves.FastOutSlowIn
-        ),
+        animationSpec = MotionSprings.interactive(), // iOS-like bouncy theme transition
         label = "primaryColorTransition"
     )
 
