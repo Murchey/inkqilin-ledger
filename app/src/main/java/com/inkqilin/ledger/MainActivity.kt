@@ -102,8 +102,8 @@ class MainActivity : ComponentActivity() {
                         var selectedSourceIndex by remember { mutableStateOf(0) }
                         val sources = listOf("Gitee 镜像 (国内推荐)", "GitHub 仓库 Release")
                         val downloadUrls = listOf(
-                            info.downloadUrl,
-                            "https://gitee.com/Murchey/inkqinlin-ledger/releases/latest"
+                            "https://gitee.com/Murchey/inkqinlin-ledger/releases/latest",
+                            info.downloadUrl
                         )
                         var expanded by remember { mutableStateOf(false) }
 
