@@ -6,31 +6,27 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.ui.Modifier
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.collectAsState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 import com.inkqilin.ledger.data.AppDatabase
 import com.inkqilin.ledger.ui.RenQingViewModel
 import com.inkqilin.ledger.ui.TransactionViewModel
@@ -41,8 +37,6 @@ import com.inkqilin.ledger.util.AppUpdateChecker
 import com.inkqilin.ledger.util.ThemeManager
 import com.inkqilin.ledger.util.ThemeMode
 import com.inkqilin.ledger.util.UpdateInfo
-
-import androidx.core.view.WindowCompat
 import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
@@ -105,6 +99,14 @@ class MainActivity : ComponentActivity() {
                     }
 
                     updateInfo?.let { info ->
+                        var selectedSourceIndex by remember { mutableStateOf(0) }
+                        val sources = listOf("Gitee 镜像 (国内推荐)", "GitHub 仓库 Release")
+                        val downloadUrls = listOf(
+                            info.downloadUrl,
+                            "https://gitee.com/Murchey/inkqinlin-ledger/releases/latest"
+                        )
+                        var expanded by remember { mutableStateOf(false) }
+
                         AlertDialog(
                             onDismissRequest = { updateInfo = null },
                             title = { Text("发现新版本 v${info.versionName}") },
@@ -125,11 +127,59 @@ class MainActivity : ComponentActivity() {
                                         fontSize = 13.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
+                                    
+                                    Spacer(modifier = Modifier.height(20.dp))
+                                    Text("选择下载源:", style = MaterialTheme.typography.labelMedium)
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    
+                                    Box(modifier = Modifier.fillMaxWidth()) {
+                                        Surface(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                                .clickable { expanded = true },
+                                            color = MaterialTheme.colorScheme.surfaceVariant,
+                                            shape = RoundedCornerShape(8.dp),
+                                            tonalElevation = 1.dp
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Text(
+                                                    text = sources[selectedSourceIndex],
+                                                    style = MaterialTheme.typography.bodyMedium
+                                                )
+                                                Icon(
+                                                    Icons.Default.ArrowDropDown,
+                                                    contentDescription = null
+                                                )
+                                            }
+                                        }
+                                        
+                                        DropdownMenu(
+                                            expanded = expanded,
+                                            onDismissRequest = { expanded = false },
+                                            modifier = Modifier.fillMaxWidth(0.7f)
+                                        ) {
+                                            sources.forEachIndexed { index, name ->
+                                                DropdownMenuItem(
+                                                    text = { Text(name) },
+                                                    onClick = {
+                                                        selectedSourceIndex = index
+                                                        expanded = false
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             },
                             confirmButton = {
                                 Button(onClick = {
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(info.downloadUrl))
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrls[selectedSourceIndex]))
                                     context.startActivity(intent)
                                     updateInfo = null
                                 }) { Text("前往更新") }

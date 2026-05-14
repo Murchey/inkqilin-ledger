@@ -1,30 +1,26 @@
 package com.inkqilin.ledger.ui.screens
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.ui.graphics.luminance
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -35,17 +31,8 @@ import com.inkqilin.ledger.data.CurrencyAsset
 import com.inkqilin.ledger.data.Transaction
 import com.inkqilin.ledger.data.TransactionType
 import com.inkqilin.ledger.ui.TransactionViewModel
-import com.inkqilin.ledger.ui.theme.InkQilinLedgerTheme
-import com.inkqilin.ledger.ui.theme.NeonBlue
-import com.inkqilin.ledger.ui.theme.FrostedDark
-import com.inkqilin.ledger.ui.theme.FrostedLight
-import com.inkqilin.ledger.ui.theme.FrostedBorderDark
-import com.inkqilin.ledger.ui.theme.FrostedBorderLight
-import com.inkqilin.ledger.ui.theme.resolveCardColor
-import com.inkqilin.ledger.ui.motion.MotionSprings
-import com.inkqilin.ledger.ui.motion.pressScale
-import com.inkqilin.ledger.ui.motion.staggeredAppearance
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import com.inkqilin.ledger.ui.motion.*
+import com.inkqilin.ledger.ui.theme.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -189,14 +176,17 @@ fun HomeScreen(
             buildRecentExpenseTrend(allTransactions)
         }
     }
-    val groupedTransactions by produceState(
-        initialValue = emptyList<DayTransactionGroup>(),
+    val groupedTransactionsState = produceState(
+        initialValue = null as List<DayTransactionGroup>?,
         allTransactions
     ) {
         value = withContext(Dispatchers.Default) {
             buildDayTransactionGroups(allTransactions)
         }
     }
+    val groupedTransactions = groupedTransactionsState.value ?: emptyList()
+    val isDataLoading = groupedTransactionsState.value == null && allTransactions.isNotEmpty()
+
     val currencySummaries by produceState(
         initialValue = emptyMap<String, CurrencyPeriodSummary>(),
         periodSummary.transactions
@@ -233,7 +223,9 @@ fun HomeScreen(
         ) {
             item {
                 Spacer(modifier = Modifier.height(8.dp))
-                if (multiCurrencyEnabled && allAssets.isNotEmpty()) {
+                if (isDataLoading) {
+                    OverviewCardSkeleton()
+                } else if (multiCurrencyEnabled && allAssets.isNotEmpty()) {
                     MultiCurrencyOverviewCards(
                         allAssets = allAssets,
                         currencySummaries = currencySummaries,
@@ -263,75 +255,79 @@ fun HomeScreen(
             item {
                 Spacer(modifier = Modifier.height(16.dp))
 
-                val trendShape = RoundedCornerShape(20.dp)
-                val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .frostedGlass(trendShape, isDark)
-                        .clickable { onNavigateToStatistics() },
-                    shape = trendShape,
-                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                ) {
-                    Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "近7日支出趋势",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "查看详情 ▸",
-                                fontSize = 12.sp,
-                                color = NeonBlue
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.Bottom
-                        ) {
-                            recentDays.forEach { (label, value) ->
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    if (value > 0) {
-                                        Text(
-                                            text = if (value >= 10000) "${String.format("%.1f", value / 10000)}w"
-                                                   else if (value >= 1000) String.format("%.0f", value)
-                                                   else String.format("%.0f", value),
-                                            fontSize = 8.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            textAlign = TextAlign.Center,
-                                            maxLines = 1
+                if (isDataLoading) {
+                    TrendChartSkeleton()
+                } else {
+                    val trendShape = RoundedCornerShape(20.dp)
+                    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .frostedGlass(trendShape, isDark)
+                            .clickable { onNavigateToStatistics() },
+                        shape = trendShape,
+                        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "近7日支出趋势",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "查看详情 ▸",
+                                    fontSize = 12.sp,
+                                    color = NeonBlue
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.Bottom
+                            ) {
+                                recentDays.forEach { (label, value) ->
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        if (value > 0) {
+                                            Text(
+                                                text = if (value >= 10000) "${String.format("%.1f", value / 10000)}w"
+                                                       else if (value >= 1000) String.format("%.0f", value)
+                                                       else String.format("%.0f", value),
+                                                fontSize = 8.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                textAlign = TextAlign.Center,
+                                                maxLines = 1
+                                            )
+                                        } else {
+                                            Spacer(modifier = Modifier.height(10.dp))
+                                        }
+                                        val barHeight = if (maxTrendValue > 0) (value / maxTrendValue * 56).toFloat().dp else 0.dp
+                                        Box(
+                                            modifier = Modifier
+                                                .width(20.dp)
+                                                .height(barHeight.coerceAtLeast(2.dp))
+                                                .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                                .background(NeonBlue.copy(alpha = 0.85f))
                                         )
-                                    } else {
-                                        Spacer(modifier = Modifier.height(10.dp))
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = label,
+                                            fontSize = 10.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            textAlign = TextAlign.Center
+                                        )
                                     }
-                                    val barHeight = if (maxTrendValue > 0) (value / maxTrendValue * 56).toFloat().dp else 0.dp
-                                    Box(
-                                        modifier = Modifier
-                                            .width(20.dp)
-                                            .height(barHeight.coerceAtLeast(2.dp))
-                                            .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                                            .background(NeonBlue.copy(alpha = 0.85f))
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = label,
-                                        fontSize = 10.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        textAlign = TextAlign.Center
-                                    )
                                 }
                             }
                         }
@@ -350,7 +346,11 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            if (allTransactions.isEmpty()) {
+            if (isDataLoading) {
+                items(5) {
+                    TransactionItemSkeleton()
+                }
+            } else if (allTransactions.isEmpty()) {
                 item {
                     Box(
                         modifier = Modifier
@@ -414,17 +414,17 @@ fun HomeScreen(
                             )
                         }
                     }
-                    items(
+                    itemsIndexed(
                         items = group.transactions,
-                        key = { it.id }
-                    ) { transaction ->
+                        key = { _, it -> it.id }
+                    ) { index, transaction ->
                         // iOS-style staggered entry
                         var itemVisible by remember { mutableStateOf(false) }
                         LaunchedEffect(Unit) {
                             itemVisible = true
                         }
                         
-                        Box(modifier = Modifier.staggeredAppearance(0, itemVisible)) {
+                        Box(modifier = Modifier.staggeredAppearance(index, itemVisible)) {
                             SwipeableTransactionItem(
                                 transaction = transaction,
                                 viewModel = viewModel,
@@ -728,6 +728,148 @@ private fun MultiCurrencyOverviewCards(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OverviewCardSkeleton() {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+    ) {
+        Column(modifier = Modifier.padding(24.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Box(modifier = Modifier.size(80.dp, 20.dp).clip(RoundedCornerShape(4.dp)).shimmer())
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Box(modifier = Modifier.size(120.dp, 14.dp).clip(RoundedCornerShape(4.dp)).shimmer())
+                }
+                Box(modifier = Modifier.size(100.dp, 32.dp).clip(RoundedCornerShape(12.dp)).shimmer())
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+            Box(modifier = Modifier.size(180.dp, 40.dp).clip(RoundedCornerShape(8.dp)).shimmer())
+            Spacer(modifier = Modifier.height(24.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column {
+                    Box(modifier = Modifier.size(40.dp, 14.dp).clip(RoundedCornerShape(4.dp)).shimmer())
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Box(modifier = Modifier.size(100.dp, 20.dp).clip(RoundedCornerShape(4.dp)).shimmer())
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Box(modifier = Modifier.size(40.dp, 14.dp).clip(RoundedCornerShape(4.dp)).shimmer())
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Box(modifier = Modifier.size(100.dp, 20.dp).clip(RoundedCornerShape(4.dp)).shimmer())
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrendChartSkeleton() {
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxWidth().frostedGlass(RoundedCornerShape(20.dp), isDark)) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Box(modifier = Modifier.size(120.dp, 18.dp).clip(RoundedCornerShape(4.dp)).shimmer())
+                    Box(modifier = Modifier.size(60.dp, 14.dp).clip(RoundedCornerShape(4.dp)).shimmer())
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    repeat(7) {
+                        Box(
+                            modifier = Modifier
+                                .width(20.dp)
+                                .height(56.dp)
+                                .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                .shimmer()
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TransactionItemSkeleton() {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 14.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .shimmer()
+            )
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.4f)
+                        .height(18.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .shimmer()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.6f)
+                        .height(14.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .shimmer()
+                )
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Box(
+                    modifier = Modifier
+                        .width(60.dp)
+                        .height(18.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .shimmer()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .width(40.dp)
+                        .height(14.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .shimmer()
+                )
             }
         }
     }
