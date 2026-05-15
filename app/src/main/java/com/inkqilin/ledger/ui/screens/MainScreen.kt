@@ -324,6 +324,9 @@ fun MainScreen(
                             },
                             onNavigateToSearch = {
                                 navController.navigate("search")
+                            },
+                            onNavigateToOcrRecognition = {
+                                navController.navigate("ocr_batch_recognition")
                             }
                         )
                         "statistics" -> StatisticsScreen(viewModel, navController)
@@ -356,12 +359,27 @@ fun MainScreen(
                             },
                             onNavigateToCurrencyManagement = {
                                 navController.navigate("currency_management")
+                            },
+                            onNavigateToAIConfig = {
+                                navController.navigate("ai_config")
                             }
                         )
                     }
                 }
             }
             composable("search") { SearchScreen(viewModel) }
+            composable("ai_config") {
+                AIConfigScreen(
+                    viewModel = viewModel,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable("ocr_batch_recognition") {
+                OcrBatchRecognitionScreen(
+                    viewModel = viewModel,
+                    onBack = { navController.popBackStack() }
+                )
+            }
             composable("add_transaction") {
                 AddTransactionScreen(
                     viewModel = viewModel,

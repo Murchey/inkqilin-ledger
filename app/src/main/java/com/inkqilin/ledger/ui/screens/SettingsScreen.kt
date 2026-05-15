@@ -55,7 +55,8 @@ fun SettingsScreen(
     renQingViewModel: RenQingViewModel,
     onNavigateToCategoryManagement: () -> Unit,
     onNavigateToContactManagement: () -> Unit = {},
-    onNavigateToCurrencyManagement: () -> Unit = {}
+    onNavigateToCurrencyManagement: () -> Unit = {},
+    onNavigateToAIConfig: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -64,6 +65,8 @@ fun SettingsScreen(
     val expenseColorHex by viewModel.expenseColor.collectAsState()
     val customPrimaryColorHex by viewModel.customPrimaryColorHex.collectAsState()
     val autoRecordEnabled by viewModel.autoRecordEnabled.collectAsState()
+    val ocrEnabled by viewModel.ocrEnabled.collectAsState()
+    val aiApiKey by viewModel.aiApiKey.collectAsState()
 
     var exportTimeRange by remember { mutableStateOf(ExportTimeRange.ALL) }
     var exportStartDate by remember { mutableLongStateOf(
@@ -515,6 +518,26 @@ fun SettingsScreen(
                                 Text("去开启")
                             }
                         }
+                    )
+                }
+                Divider()
+                ListItem(
+                    headlineContent = { Text("OCR账单识别") },
+                    supportingContent = { Text("通过 AI 识别图片账单并批量导入") },
+                    trailingContent = {
+                        Switch(
+                            checked = ocrEnabled,
+                            onCheckedChange = { viewModel.setOcrEnabled(it) }
+                        )
+                    }
+                )
+                if (ocrEnabled) {
+                    Divider()
+                    ListItem(
+                        headlineContent = { Text("AI API 配置") },
+                        supportingContent = { Text(if (aiApiKey.isEmpty()) "点击配置 API Key" else "已配置 API Key") },
+                        trailingContent = { Icon(Icons.Default.KeyboardArrowRight, contentDescription = null) },
+                        modifier = Modifier.clickable { onNavigateToAIConfig() }
                     )
                 }
             }

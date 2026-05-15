@@ -9,8 +9,7 @@ import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
@@ -19,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
@@ -63,12 +63,14 @@ fun HomeScreen(
     viewModel: TransactionViewModel,
     onNavigateToAddTransaction: () -> Unit = {},
     onNavigateToStatistics: () -> Unit = {},
-    @Suppress("UNUSED_PARAMETER") onNavigateToSearch: () -> Unit = {}
+    @Suppress("UNUSED_PARAMETER") onNavigateToSearch: () -> Unit = {},
+    onNavigateToOcrRecognition: () -> Unit = {}
 ) {
     val allTransactions by viewModel.allTransactions.collectAsState(initial = emptyList())
     val monthlyBudget by viewModel.monthlyBudget.collectAsState()
     val multiCurrencyEnabled by viewModel.multiCurrencyEnabled.collectAsState()
     val allAssets by viewModel.allAssets.collectAsState()
+    val ocrEnabled by viewModel.ocrEnabled.collectAsState()
     val expenseColorHex by viewModel.expenseColor.collectAsState()
     val expenseColor = Color(android.graphics.Color.parseColor(expenseColorHex))
     val incomeColorHex by viewModel.incomeColor.collectAsState()
@@ -79,6 +81,7 @@ fun HomeScreen(
         mutableStateOf(Calendar.getInstance().let { it.get(Calendar.YEAR) to it.get(Calendar.MONTH) })
     }
     var showMonthPicker by remember { mutableStateOf(false) }
+    var showFabMenu by remember { mutableStateOf(false) }
     var enableCardAnimations by remember { mutableStateOf(false) }
 
     val defaultAsset = remember(allAssets) { allAssets.firstOrNull { it.isDefault } }
@@ -204,19 +207,90 @@ fun HomeScreen(
 
     Scaffold(
         floatingActionButton = {
-            val fabInteractionSource = remember { MutableInteractionSource() }
-            FloatingActionButton(
-                onClick = onNavigateToAddTransaction,
-                containerColor = MaterialTheme.colorScheme.primary,
-                elevation = FloatingActionButtonDefaults.elevation(
-                    defaultElevation = 4.dp,
-                    pressedElevation = 0.dp // We use scale instead
-                ),
-                shape = RoundedCornerShape(16.dp),
-                interactionSource = fabInteractionSource,
-                modifier = Modifier.pressScale(fabInteractionSource)
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(Icons.Default.Add, contentDescription = "记一笔", tint = Color.White)
+                if (ocrEnabled) {
+                    AnimatedVisibility(
+                        visible = showFabMenu,
+                        enter = expandVertically(expandFrom = Alignment.Bottom) + fadeIn(),
+                        exit = shrinkVertically(shrinkTowards = Alignment.Bottom) + fadeOut()
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            SmallFloatingActionButton(
+                                onClick = {
+                                    showFabMenu = false
+                                    onNavigateToOcrRecognition()
+                                },
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("OCR 批量识别", style = MaterialTheme.typography.labelLarge)
+                                }
+                            }
+
+                            SmallFloatingActionButton(
+                                onClick = {
+                                    showFabMenu = false
+                                    onNavigateToAddTransaction()
+                                },
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("手动输入单条", style = MaterialTheme.typography.labelLarge)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                val fabInteractionSource = remember { MutableInteractionSource() }
+                FloatingActionButton(
+                    onClick = {
+                        if (ocrEnabled) {
+                            showFabMenu = !showFabMenu
+                        } else {
+                            onNavigateToAddTransaction()
+                        }
+                    },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    elevation = FloatingActionButtonDefaults.elevation(
+                        defaultElevation = 4.dp,
+                        pressedElevation = 0.dp
+                    ),
+                    shape = RoundedCornerShape(16.dp),
+                    interactionSource = fabInteractionSource,
+                    modifier = Modifier.pressScale(fabInteractionSource)
+                ) {
+                    val rotation by animateFloatAsState(
+                        targetValue = if (showFabMenu && ocrEnabled) 45f else 0f,
+                        label = "fabRotation"
+                    )
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "记一笔",
+                        tint = Color.White,
+                        modifier = Modifier.rotate(rotation)
+                    )
+                }
             }
         }
     ) { scaffoldPadding ->

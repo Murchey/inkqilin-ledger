@@ -169,6 +169,22 @@ class TransactionViewModel(
         viewModelScope, SharingStarted.WhileSubscribed(5000), false
     )
 
+    val ocrEnabled: StateFlow<Boolean> = themeManager.ocrEnabled.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), false
+    )
+
+    val aiApiKey: StateFlow<String> = themeManager.aiApiKey.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), ""
+    )
+
+    val aiBaseUrl: StateFlow<String> = themeManager.aiBaseUrl.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), "https://api.openai.com/v1"
+    )
+
+    val aiModel: StateFlow<String> = themeManager.aiModel.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), "gpt-4o"
+    )
+
     fun setCheckUpdateEnabled(enabled: Boolean) {
         viewModelScope.launch { themeManager.setCheckUpdateEnabled(enabled) }
     }
@@ -183,6 +199,22 @@ class TransactionViewModel(
 
     fun setAutoRecordEnabled(enabled: Boolean) {
         viewModelScope.launch { themeManager.setAutoRecordEnabled(enabled) }
+    }
+
+    fun setOcrEnabled(enabled: Boolean) {
+        viewModelScope.launch { themeManager.setOcrEnabled(enabled) }
+    }
+
+    fun setAiApiKey(apiKey: String) {
+        viewModelScope.launch { themeManager.setAiApiKey(apiKey) }
+    }
+
+    fun setAiBaseUrl(baseUrl: String) {
+        viewModelScope.launch { themeManager.setAiBaseUrl(baseUrl) }
+    }
+
+    fun setAiModel(model: String) {
+        viewModelScope.launch { themeManager.setAiModel(model) }
     }
 
     fun setThemeMode(mode: ThemeMode) {

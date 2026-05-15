@@ -29,6 +29,10 @@ class ThemeManager(private val context: Context) {
     private val CHECK_UPDATE_ENABLED_KEY = booleanPreferencesKey("check_update_enabled")
     private val CUSTOM_PRIMARY_COLOR_KEY = stringPreferencesKey("custom_primary_color")
     private val AUTO_RECORD_ENABLED_KEY = booleanPreferencesKey("auto_record_enabled")
+    private val OCR_ENABLED_KEY = booleanPreferencesKey("ocr_enabled")
+    private val AI_API_KEY_KEY = stringPreferencesKey("ai_api_key")
+    private val AI_BASE_URL_KEY = stringPreferencesKey("ai_base_url")
+    private val AI_MODEL_KEY = stringPreferencesKey("ai_model")
 
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { preferences ->
         val mode = preferences[THEME_KEY] ?: ThemeMode.AUTO.name
@@ -65,6 +69,22 @@ class ThemeManager(private val context: Context) {
 
     val autoRecordEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[AUTO_RECORD_ENABLED_KEY] ?: false
+    }
+
+    val ocrEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[OCR_ENABLED_KEY] ?: false
+    }
+
+    val aiApiKey: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[AI_API_KEY_KEY] ?: ""
+    }
+
+    val aiBaseUrl: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[AI_BASE_URL_KEY] ?: "https://api.openai.com/v1"
+    }
+
+    val aiModel: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[AI_MODEL_KEY] ?: "gpt-4o"
     }
 
     suspend fun setThemeMode(mode: ThemeMode) {
@@ -122,6 +142,30 @@ class ThemeManager(private val context: Context) {
     suspend fun setAutoRecordEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[AUTO_RECORD_ENABLED_KEY] = enabled
+        }
+    }
+
+    suspend fun setOcrEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[OCR_ENABLED_KEY] = enabled
+        }
+    }
+
+    suspend fun setAiApiKey(apiKey: String) {
+        context.dataStore.edit { preferences ->
+            preferences[AI_API_KEY_KEY] = apiKey
+        }
+    }
+
+    suspend fun setAiBaseUrl(baseUrl: String) {
+        context.dataStore.edit { preferences ->
+            preferences[AI_BASE_URL_KEY] = baseUrl
+        }
+    }
+
+    suspend fun setAiModel(model: String) {
+        context.dataStore.edit { preferences ->
+            preferences[AI_MODEL_KEY] = model
         }
     }
 }
