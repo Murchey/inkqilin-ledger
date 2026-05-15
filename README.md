@@ -19,6 +19,12 @@
 - **预算管理** — 设置月度预算后，首页显示预算卡片，包含总预算进度和分类支出占比
 - **搜索功能** — 按关键词搜索账单
 
+### 实验室功能
+
+- **OCR 批量识别** — 通过 AI 视觉模型识别账单图片（支持批量上传），自动提取日期、金额、分类和备注并一键导入
+- **AI API 配置** — 支持自定义 AI 接口（兼容 OpenAI 格式）、API Key 和模型名称（如 gpt-4o, qwen-vl 等）
+- **自动记账** — 监听支付宝、微信支付通知，自动解析交易信息并记录账单，支持后台去重
+
 ### 人情账本
 
 - **事件记录** — 记录婚礼、丧礼、生日、乔迁、升学、满月等人情往来事件
@@ -43,6 +49,7 @@
 - **主题定制** — 浅色模式 (#715CFF) / 深色模式 (#51B4FF)，支持跟随系统自动切换
 - **颜色管理** — 自定义收入/支出展示颜色，应用于所有账单条目和统计图表
 - **沉浸式显示** — 全屏沉浸式布局，透明状态栏与导航栏
+- **更新检测** — 自动检测 GitHub 最新版本，支持查看更新日志并跳转下载
 
 ### 动画与交互
 
@@ -66,6 +73,7 @@
 | Navigation Compose | 2.7.7 | 页面导航 |
 | DataStore | 1.0.0 | 偏好数据存储 |
 | Apache POI | 5.2.3 | Excel 文件读写 |
+| OkHttp | 4.12.0 | 网络请求（更新检测、AI API） |
 | KoalaPlot | 0.4.0 | 图表绘制 |
 | Gradle | 8.5 | 构建工具 |
 | Android Gradle Plugin | 8.2.2 | 构建插件 |
@@ -88,7 +96,12 @@ app/src/main/java/com/inkqilin/ledger/
 │   ├── RenQingEventDao.kt         # 人情事件数据访问
 │   ├── RenQingContactDao.kt       # 人情联系人数据访问
 │   └── RenQingTagDao.kt           # 人情标签数据访问
+├── service/                          # 后台服务
+│   ├── NotificationCaptureService.kt  # 通知监听服务（自动记账）
+│   ├── NotificationParser.kt          # 通知内容解析逻辑
 ├── ui/                            # 界面层
+│   ├── docs/
+│   │   └── ocrHelpDoc.txt         # OCR 设置指南文案
 │   ├── screens/
 │   │   ├── MainScreen.kt          # 主界面（导航框架、路由、转场动画）
 │   │   ├── HomeScreen.kt          # 首页（概览卡片、柱状图、预算卡片、账单列表、编辑弹窗）
@@ -97,7 +110,9 @@ app/src/main/java/com/inkqilin/ledger/
 │   │   ├── CategoryTransactionsScreen.kt  # 分类账单明细（二级页面）
 │   │   ├── CategoryManagementScreen.kt    # 分类管理（增删改）
 │   │   ├── SearchScreen.kt        # 搜索账单
-│   │   ├── SettingsScreen.kt      # 设置页面（多币种管理、预算设置、时间范围导出）
+│   │   ├── SettingsScreen.kt      # 设置页面（多币种管理、预算设置、实验功能开关）
+│   │   ├── AIConfigScreen.kt      # AI API 配置页面
+│   │   ├── OcrBatchRecognitionScreen.kt   # OCR 批量识别页面
 │   │   ├── TransactionComponents.kt       # 公共组件（滑动菜单、账单卡片、分类编辑弹窗）
 │   │   ├── RenQingMainScreen.kt   # 人情账本主界面
 │   │   ├── AddRenQingEventScreen.kt       # 添加人情事件
@@ -118,7 +133,8 @@ app/src/main/java/com/inkqilin/ledger/
 │   ├── ExcelExporter.kt           # Excel 导出（账单导出、模板下载）
 │   ├── ExcelImporter.kt           # Excel 导入（含自动创建分类）
 │   ├── RenQingExporter.kt         # 人情账本 Excel 导出
-│   └── ThemeManager.kt            # 主题管理（模式、收支颜色、多币种开关、月度预算持久化）
+│   ├── AppUpdateChecker.kt        # GitHub 更新检测工具
+│   └── ThemeManager.kt            # 主题与偏好管理（含 AI 配置持久化）
 └── MainActivity.kt                # 入口 Activity（沉浸式配置）
 ```
 
