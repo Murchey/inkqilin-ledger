@@ -66,132 +66,118 @@ fun OcrBatchRecognitionScreen(
         selectedImages = uris
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("OCR 批量识别") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-        ) {
-            if (recognizedTransactions.isEmpty()) {
-                // Image Selection State
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    if (selectedImages.isEmpty()) {
-                        Icon(
-                            Icons.Default.AddCircle,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(80.dp)
-                                .clickable { imagePickerLauncher.launch("image/*") },
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text("点击上传账单图片", style = MaterialTheme.typography.bodyLarge)
-                        Text("支持批量上传，建议图片清晰", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(selectedImages) { uri ->
-                                ImageThumbnail(uri)
-                            }
-                        }
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            OutlinedButton(
-                                onClick = { selectedImages = emptyList() },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("重置")
-                            }
-                            Button(
-                                onClick = {
-                                    if (aiApiKey.isEmpty()) {
-                                        Toast.makeText(context, "请先在设置中配置 AI API Key", Toast.LENGTH_LONG).show()
-                                    } else {
-                                        scope.launch {
-                                            isRecognizing = true
-                                            val results = performOcr(context, selectedImages, aiApiKey, aiBaseUrl, aiModel)
-                                            recognizedTransactions = results
-                                            isRecognizing = false
-                                            if (results.isEmpty()) {
-                                                Toast.makeText(context, "未能从图片中识别出有效交易，请确保图片清晰或检查 API 配置", Toast.LENGTH_LONG).show()
-                                            }
-                                        }
-                                    }
-                                },
-                                modifier = Modifier.weight(1f),
-                                enabled = !isRecognizing
-                            ) {
-                                if (isRecognizing) {
-                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("识别中...")
-                                } else {
-                                    Text("开始识别")
-                                }
-                            }
-                        }
-                    }
-                }
-            } else {
-                // Recognition Results State
-                Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-                    Text("识别结果 (${recognizedTransactions.size})", style = MaterialTheme.typography.titleMedium)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(recognizedTransactions) { item ->
-                            RecognizedItemCard(item, onRemove = {
-                                recognizedTransactions = recognizedTransactions.filter { it != item }
-                            })
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+    ) {
+        if (recognizedTransactions.isEmpty()) {
+            // Image Selection State
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                if (selectedImages.isEmpty()) {
+                    Icon(
+                        Icons.Default.AddCircle,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(80.dp)
+                            .clickable { imagePickerLauncher.launch("image/*") },
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("点击上传账单图片", style = MaterialTheme.typography.bodyLarge)
+                    Text("支持批量上传，建议图片清晰", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(selectedImages) { uri ->
+                            ImageThumbnail(uri)
                         }
                     }
                     
                     Spacer(modifier = Modifier.height(16.dp))
                     
-                    Button(
-                        onClick = {
-                            scope.launch {
-                                recognizedTransactions.forEach { recognized ->
-                                    viewModel.addTransaction(
-                                        Transaction(
-                                            amount = recognized.amount,
-                                            note = recognized.note,
-                                            category = recognized.category,
-                                            type = recognized.type,
-                                            date = recognized.date.time,
-                                            currency = "CNY"
-                                        )
-                                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        OutlinedButton(
+                            onClick = { selectedImages = emptyList() },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("重置")
+                        }
+                        Button(
+                            onClick = {
+                                if (aiApiKey.isEmpty()) {
+                                    Toast.makeText(context, "请先在设置中配置 AI API Key", Toast.LENGTH_LONG).show()
+                                } else {
+                                    scope.launch {
+                                        isRecognizing = true
+                                        val results = performOcr(context, selectedImages, aiApiKey, aiBaseUrl, aiModel)
+                                        recognizedTransactions = results
+                                        isRecognizing = false
+                                        if (results.isEmpty()) {
+                                            Toast.makeText(context, "未能从图片中识别出有效交易，请确保图片清晰或检查 API 配置", Toast.LENGTH_LONG).show()
+                                        }
+                                    }
                                 }
-                                Toast.makeText(context, "已成功导入 ${recognizedTransactions.size} 条账单", Toast.LENGTH_SHORT).show()
-                                onBack()
+                            },
+                            modifier = Modifier.weight(1f),
+                            enabled = !isRecognizing
+                        ) {
+                            if (isRecognizing) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("识别中...")
+                            } else {
+                                Text("开始识别")
                             }
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("确认并导入")
+                        }
                     }
+                }
+            }
+        } else {
+            // Recognition Results State
+            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                Text("识别结果 (${recognizedTransactions.size})", style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(recognizedTransactions) { item ->
+                        RecognizedItemCard(item, onRemove = {
+                            recognizedTransactions = recognizedTransactions.filter { it != item }
+                        })
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Button(
+                    onClick = {
+                        scope.launch {
+                            recognizedTransactions.forEach { recognized ->
+                                viewModel.addTransaction(
+                                    Transaction(
+                                        amount = recognized.amount,
+                                        note = recognized.note,
+                                        category = recognized.category,
+                                        type = recognized.type,
+                                        date = recognized.date.time,
+                                        currency = "CNY"
+                                    )
+                                )
+                            }
+                            Toast.makeText(context, "已成功导入 ${recognizedTransactions.size} 条账单", Toast.LENGTH_SHORT).show()
+                            onBack()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("确认并导入")
                 }
             }
         }

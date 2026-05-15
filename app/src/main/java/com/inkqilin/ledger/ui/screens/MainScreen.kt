@@ -101,6 +101,8 @@ fun MainScreen(
         currentRoute?.startsWith("category_transactions") == true -> "分类账单"
         currentRoute == "contact_management" -> "联系人管理"
         currentRoute == "currency_management" -> "币种卡片管理"
+        currentRoute == "ai_config" -> "AI API 配置"
+        currentRoute == "ocr_batch_recognition" -> "OCR 批量识别"
         else -> "墨麒麟记账"
     }
 

@@ -29,85 +29,80 @@ fun AIConfigScreen(
     var tempBaseUrl by remember { mutableStateOf(aiBaseUrl) }
     var tempModel by remember { mutableStateOf(aiModel) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("AI API 配置") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
-                    }
-                },
-                actions = {
-                    TextButton(onClick = {
-                        viewModel.setAiApiKey(tempApiKey)
-                        viewModel.setAiBaseUrl(tempBaseUrl)
-                        viewModel.setAiModel(tempModel)
-                        onBack()
-                    }) {
-                        Text("保存")
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState())
-                .fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+    Column(
+        modifier = Modifier
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState())
+            .fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        OutlinedTextField(
+            value = tempApiKey,
+            onValueChange = { tempApiKey = it },
+            label = { Text("API Key") },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("输入您的 AI API Key") }
+        )
+
+        OutlinedTextField(
+            value = tempBaseUrl,
+            onValueChange = { tempBaseUrl = it },
+            label = { Text("Base URL") },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("例如: https://api.openai.com/v1") }
+        )
+
+        OutlinedTextField(
+            value = tempModel,
+            onValueChange = { tempModel = it },
+            label = { Text("Model Name") },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("例如: gpt-4o 或 qwen-vl-plus") }
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "OCR AI API 设置指南",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
         ) {
-            OutlinedTextField(
-                value = tempApiKey,
-                onValueChange = { tempApiKey = it },
-                label = { Text("API Key") },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("输入您的 AI API Key") }
-            )
-
-            OutlinedTextField(
-                value = tempBaseUrl,
-                onValueChange = { tempBaseUrl = it },
-                label = { Text("Base URL") },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("例如: https://api.openai.com/v1") }
-            )
-
-            OutlinedTextField(
-                value = tempModel,
-                onValueChange = { tempModel = it },
-                label = { Text("Model Name") },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("例如: gpt-4o 或 qwen-vl-plus") }
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "OCR AI API 设置指南",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    GuideItem(number = "1", text = "建议使用国内 API 平台的模型（例如硅基流动、智谱清言、阿里云百炼等）")
-                    GuideItem(number = "2", text = "模型必须为视觉模型或包含视觉输入（模型名称内包含 omni 或 VL 字段）")
-                    GuideItem(number = "3", text = "链接使用 OpenAI 格式的请求链接")
-                    GuideItem(number = "4", text = "识别数据不全、错误问题，大部分由模型造成，建议更换能力更好的模型")
-                    GuideItem(number = "5", text = "本软件只负责上传图片数据到 API 平台，接受返回数据")
-                }
+                GuideItem(number = "1", text = "建议使用国内 API 平台的模型（例如硅基流动、智谱清言、阿里云百炼等）")
+                GuideItem(number = "2", text = "模型必须为视觉模型或包含视觉输入（模型名称内包含 omni 或 VL 字段）")
+                GuideItem(number = "3", text = "链接使用 OpenAI 格式的请求链接")
+                GuideItem(number = "4", text = "识别数据不全、错误问题，大部分由模型造成，建议更换能力更好的模型")
+                GuideItem(number = "5", text = "本软件只负责上传图片数据到 API 平台，接受返回数据")
             }
         }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Button(
+            onClick = {
+                viewModel.setAiApiKey(tempApiKey)
+                viewModel.setAiBaseUrl(tempBaseUrl)
+                viewModel.setAiModel(tempModel)
+                onBack()
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            shape = RoundedCornerShape(14.dp)
+        ) {
+            Text("保存配置", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        }
+        
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
