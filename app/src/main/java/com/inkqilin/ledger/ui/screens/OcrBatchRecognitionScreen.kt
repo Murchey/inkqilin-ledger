@@ -34,6 +34,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.FlowRow
 import com.inkqilin.ledger.data.AlbumPhoto
 import com.inkqilin.ledger.data.Transaction
 import com.inkqilin.ledger.data.TransactionType
@@ -167,9 +168,17 @@ fun OcrBatchRecognitionScreen(
                 
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(recognizedTransactions) { item ->
-                        RecognizedItemCard(item, onRemove = {
-                            recognizedTransactions = recognizedTransactions.filter { it != item }
-                        })
+                        RecognizedItemCard(
+                            item = item,
+                            onRemove = {
+                                recognizedTransactions = recognizedTransactions.filter { it != item }
+                            },
+                            onEdit = { updated ->
+                                recognizedTransactions = recognizedTransactions.map {
+                                    if (it == item) updated else it
+                                }
+                            }
+                        )
                     }
                 }
                 
@@ -348,8 +357,15 @@ fun ImageThumbnail(uri: Uri) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun RecognizedItemCard(item: RecognizedTransaction, onRemove: () -> Unit) {
+fun RecognizedItemCard(
+    item: RecognizedTransaction,
+    onRemove: () -> Unit,
+    onEdit: (RecognizedTransaction) -> Unit
+) {
+    var showEditDialog by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -388,10 +404,81 @@ fun RecognizedItemCard(item: RecognizedTransaction, onRemove: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            IconButton(onClick = { showEditDialog = true }) {
+                Icon(Icons.Default.Create, contentDescription = "编辑")
+            }
             IconButton(onClick = onRemove) {
                 Icon(Icons.Default.Delete, contentDescription = "删除", tint = MaterialTheme.colorScheme.error)
             }
         }
+    }
+
+    if (showEditDialog) {
+        var editAmount by remember { mutableStateOf(item.amount.toString()) }
+        var editCategory by remember { mutableStateOf(item.category) }
+        var editNote by remember { mutableStateOf(item.note) }
+        var editType by remember { mutableStateOf(item.type) }
+        val categories = listOf("餐饮", "交通", "购物", "娱乐", "居住", "医疗", "教育", "人情", "投资", "收入", "其他")
+
+        AlertDialog(
+            onDismissRequest = { showEditDialog = false },
+            title = { Text("编辑账单") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = editAmount,
+                        onValueChange = { editAmount = it.filter { c -> c.isDigit() || c == '.' } },
+                        label = { Text("金额") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = editType == TransactionType.EXPENSE,
+                            onClick = { editType = TransactionType.EXPENSE },
+                            label = { Text("支出") }
+                        )
+                        FilterChip(
+                            selected = editType == TransactionType.INCOME,
+                            onClick = { editType = TransactionType.INCOME },
+                            label = { Text("收入") }
+                        )
+                    }
+                    Text("分类", style = MaterialTheme.typography.labelMedium)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        categories.forEach { cat ->
+                            FilterChip(
+                                selected = editCategory == cat,
+                                onClick = { editCategory = cat },
+                                label = { Text(cat, fontSize = 12.sp) }
+                            )
+                        }
+                    }
+                    OutlinedTextField(
+                        value = editNote,
+                        onValueChange = { editNote = it },
+                        label = { Text("备注") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val amount = editAmount.toDoubleOrNull() ?: item.amount
+                    onEdit(item.copy(
+                        amount = amount,
+                        category = editCategory,
+                        note = editNote,
+                        type = editType
+                    ))
+                    showEditDialog = false
+                }) { Text("保存") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditDialog = false }) { Text("取消") }
+            }
+        )
     }
 }
 
@@ -430,7 +517,8 @@ private suspend fun performOcr(
                         put("content", JSONArray().apply {
                             put(JSONObject().apply {
                                 put("type", "text")
-                                put("text", "你是一个极其严谨的账单识别专家。你的任务是逐行扫描图片，识别并提取图中的【每一笔】交易记录，严禁遗漏任何一条可见的账单。即使图片包含长列表、多栏数据或微小的文字，也必须全部识别。对于每一笔交易，请严格返回如下格式的 JSON 数组（不要包含任何额外说明或 markdown 块）：\n[{\"date\": \"YYYY-MM-DD\", \"amount\": 0.0, \"category\": \"分类名称\", \"note\": \"具体商品或服务名称\", \"type\": \"EXPENSE\"或\"INCOME\"}]。\n\n规则：\n1. 必须识别【所有】可见的交易，不得有选择性地忽略。\n2. 如果图片中没有日期，请推测或使用当前日期 yyyy-MM-dd。\n3. 分类名称请归纳为：餐饮, 交通, 购物, 娱乐, 居住, 医疗, 教育, 人情, 投资, 收入, 其他。\n4. 备注请填入具体的交易内容，如“瑞幸咖啡”或“美团外卖”。")
+                                val currentTime = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date())
+                                put("text", "你是一个极其严谨的账单识别专家。当前时间：$currentTime。你的任务是逐行扫描图片，识别并提取图中的【每一笔】交易记录，严禁遗漏任何一条可见的账单。即使图片包含长列表、多栏数据或微小的文字，也必须全部识别。对于每一笔交易，请严格返回如下格式的 JSON 数组（不要包含任何额外说明或 markdown 块）：\n[{\"date\": \"YYYY-MM-DD\", \"amount\": 0.0, \"category\": \"分类名称\", \"note\": \"具体商品或服务名称\", \"type\": \"EXPENSE\"或\"INCOME\"}]。\n\n规则：\n1. 必须识别【所有】可见的交易，不得有选择性地忽略。\n2. 如果图片中没有日期或日期不完整，请使用当前时间 $currentTime。\n3. 分类名称请归纳为：餐饮, 交通, 购物, 娱乐, 居住, 医疗, 教育, 人情, 投资, 收入, 其他。如果无法确定分类，必须使用“其他”。\n4. 备注请填入具体的交易内容，如“瑞幸咖啡”或“美团外卖”。\n5. 每条记录必须包含 category 字段，不允许为空。")
                             })
                             put(JSONObject().apply {
                                 put("type", "image_url")

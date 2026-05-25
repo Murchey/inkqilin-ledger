@@ -74,8 +74,19 @@ fun MainScreen(
     }
 
     val pagerState = rememberPagerState { bottomItems.size }
+
+    LaunchedEffect(bottomItems.size) {
+        if (pagerState.currentPage >= bottomItems.size) {
+            pagerState.scrollToPage(0)
+        }
+    }
+
     val showBottomBar = currentRoute == "main"
-    val currentPageRoute = bottomItems[pagerState.currentPage].route
+    val currentPageRoute = if (pagerState.currentPage < bottomItems.size) {
+        bottomItems[pagerState.currentPage].route
+    } else {
+        "home"
+    }
 
     // Sync Pager with Bottom Nav selection (initial sync)
     LaunchedEffect(currentRoute) {

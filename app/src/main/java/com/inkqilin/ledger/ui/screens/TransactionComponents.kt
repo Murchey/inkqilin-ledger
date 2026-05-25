@@ -1,6 +1,5 @@
 package com.inkqilin.ledger.ui.screens
 
-import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.*
@@ -17,7 +16,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -30,6 +28,7 @@ import com.inkqilin.ledger.data.TransactionType
 import com.inkqilin.ledger.ui.TransactionViewModel
 import com.inkqilin.ledger.ui.motion.*
 import com.inkqilin.ledger.ui.theme.*
+import androidx.core.graphics.toColorInt
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt
@@ -52,7 +51,7 @@ fun SwipeableTransactionItem(
     }
 
     val expenseColorHex by viewModel.expenseColor.collectAsState()
-    val expenseColor = Color(android.graphics.Color.parseColor(expenseColorHex))
+    val expenseColor = Color(expenseColorHex.toColorInt())
 
     Box(
         modifier = Modifier
@@ -309,7 +308,7 @@ private fun TransactionItemPreview() {
         Surface(color = MaterialTheme.colorScheme.background) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("账单条目预览", style = MaterialTheme.typography.titleSmall)
-                val sdf = java.text.SimpleDateFormat("MM月dd日", java.util.Locale.getDefault())
+                val sdf = SimpleDateFormat("MM月dd日", Locale.getDefault())
                 val now = System.currentTimeMillis()
                 val previewTransactions = listOf(
                     Transaction(1, 35.50, "餐饮", "午餐", now, TransactionType.EXPENSE, "CNY"),
@@ -348,7 +347,7 @@ private fun TransactionItemPreview() {
                                     color = iconColor, fontWeight = FontWeight.Bold, fontSize = 15.sp
                                 )
                                 Text(
-                                    text = sdf.format(java.util.Date(tx.date)),
+                                    text = sdf.format(Date(tx.date)),
                                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp
                                 )
                             }

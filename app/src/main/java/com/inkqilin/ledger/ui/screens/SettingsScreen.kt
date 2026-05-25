@@ -1,3 +1,5 @@
+@file:Suppress("AssignedValueIsNeverRead")
+
 package com.inkqilin.ledger.ui.screens
 
 import android.content.Context
@@ -853,7 +855,7 @@ fun ColorPickerButton(selectedColor: String, onColorSelected: (String) -> Unit) 
                 ) {
                     val previewColor = try {
                         Color(android.graphics.Color.parseColor(colorInput))
-                    } catch (e: Exception) {
+                    } catch (_: Exception) {
                         Color.Transparent
                     }
                     Box(
@@ -1113,7 +1115,7 @@ private fun CurrencyEditDialog(
                 ) {
                     val previewColor = try {
                         Color(android.graphics.Color.parseColor(colorInput))
-                    } catch (e: Exception) {
+                    } catch (_: Exception) {
                         Color.Transparent
                     }
                     Box(

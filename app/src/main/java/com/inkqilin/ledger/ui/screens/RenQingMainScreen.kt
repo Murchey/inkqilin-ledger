@@ -1,3 +1,5 @@
+@file:Suppress("AssignedValueIsNeverRead")
+
 package com.inkqilin.ledger.ui.screens
 
 import androidx.compose.foundation.background
@@ -1079,16 +1081,6 @@ private fun StatColumn(label: String, value: String, color: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text("¥$value", style = MaterialTheme.typography.titleMedium, color = color, fontWeight = FontWeight.Bold)
-    }
-}
-
-@Composable
-private fun CategoryStatRow(label: String, value: String, percentage: Double) {
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Text(label, modifier = Modifier.weight(1f))
-        Text("¥$value", fontWeight = FontWeight.Medium)
-        Spacer(modifier = Modifier.width(8.dp))
-        Text("${(percentage * 100).toInt()}%", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

@@ -1,3 +1,5 @@
+@file:Suppress("AssignedValueIsNeverRead")
+
 package com.inkqilin.ledger.ui.screens
 
 import androidx.compose.animation.*
@@ -16,7 +18,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
@@ -33,6 +34,7 @@ import com.inkqilin.ledger.data.TransactionType
 import com.inkqilin.ledger.ui.TransactionViewModel
 import com.inkqilin.ledger.ui.motion.*
 import com.inkqilin.ledger.ui.theme.*
+import androidx.core.graphics.toColorInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -72,9 +74,9 @@ fun HomeScreen(
     val allAssets by viewModel.allAssets.collectAsState()
     val ocrEnabled by viewModel.ocrEnabled.collectAsState()
     val expenseColorHex by viewModel.expenseColor.collectAsState()
-    val expenseColor = Color(android.graphics.Color.parseColor(expenseColorHex))
+    val expenseColor = Color(expenseColorHex.toColorInt())
     val incomeColorHex by viewModel.incomeColor.collectAsState()
-    val incomeColor = Color(android.graphics.Color.parseColor(incomeColorHex))
+    val incomeColor = Color(incomeColorHex.toColorInt())
 
     var selectedPeriod by remember { mutableIntStateOf(2) }
     var selectedYearMonth by remember {
@@ -161,24 +163,6 @@ fun HomeScreen(
         }
     }
 
-    val periodSummary by produceState(
-        initialValue = PeriodSummary(),
-        allTransactions,
-        selectedPeriod,
-        selectedYearMonth
-    ) {
-        value = withContext(Dispatchers.Default) {
-            buildPeriodSummary(allTransactions, selectedPeriod, selectedYearMonth)
-        }
-    }
-    val recentDays by produceState(
-        initialValue = emptyList<Pair<String, Double>>(),
-        allTransactions
-    ) {
-        value = withContext(Dispatchers.Default) {
-            buildRecentExpenseTrend(allTransactions)
-        }
-    }
     val homeDataState = produceState(
         initialValue = HomeData(),
         allTransactions,

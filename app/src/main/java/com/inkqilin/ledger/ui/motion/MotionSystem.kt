@@ -30,7 +30,6 @@ object MotionDurations {
 }
 
 object MotionCurves {
-    val iOSCurve = CubicBezierEasing(0.25f, 0.1f, 0.25f, 1f)
     val FastOutSlowIn = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 }
 

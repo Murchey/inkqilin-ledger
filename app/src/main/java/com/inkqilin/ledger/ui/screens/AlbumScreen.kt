@@ -28,6 +28,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
@@ -43,6 +45,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -92,6 +95,16 @@ fun AlbumScreen(
     var capturedUri by remember { mutableStateOf<Uri?>(null) }
 
     var showFlash by remember { mutableStateOf(false) }
+    var isPrinting by remember { mutableStateOf(false) }
+
+    LaunchedEffect(showFlash) {
+        if (showFlash) {
+            kotlinx.coroutines.delay(300)
+            showFlash = false
+            showPolaroid = true
+            isPrinting = true
+        }
+    }
 
     val hasCameraPermission = remember {
         mutableStateOf(
@@ -236,6 +249,8 @@ fun AlbumScreen(
                     expansionProgress = expansionProgress,
                     isDragging = isDragging,
                     hasPermission = hasCameraPermission.value,
+                    showFlash = showFlash,
+                    isPrinting = isPrinting,
                     onImageCaptureReady = { imageCapture = it }
                 )
             }
@@ -346,26 +361,12 @@ fun AlbumScreen(
             }
         }
 
-        if (showFlash) {
-            val flashAlpha = remember { Animatable(1f) }
-            LaunchedEffect(Unit) {
-                flashAlpha.animateTo(0f, animationSpec = tween(200))
-                showFlash = false
-                showPolaroid = true
-            }
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer { alpha = flashAlpha.value }
-                    .background(Color.White)
-            )
-        }
-
         if (showPolaroid && polaroidBitmap != null) {
             PolaroidPrintAnimation(
                 bitmap = polaroidBitmap!!,
                 onComplete = {
                     showPolaroid = false
+                    isPrinting = false
                     capturedUri?.let { viewModel.addAlbumPhoto(it.toString()) }
                     polaroidBitmap = null
                     capturedUri = null
@@ -380,7 +381,9 @@ fun AlbumScreen(
         ) {
             FloatingActionButton(
                 onClick = { galleryPicker.launch("image/*") },
-                modifier = Modifier.size(56.dp)
+                modifier = Modifier.size(56.dp),
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
             ) {
                 Icon(Icons.Default.Add, contentDescription = "从相册选择")
             }
@@ -454,6 +457,8 @@ private fun DynamicIslandCapsule(
     expansionProgress: Animatable<Float, AnimationVector1D>,
     isDragging: Boolean,
     hasPermission: Boolean,
+    showFlash: Boolean,
+    isPrinting: Boolean,
     onImageCaptureReady: (ImageCapture) -> Unit
 ) {
     val context = LocalContext.current
@@ -461,13 +466,26 @@ private fun DynamicIslandCapsule(
 
     val collapsedWidth = 150.dp
     val expandedWidth = 340.dp
+    val printWidth = 184.dp
     val collapsedHeight = 40.dp
     val expandedHeight = 260.dp
 
-    val currentWidth = collapsedWidth + (expandedWidth - collapsedWidth) * expansionProgress.value
-    val currentHeight = collapsedHeight + (expandedHeight - collapsedHeight) * expansionProgress.value
-    val cornerRadius = 50.dp - (50.dp - 24.dp) * expansionProgress.value
-    val shadowElevation = 4.dp + 12.dp * expansionProgress.value
+    val currentWidth = if (isPrinting) {
+        printWidth
+    } else {
+        collapsedWidth + (expandedWidth - collapsedWidth) * expansionProgress.value
+    }
+    val currentHeight = if (isPrinting) {
+        collapsedHeight
+    } else {
+        collapsedHeight + (expandedHeight - collapsedHeight) * expansionProgress.value
+    }
+    val cornerRadius = if (isPrinting) {
+        24.dp
+    } else {
+        50.dp - (50.dp - 24.dp) * expansionProgress.value
+    }
+    val shadowElevation = 4.dp + 12.dp * (if (isPrinting) 0f else expansionProgress.value)
 
     val shouldBindCamera = expansionProgress.value > 0.15f
 
@@ -577,6 +595,19 @@ private fun DynamicIslandCapsule(
                         .graphicsLayer { alpha = ((expansionProgress.value - 0.6f) / 0.4f).coerceIn(0f, 1f) }
                 )
             }
+
+            if (showFlash) {
+                val flashAlpha = remember { Animatable(1f) }
+                LaunchedEffect(Unit) {
+                    flashAlpha.animateTo(0f, animationSpec = tween(300))
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { alpha = flashAlpha.value }
+                        .background(Color.White)
+                )
+            }
         }
     }
 }
@@ -588,77 +619,89 @@ private fun PolaroidPrintAnimation(
 ) {
     val isDark = isSystemInDarkTheme()
     val borderColor = if (isDark) Color.White else Color.Black
-    val expandProgress = remember { Animatable(0f) }
-    val offsetY = remember { Animatable(0f) }
+    val revealOffset = remember { Animatable(-700f) }
+    val moveY = remember { Animatable(0f) }
+    val shrinkScale = remember { Animatable(1f) }
     val alpha = remember { Animatable(1f) }
+    val printEasing = CubicBezierEasing(0.25f, 0.1f, 0.25f, 1.0f)
+    val settleEasing = CubicBezierEasing(0.4f, 0.0f, 0.2f, 1.0f)
 
     LaunchedEffect(Unit) {
         launch {
-            expandProgress.animateTo(
-                targetValue = 1f,
-                animationSpec = tween(
-                    durationMillis = 600,
-                    easing = CubicBezierEasing(0.2f, 0.0f, 0.4f, 1.0f)
-                )
+            revealOffset.animateTo(
+                targetValue = 0f,
+                animationSpec = tween(durationMillis = 1400, easing = printEasing)
             )
         }
         launch {
-            offsetY.animateTo(
-                targetValue = 350f,
-                animationSpec = tween(
-                    durationMillis = 1200,
-                    easing = CubicBezierEasing(0.2f, 0.0f, 0.4f, 1.0f)
-                )
+            moveY.animateTo(
+                targetValue = 80f,
+                animationSpec = tween(durationMillis = 1400, easing = printEasing)
             )
         }
-
-        kotlinx.coroutines.delay(1400)
-
-        alpha.animateTo(
-            targetValue = 0f,
-            animationSpec = tween(300)
-        )
+        kotlinx.coroutines.delay(1300)
+        launch {
+            shrinkScale.animateTo(
+                targetValue = 0.15f,
+                animationSpec = tween(durationMillis = 600, easing = settleEasing)
+            )
+        }
+        launch {
+            alpha.animateTo(
+                targetValue = 0f,
+                animationSpec = tween(durationMillis = 500, easing = LinearEasing)
+            )
+        }
+        kotlinx.coroutines.delay(700)
         onComplete()
     }
 
     Box(
         modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 4.dp),
+            .fillMaxSize(),
         contentAlignment = Alignment.TopCenter
     ) {
         Box(
             modifier = Modifier
-                .offset { IntOffset(0, offsetY.value.roundToInt()) }
+                .offset { IntOffset(0, moveY.value.roundToInt()) }
                 .graphicsLayer {
                     this.alpha = alpha.value
+                    scaleX = shrinkScale.value
+                    scaleY = shrinkScale.value
                     transformOrigin = TransformOrigin(0.5f, 0f)
-                    scaleY = expandProgress.value
                 }
                 .width(180.dp)
                 .height(240.dp)
-                .border(3.dp, borderColor, RoundedCornerShape(6.dp))
-                .clip(RoundedCornerShape(6.dp))
+                .clipToBounds()
         ) {
-            Card(
+            Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .shadow(12.dp, RoundedCornerShape(6.dp)),
-                shape = RoundedCornerShape(6.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                    .offset { IntOffset(0, revealOffset.value.roundToInt()) }
+                    .width(180.dp)
+                    .height(240.dp)
+                    .border(3.dp, borderColor, RoundedCornerShape(6.dp))
+                    .clip(RoundedCornerShape(6.dp))
             ) {
-                Column(
-                    modifier = Modifier.padding(10.dp, 10.dp, 10.dp, 32.dp)
+                Card(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .shadow(12.dp, RoundedCornerShape(6.dp)),
+                    shape = RoundedCornerShape(6.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
                 ) {
-                    Image(
-                        bitmap = bitmap.asImageBitmap(),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                            .clip(RoundedCornerShape(2.dp)),
-                        contentScale = ContentScale.Crop
-                    )
+                    Column(
+                        modifier = Modifier.padding(10.dp, 10.dp, 10.dp, 32.dp)
+                    ) {
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .clip(RoundedCornerShape(2.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
                 }
             }
         }
@@ -680,7 +723,7 @@ private fun AlbumPhotoCard(
             val uri = Uri.parse(photo.uri)
             context.contentResolver.openInputStream(uri)?.use { stream ->
                 BitmapFactory.decodeStream(stream)
-            }
+            }?.takeIf { it.width > 0 && it.height > 0 }
         } catch (_: Exception) {
             null
         }
@@ -798,7 +841,7 @@ private fun PhotoViewerScreen(
             val uri = Uri.parse(photo.uri)
             context.contentResolver.openInputStream(uri)?.use { stream ->
                 BitmapFactory.decodeStream(stream)
-            }
+            }?.takeIf { it.width > 0 && it.height > 0 }
         } catch (_: Exception) {
             null
         }
@@ -1001,7 +1044,12 @@ private fun PhotoViewerScreen(
                 TextButton(onClick = { showTimeEditor = false }) { Text("取消") }
             }
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .heightIn(max = 500.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
                 DatePicker(state = datePickerState)
                 Spacer(modifier = Modifier.height(12.dp))
                 Text("时间", style = MaterialTheme.typography.labelLarge)

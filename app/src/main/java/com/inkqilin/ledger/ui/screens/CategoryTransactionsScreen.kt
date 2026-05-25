@@ -17,6 +17,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.inkqilin.ledger.data.Transaction
+import java.util.Locale
 import com.inkqilin.ledger.data.TransactionType
 import com.inkqilin.ledger.ui.TransactionViewModel
 import com.inkqilin.ledger.ui.theme.InkQilinLedgerTheme
@@ -80,7 +81,7 @@ private fun CategoryTransactionsScreenPreview() {
                                 Box(modifier = Modifier.size(44.dp).clip(CircleShape).background(accent.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) { Text(emoji, fontSize = 20.sp) }
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column(modifier = Modifier.weight(1f)) { Text(tx.category, fontWeight = FontWeight.Medium, fontSize = 15.sp); if (tx.note.isNotBlank()) Text(tx.note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                                Text("-¥${String.format("%.2f", tx.amount)}", color = accent, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                Text("-¥${String.format(Locale.getDefault(), "%.2f", tx.amount)}", color = accent, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                             }
                         }
                     }
