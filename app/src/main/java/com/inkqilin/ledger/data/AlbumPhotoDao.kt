@@ -8,6 +8,9 @@ interface AlbumPhotoDao {
     @Query("SELECT * FROM album_photos ORDER BY createdAt DESC")
     fun getAllPhotos(): Flow<List<AlbumPhoto>>
 
+    @Query("SELECT * FROM album_photos")
+    suspend fun getAllPhotosOnce(): List<AlbumPhoto>
+
     @Query("SELECT * FROM album_photos WHERE id = :id")
     suspend fun getPhotoById(id: Long): AlbumPhoto?
 

@@ -521,6 +521,37 @@ fun SettingsScreen(
                         }
                     )
                 }
+                if (albumEnabled) {
+                    Divider()
+                    var cleanupResult by remember { mutableStateOf<TransactionViewModel.CleanupResult?>(null) }
+                    var isCleaning by remember { mutableStateOf(false) }
+                    ListItem(
+                        headlineContent = { Text("清理相册缓存") },
+                        supportingContent = {
+                            Text(
+                                cleanupResult?.let {
+                                    if (it.deletedCount > 0) "已清理 ${it.deletedCount} 个文件，释放 ${formatFileSize(it.freedBytes)}"
+                                    else "没有需要清理的缓存文件"
+                                } ?: "删除已从相册移除但仍在缓存中的图片"
+                            )
+                        },
+                        leadingContent = { Icon(Icons.Default.Delete, contentDescription = null) },
+                        trailingContent = {
+                            TextButton(
+                                onClick = {
+                                    isCleaning = true
+                                    scope.launch {
+                                        cleanupResult = viewModel.cleanupOrphanedAlbumFiles(context)
+                                        isCleaning = false
+                                    }
+                                },
+                                enabled = !isCleaning
+                            ) {
+                                Text(if (isCleaning) "清理中..." else "清理")
+                            }
+                        }
+                    )
+                }
                 Divider()
                 ListItem(
                     headlineContent = { Text("OCR账单识别") },
@@ -848,6 +879,15 @@ fun ColorPickerButton(selectedColor: String, onColorSelected: (String) -> Unit) 
                 }
             }
         }
+    }
+}
+
+private fun formatFileSize(bytes: Long): String {
+    return when {
+        bytes < 1024 -> "$bytes B"
+        bytes < 1024 * 1024 -> "${bytes / 1024} KB"
+        bytes < 1024 * 1024 * 1024 -> String.format("%.1f MB", bytes / (1024.0 * 1024.0))
+        else -> String.format("%.1f GB", bytes / (1024.0 * 1024.0 * 1024.0))
     }
 }
 

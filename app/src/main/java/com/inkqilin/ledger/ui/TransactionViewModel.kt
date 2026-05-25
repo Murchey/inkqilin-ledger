@@ -15,6 +15,7 @@ import com.inkqilin.ledger.util.ThemeMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.io.File
 import java.util.Calendar
 
 class TransactionViewModel(
@@ -244,6 +245,32 @@ class TransactionViewModel(
 
     suspend fun getAlbumPhotoById(id: Long): AlbumPhoto? {
         return albumPhotoDao.getPhotoById(id)
+    }
+
+    data class CleanupResult(val deletedCount: Int, val freedBytes: Long)
+
+    suspend fun cleanupOrphanedAlbumFiles(context: Context): CleanupResult {
+        return kotlinx.coroutines.withContext(Dispatchers.IO) {
+            val imageDir = File(context.filesDir, "album_photos")
+            if (!imageDir.exists()) return@withContext CleanupResult(0, 0)
+
+            val dbUris = albumPhotoDao.getAllPhotosOnce().map { photo ->
+                Uri.parse(photo.uri).path
+            }.toSet()
+
+            var deletedCount = 0
+            var freedBytes = 0L
+
+            imageDir.listFiles()?.forEach { file ->
+                val filePath = file.absolutePath
+                if (filePath !in dbUris) {
+                    freedBytes += file.length()
+                    if (file.delete()) deletedCount++
+                }
+            }
+
+            CleanupResult(deletedCount, freedBytes)
+        }
     }
 
     fun setAiApiKey(apiKey: String) {

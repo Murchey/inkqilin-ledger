@@ -1,6 +1,5 @@
 package com.inkqilin.ledger.ui.screens
 
-import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -33,6 +32,7 @@ import com.inkqilin.ledger.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
 
+@Suppress("AssignedValueIsNeverRead")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddTransactionScreen(
@@ -173,7 +173,7 @@ fun AddTransactionScreen(
                         val selected = selectedCurrency == asset.code
                         val assetColor = try {
                             Color(android.graphics.Color.parseColor(asset.cardColor))
-                        } catch (e: Exception) {
+                        } catch (_: Exception) {
                             MaterialTheme.colorScheme.primary
                         }
                         FilterChip(
@@ -369,7 +369,7 @@ private fun RowScope.CategoryChip(cat: String, icon: String, selected: Boolean, 
             else MaterialTheme.colorScheme.surfaceVariant
         ),
         border = if (selected) {
-            androidx.compose.foundation.BorderStroke(1.dp, accentColor.copy(alpha = 0.3f))
+            BorderStroke(1.dp, accentColor.copy(alpha = 0.3f))
         } else null,
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -420,7 +420,7 @@ private fun AddTransactionScreenPreview() {
                         val accent = MaterialTheme.colorScheme.secondary
                         Card(modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(containerColor = if (i == 0) accent.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant),
-                            border = if (i == 0) androidx.compose.foundation.BorderStroke(1.dp, accent.copy(alpha = 0.3f)) else null,
+                            border = if (i == 0) BorderStroke(1.dp, accent.copy(alpha = 0.3f)) else null,
                             elevation = CardDefaults.cardElevation(0.dp)) {
                             Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) { Text(icon, fontSize = 24.sp); Spacer(Modifier.height(4.dp)); Text(name, fontSize = 12.sp, color = if (i == 0) accent else MaterialTheme.colorScheme.onSurface, fontWeight = if (i == 0) FontWeight.SemiBold else FontWeight.Normal) }
                         }
