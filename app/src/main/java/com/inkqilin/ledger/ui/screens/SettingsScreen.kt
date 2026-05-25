@@ -66,6 +66,7 @@ fun SettingsScreen(
     val customPrimaryColorHex by viewModel.customPrimaryColorHex.collectAsState()
     val autoRecordEnabled by viewModel.autoRecordEnabled.collectAsState()
     val ocrEnabled by viewModel.ocrEnabled.collectAsState()
+    val albumEnabled by viewModel.albumEnabled.collectAsState()
     val aiApiKey by viewModel.aiApiKey.collectAsState()
 
     var exportTimeRange by remember { mutableStateOf(ExportTimeRange.ALL) }
@@ -540,6 +541,17 @@ fun SettingsScreen(
                         modifier = Modifier.clickable { onNavigateToAIConfig() }
                     )
                 }
+                Divider()
+                ListItem(
+                    headlineContent = { Text("记账相册") },
+                    supportingContent = { Text("用于保存重要账单的原件，可以直接连接OCR功能。拍摄的照片会同步到系统相册，删除照片仅在本APP生效，不会删除系统相册内容。") },
+                    trailingContent = {
+                        Switch(
+                            checked = albumEnabled,
+                            onCheckedChange = { viewModel.setAlbumEnabled(it) }
+                        )
+                    }
+                )
             }
         }
 

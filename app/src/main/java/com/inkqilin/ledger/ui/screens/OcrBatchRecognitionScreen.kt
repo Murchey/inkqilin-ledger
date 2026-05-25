@@ -9,10 +9,16 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -28,6 +34,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.inkqilin.ledger.data.AlbumPhoto
 import com.inkqilin.ledger.data.Transaction
 import com.inkqilin.ledger.data.TransactionType
 import com.inkqilin.ledger.ui.TransactionViewModel
@@ -55,10 +62,14 @@ fun OcrBatchRecognitionScreen(
     val aiApiKey by viewModel.aiApiKey.collectAsState()
     val aiBaseUrl by viewModel.aiBaseUrl.collectAsState()
     val aiModel by viewModel.aiModel.collectAsState()
+    val albumEnabled by viewModel.albumEnabled.collectAsState()
+    val albumPhotos by viewModel.allAlbumPhotos.collectAsState()
 
     var selectedImages by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var recognizedTransactions by remember { mutableStateOf<List<RecognizedTransaction>>(emptyList()) }
     var isRecognizing by remember { mutableStateOf(false) }
+    var showAlbumPicker by remember { mutableStateOf(false) }
+    var albumSelectedIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
@@ -91,6 +102,14 @@ fun OcrBatchRecognitionScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                     Text("点击上传账单图片", style = MaterialTheme.typography.bodyLarge)
                     Text("支持批量上传，建议图片清晰", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (albumEnabled && albumPhotos.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(24.dp))
+                        OutlinedButton(onClick = { showAlbumPicker = true }) {
+                            Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("从记账相册选择")
+                        }
+                    }
                 } else {
                     LazyColumn(
                         modifier = Modifier.weight(1f),
@@ -179,6 +198,120 @@ fun OcrBatchRecognitionScreen(
                 ) {
                     Text("确认并导入")
                 }
+            }
+        }
+    }
+
+    if (showAlbumPicker) {
+        AlertDialog(
+            onDismissRequest = { showAlbumPicker = false; albumSelectedIds = emptySet() },
+            title = { Text("选择记账相册照片") },
+            text = {
+                Column {
+                    Text(
+                        "已选择 ${albumSelectedIds.size} 张",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(3),
+                        modifier = Modifier.heightIn(max = 400.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        items(albumPhotos, key = { it.id }) { photo ->
+                            val isSelected = albumSelectedIds.contains(photo.id)
+                            AlbumPickerItem(
+                                photo = photo,
+                                isSelected = isSelected,
+                                onClick = {
+                                    albumSelectedIds = if (isSelected) {
+                                        albumSelectedIds - photo.id
+                                    } else {
+                                        albumSelectedIds + photo.id
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val uris = albumPhotos
+                            .filter { albumSelectedIds.contains(it.id) }
+                            .map { Uri.parse(it.uri) }
+                        selectedImages = uris
+                        showAlbumPicker = false
+                        albumSelectedIds = emptySet()
+                    },
+                    enabled = albumSelectedIds.isNotEmpty()
+                ) { Text("确定") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAlbumPicker = false; albumSelectedIds = emptySet() }) { Text("取消") }
+            }
+        )
+    }
+}
+
+@Composable
+private fun AlbumPickerItem(
+    photo: AlbumPhoto,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val context = LocalContext.current
+    val bitmap = remember(photo.id, photo.uri) {
+        try {
+            val uri = Uri.parse(photo.uri)
+            context.contentResolver.openInputStream(uri)?.use { stream ->
+                BitmapFactory.decodeStream(stream)
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .aspectRatio(1f)
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .then(
+                if (isSelected) Modifier.border(3.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
+                else Modifier
+            )
+    ) {
+        if (bitmap != null) {
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+            }
+        }
+        if (isSelected) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(4.dp)
+                    .size(24.dp)
+                    .background(MaterialTheme.colorScheme.primary, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
             }
         }
     }

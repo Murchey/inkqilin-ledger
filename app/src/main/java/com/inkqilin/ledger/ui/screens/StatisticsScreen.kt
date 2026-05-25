@@ -1,6 +1,7 @@
+@file:Suppress("AssignedValueIsNeverRead")
+
 package com.inkqilin.ledger.ui.screens
 
-import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.*
@@ -8,7 +9,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -18,7 +18,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -30,15 +29,13 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.core.graphics.toColorInt
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.inkqilin.ledger.data.Category
-import com.inkqilin.ledger.data.CurrencyAsset
 import com.inkqilin.ledger.data.Transaction
 import com.inkqilin.ledger.data.TransactionType
 import com.inkqilin.ledger.ui.TransactionViewModel
@@ -78,8 +75,8 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
     val categories by viewModel.allCategories.collectAsState(initial = emptyList())
     val incomeColorHex by viewModel.incomeColor.collectAsState()
     val expenseColorHex by viewModel.expenseColor.collectAsState()
-    val incomeColor = Color(android.graphics.Color.parseColor(incomeColorHex))
-    val expenseColor = Color(android.graphics.Color.parseColor(expenseColorHex))
+    val incomeColor = Color(incomeColorHex.toColorInt())
+    val expenseColor = Color(expenseColorHex.toColorInt())
     val multiCurrencyEnabled by viewModel.multiCurrencyEnabled.collectAsState()
     val allAssets by viewModel.allAssets.collectAsState()
     val defaultAsset = allAssets.firstOrNull { it.isDefault }

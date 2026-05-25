@@ -33,6 +33,7 @@ class ThemeManager(private val context: Context) {
     private val AI_API_KEY_KEY = stringPreferencesKey("ai_api_key")
     private val AI_BASE_URL_KEY = stringPreferencesKey("ai_base_url")
     private val AI_MODEL_KEY = stringPreferencesKey("ai_model")
+    private val ALBUM_ENABLED_KEY = booleanPreferencesKey("album_enabled")
 
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { preferences ->
         val mode = preferences[THEME_KEY] ?: ThemeMode.AUTO.name
@@ -85,6 +86,10 @@ class ThemeManager(private val context: Context) {
 
     val aiModel: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[AI_MODEL_KEY] ?: "gpt-4o"
+    }
+
+    val albumEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[ALBUM_ENABLED_KEY] ?: false
     }
 
     suspend fun setThemeMode(mode: ThemeMode) {
@@ -166,6 +171,12 @@ class ThemeManager(private val context: Context) {
     suspend fun setAiModel(model: String) {
         context.dataStore.edit { preferences ->
             preferences[AI_MODEL_KEY] = model
+        }
+    }
+
+    suspend fun setAlbumEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[ALBUM_ENABLED_KEY] = enabled
         }
     }
 }

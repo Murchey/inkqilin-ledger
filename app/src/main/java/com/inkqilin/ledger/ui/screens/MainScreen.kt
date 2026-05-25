@@ -45,6 +45,8 @@ fun MainScreen(
 ) {
     val navController = rememberNavController()
     val renQingEnabled by renQingViewModel.renQingEnabled.collectAsState()
+    val albumEnabled by viewModel.albumEnabled.collectAsState()
+    val isAlbumInteracting by viewModel.isAlbumInteracting.collectAsState()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     val scope = rememberCoroutineScope()
@@ -57,15 +59,17 @@ fun MainScreen(
         )
     }
 
-    val bottomItems = remember(renQingEnabled) {
+    val bottomItems = remember(renQingEnabled, albumEnabled) {
         buildList {
-            if (renQingEnabled) {
-                addAll(baseItems.subList(0, 2))
-                add(BottomNavItem("renqing", Icons.Default.Favorite, "人情"))
-                addAll(baseItems.subList(2, baseItems.size))
-            } else {
-                addAll(baseItems)
+            add(baseItems[0])
+            add(baseItems[1])
+            if (albumEnabled) {
+                add(BottomNavItem("album", Icons.Default.Star, "相册"))
             }
+            if (renQingEnabled) {
+                add(BottomNavItem("renqing", Icons.Default.Favorite, "人情"))
+            }
+            add(baseItems[2])
         }
     }
 
@@ -86,6 +90,7 @@ fun MainScreen(
                 "home" -> "墨麒麟记账"
                 "statistics" -> "统计"
                 "renqing" -> "人情账本"
+                "album" -> "记账相册"
                 "settings" -> "设置"
                 else -> "墨麒麟记账"
             }
@@ -108,63 +113,81 @@ fun MainScreen(
 
     val showBackButton = currentRoute != "main"
 
+    val showTopBar = currentRoute != "main" || currentPageRoute != "album"
+
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    AnimatedContent(
-                        targetState = topBarTitle,
-                        transitionSpec = {
-                            if (enableAnimations) {
-                                (fadeIn(animationSpec = MotionSprings.appearance()) +
-                                        slideInVertically(animationSpec = MotionSprings.appearance()) { -it / 4 }) togetherWith
-                                        fadeOut(animationSpec = MotionSprings.appearance())
+            AnimatedVisibility(
+                visible = showTopBar,
+                enter = if (enableAnimations) {
+                    fadeIn(MotionSprings.appearance()) + slideInVertically(
+                        animationSpec = MotionSprings.appearance(),
+                        initialOffsetY = { -it }
+                    )
+                } else EnterTransition.None,
+                exit = if (enableAnimations) {
+                    fadeOut(MotionSprings.appearance()) + slideOutVertically(
+                        animationSpec = MotionSprings.appearance(),
+                        targetOffsetY = { -it }
+                    )
+                } else ExitTransition.None
+            ) {
+                TopAppBar(
+                    title = {
+                        AnimatedContent(
+                            targetState = topBarTitle,
+                            transitionSpec = {
+                                if (enableAnimations) {
+                                    (fadeIn(animationSpec = MotionSprings.appearance()) +
+                                            slideInVertically(animationSpec = MotionSprings.appearance()) { -it / 4 }) togetherWith
+                                            fadeOut(animationSpec = MotionSprings.appearance())
+                                } else {
+                                    EnterTransition.None togetherWith ExitTransition.None
+                                }
+                            },
+                            label = "topBarTitle"
+                        ) { title ->
+                            Text(title, style = MaterialTheme.typography.titleMedium)
+                        }
+                    },
+                    navigationIcon = {
+                        AnimatedVisibility(
+                            visible = showBackButton,
+                            enter = if (enableAnimations) {
+                                fadeIn(MotionSprings.interactive()) + scaleIn(
+                                    animationSpec = MotionSprings.interactive(),
+                                    initialScale = 0.8f
+                                )
                             } else {
-                                EnterTransition.None togetherWith ExitTransition.None
+                                EnterTransition.None
+                            },
+                            exit = if (enableAnimations) {
+                                fadeOut(MotionSprings.interactive()) + scaleOut(
+                                    animationSpec = MotionSprings.interactive(),
+                                    targetScale = 0.8f
+                                )
+                            } else {
+                                ExitTransition.None
                             }
-                        },
-                        label = "topBarTitle"
-                    ) { title ->
-                        Text(title, style = MaterialTheme.typography.titleMedium)
-                    }
-                },
-                navigationIcon = {
-                    AnimatedVisibility(
-                        visible = showBackButton,
-                        enter = if (enableAnimations) {
-                            fadeIn(MotionSprings.interactive()) + scaleIn(
-                                animationSpec = MotionSprings.interactive(),
-                                initialScale = 0.8f
-                            )
-                        } else {
-                            EnterTransition.None
-                        },
-                        exit = if (enableAnimations) {
-                            fadeOut(MotionSprings.interactive()) + scaleOut(
-                                animationSpec = MotionSprings.interactive(),
-                                targetScale = 0.8f
-                            )
-                        } else {
-                            ExitTransition.None
+                        ) {
+                            IconButton(onClick = { navController.popBackStack() }) {
+                                Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                            }
                         }
-                    ) {
-                        IconButton(onClick = { navController.popBackStack() }) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                    },
+                    actions = {
+                        AnimatedVisibility(
+                            visible = currentRoute == "main" && currentPageRoute == "home",
+                            enter = if (enableAnimations) fadeIn(MotionSprings.interactive()) else EnterTransition.None,
+                            exit = if (enableAnimations) fadeOut(MotionSprings.interactive()) else ExitTransition.None
+                        ) {
+                            IconButton(onClick = { navController.navigate("search") }) {
+                                Icon(Icons.Default.Search, contentDescription = "搜索")
+                            }
                         }
                     }
-                },
-                actions = {
-                    AnimatedVisibility(
-                        visible = currentRoute == "main" && currentPageRoute == "home",
-                        enter = if (enableAnimations) fadeIn(MotionSprings.interactive()) else EnterTransition.None,
-                        exit = if (enableAnimations) fadeOut(MotionSprings.interactive()) else ExitTransition.None
-                    ) {
-                        IconButton(onClick = { navController.navigate("search") }) {
-                            Icon(Icons.Default.Search, contentDescription = "搜索")
-                        }
-                    }
-                }
-            )
+                )
+            }
         },
         bottomBar = {
             AnimatedVisibility(
@@ -310,6 +333,7 @@ fun MainScreen(
                 HorizontalPager(
                     state = pagerState,
                     modifier = Modifier.fillMaxSize(),
+                    userScrollEnabled = !isAlbumInteracting,
                     beyondBoundsPageCount = 1
                 ) { page ->
                     when (bottomItems[page].route) {
@@ -332,6 +356,7 @@ fun MainScreen(
                             }
                         )
                         "statistics" -> StatisticsScreen(viewModel, navController)
+                        "album" -> AlbumScreen(viewModel = viewModel)
                         "renqing" -> RenQingMainScreen(
                             viewModel = renQingViewModel,
                             onNavigateToContactDetail = { contactId ->

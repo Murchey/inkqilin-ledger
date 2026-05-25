@@ -21,6 +21,7 @@ class TransactionViewModel(
     private val transactionDao: TransactionDao,
     private val categoryDao: CategoryDao,
     private val currencyAssetDao: CurrencyAssetDao,
+    private val albumPhotoDao: AlbumPhotoDao,
     private val themeManager: ThemeManager
 ) : ViewModel() {
     val allTransactions: Flow<List<Transaction>> = transactionDao.getAllTransactions()
@@ -40,6 +41,13 @@ class TransactionViewModel(
 
     val allAssets: StateFlow<List<CurrencyAsset>> = currencyAssetDao.getAllAssets()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _isAlbumInteracting = MutableStateFlow(false)
+    val isAlbumInteracting: StateFlow<Boolean> = _isAlbumInteracting.asStateFlow()
+
+    fun setAlbumInteracting(interacting: Boolean) {
+        _isAlbumInteracting.value = interacting
+    }
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -205,6 +213,39 @@ class TransactionViewModel(
         viewModelScope.launch { themeManager.setOcrEnabled(enabled) }
     }
 
+    val albumEnabled: StateFlow<Boolean> = themeManager.albumEnabled.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), false
+    )
+
+    fun setAlbumEnabled(enabled: Boolean) {
+        viewModelScope.launch { themeManager.setAlbumEnabled(enabled) }
+    }
+
+    val allAlbumPhotos: StateFlow<List<AlbumPhoto>> = albumPhotoDao.getAllPhotos()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun addAlbumPhoto(uri: String, note: String = "") {
+        viewModelScope.launch {
+            albumPhotoDao.insertPhoto(AlbumPhoto(uri = uri, note = note))
+        }
+    }
+
+    fun updateAlbumPhoto(photo: AlbumPhoto) {
+        viewModelScope.launch {
+            albumPhotoDao.updatePhoto(photo)
+        }
+    }
+
+    fun deleteAlbumPhoto(photo: AlbumPhoto) {
+        viewModelScope.launch {
+            albumPhotoDao.deletePhoto(photo)
+        }
+    }
+
+    suspend fun getAlbumPhotoById(id: Long): AlbumPhoto? {
+        return albumPhotoDao.getPhotoById(id)
+    }
+
     fun setAiApiKey(apiKey: String) {
         viewModelScope.launch { themeManager.setAiApiKey(apiKey) }
     }
@@ -295,12 +336,13 @@ class TransactionViewModelFactory(
     private val transactionDao: TransactionDao,
     private val categoryDao: CategoryDao,
     private val currencyAssetDao: CurrencyAssetDao,
+    private val albumPhotoDao: AlbumPhotoDao,
     private val themeManager: ThemeManager
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(TransactionViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return TransactionViewModel(transactionDao, categoryDao, currencyAssetDao, themeManager) as T
+            return TransactionViewModel(transactionDao, categoryDao, currencyAssetDao, albumPhotoDao, themeManager) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
