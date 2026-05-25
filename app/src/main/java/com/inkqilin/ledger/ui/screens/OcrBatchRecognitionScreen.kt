@@ -103,12 +103,23 @@ fun OcrBatchRecognitionScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                     Text("点击上传账单图片", style = MaterialTheme.typography.bodyLarge)
                     Text("支持批量上传，建议图片清晰", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (albumEnabled && albumPhotos.isNotEmpty()) {
+                    if (albumEnabled) {
                         Spacer(modifier = Modifier.height(24.dp))
-                        OutlinedButton(onClick = { showAlbumPicker = true }) {
+                        OutlinedButton(
+                            onClick = { showAlbumPicker = true },
+                            enabled = albumPhotos.isNotEmpty()
+                        ) {
                             Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("从记账相册选择")
+                        }
+                        if (albumPhotos.isEmpty()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                "暂无相册照片，请先在记账时添加",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 } else {
