@@ -34,6 +34,7 @@ class ThemeManager(private val context: Context) {
     private val AI_BASE_URL_KEY = stringPreferencesKey("ai_base_url")
     private val AI_MODEL_KEY = stringPreferencesKey("ai_model")
     private val ALBUM_ENABLED_KEY = booleanPreferencesKey("album_enabled")
+    private val RECENT_NOTES_KEY = stringPreferencesKey("recent_notes")
 
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { preferences ->
         val mode = preferences[THEME_KEY] ?: ThemeMode.AUTO.name
@@ -90,6 +91,12 @@ class ThemeManager(private val context: Context) {
 
     val albumEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[ALBUM_ENABLED_KEY] ?: false
+    }
+
+    val recentNotes: Flow<List<String>> = context.dataStore.data.map { preferences ->
+        val notesStr = preferences[RECENT_NOTES_KEY] ?: ""
+        if (notesStr.isBlank()) emptyList()
+        else notesStr.split("|||").filter { it.isNotBlank() }
     }
 
     suspend fun setThemeMode(mode: ThemeMode) {
@@ -177,6 +184,24 @@ class ThemeManager(private val context: Context) {
     suspend fun setAlbumEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[ALBUM_ENABLED_KEY] = enabled
+        }
+    }
+
+    suspend fun addRecentNote(note: String) {
+        if (note.isBlank()) return
+        context.dataStore.edit { preferences ->
+            val current = preferences[RECENT_NOTES_KEY] ?: ""
+            val notes = current.split("|||").filter { it.isNotBlank() }.toMutableList()
+            notes.remove(note)
+            notes.add(0, note)
+            val trimmed = notes.take(5)
+            preferences[RECENT_NOTES_KEY] = trimmed.joinToString("|||")
+        }
+    }
+
+    suspend fun clearRecentNotes() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(RECENT_NOTES_KEY)
         }
     }
 }

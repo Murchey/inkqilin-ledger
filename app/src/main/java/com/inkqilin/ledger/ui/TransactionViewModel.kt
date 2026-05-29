@@ -23,6 +23,7 @@ class TransactionViewModel(
     private val categoryDao: CategoryDao,
     private val currencyAssetDao: CurrencyAssetDao,
     private val albumPhotoDao: AlbumPhotoDao,
+    private val keywordCategoryDao: KeywordCategoryDao,
     private val themeManager: ThemeManager
 ) : ViewModel() {
     val allTransactions: Flow<List<Transaction>> = transactionDao.getAllTransactions()
@@ -58,6 +59,9 @@ class TransactionViewModel(
             if (currencyAssetDao.getCount() == 0) {
                 initializeDefaultCurrencies()
             }
+            if (keywordCategoryDao.getAllKeywordCategoriesOnce().isEmpty()) {
+                initializeDefaultKeywordCategories()
+            }
         }
     }
 
@@ -79,10 +83,68 @@ class TransactionViewModel(
 
     private suspend fun initializeDefaultCurrencies() {
         val defaults = listOf(
-            CurrencyAsset(code = "CNY", symbol = "¥", name = "人民币", cardColor = "#D32F2F", isDefault = true),
+            CurrencyAsset(code = "CNY", symbol = "¥", name = "人民币", cardColor = "#43A047", isDefault = true),
             CurrencyAsset(code = "USD", symbol = "$", name = "美元", cardColor = "#1565C0")
         )
         defaults.forEach { currencyAssetDao.insertAsset(it) }
+    }
+
+    private suspend fun initializeDefaultKeywordCategories() {
+        val defaults = listOf(
+            KeywordCategory(keyword = "外卖", categoryName = "餐饮"),
+            KeywordCategory(keyword = "饿了么", categoryName = "餐饮"),
+            KeywordCategory(keyword = "美团", categoryName = "餐饮"),
+            KeywordCategory(keyword = "餐厅", categoryName = "餐饮"),
+            KeywordCategory(keyword = "咖啡", categoryName = "餐饮"),
+            KeywordCategory(keyword = "奶茶", categoryName = "餐饮"),
+            KeywordCategory(keyword = "肯德基", categoryName = "餐饮"),
+            KeywordCategory(keyword = "麦当劳", categoryName = "餐饮"),
+            KeywordCategory(keyword = "星巴克", categoryName = "餐饮"),
+            KeywordCategory(keyword = "瑞幸", categoryName = "餐饮"),
+            KeywordCategory(keyword = "食堂", categoryName = "餐饮"),
+            KeywordCategory(keyword = "公交", categoryName = "交通"),
+            KeywordCategory(keyword = "地铁", categoryName = "交通"),
+            KeywordCategory(keyword = "滴滴", categoryName = "交通"),
+            KeywordCategory(keyword = "出租车", categoryName = "交通"),
+            KeywordCategory(keyword = "加油", categoryName = "交通"),
+            KeywordCategory(keyword = "高铁", categoryName = "交通"),
+            KeywordCategory(keyword = "机票", categoryName = "交通"),
+            KeywordCategory(keyword = "12306", categoryName = "交通"),
+            KeywordCategory(keyword = "哈啰", categoryName = "交通"),
+            KeywordCategory(keyword = "单车", categoryName = "交通"),
+            KeywordCategory(keyword = "超市", categoryName = "购物"),
+            KeywordCategory(keyword = "淘宝", categoryName = "购物"),
+            KeywordCategory(keyword = "京东", categoryName = "购物"),
+            KeywordCategory(keyword = "拼多多", categoryName = "购物"),
+            KeywordCategory(keyword = "便利店", categoryName = "购物"),
+            KeywordCategory(keyword = "天猫", categoryName = "购物"),
+            KeywordCategory(keyword = "盒马", categoryName = "购物"),
+            KeywordCategory(keyword = "唯品会", categoryName = "购物"),
+            KeywordCategory(keyword = "沃尔玛", categoryName = "购物"),
+            KeywordCategory(keyword = "电影", categoryName = "娱乐"),
+            KeywordCategory(keyword = "游戏", categoryName = "娱乐"),
+            KeywordCategory(keyword = "KTV", categoryName = "娱乐"),
+            KeywordCategory(keyword = "网易云", categoryName = "娱乐"),
+            KeywordCategory(keyword = "腾讯视频", categoryName = "娱乐"),
+            KeywordCategory(keyword = "爱奇艺", categoryName = "娱乐"),
+            KeywordCategory(keyword = "B站", categoryName = "娱乐"),
+            KeywordCategory(keyword = "房租", categoryName = "居住"),
+            KeywordCategory(keyword = "水电", categoryName = "居住"),
+            KeywordCategory(keyword = "物业", categoryName = "居住"),
+            KeywordCategory(keyword = "煤气", categoryName = "居住"),
+            KeywordCategory(keyword = "燃气", categoryName = "居住"),
+            KeywordCategory(keyword = "供暖", categoryName = "居住"),
+            KeywordCategory(keyword = "薪水", categoryName = "工资"),
+            KeywordCategory(keyword = "转账", categoryName = "工资"),
+            KeywordCategory(keyword = "分红", categoryName = "工资"),
+            KeywordCategory(keyword = "基金", categoryName = "理财"),
+            KeywordCategory(keyword = "股票", categoryName = "理财"),
+            KeywordCategory(keyword = "收益", categoryName = "理财"),
+            KeywordCategory(keyword = "利息", categoryName = "理财"),
+            KeywordCategory(keyword = "余额宝", categoryName = "理财"),
+            KeywordCategory(keyword = "零钱通", categoryName = "理财")
+        )
+        defaults.forEach { keywordCategoryDao.insertKeywordCategory(it) }
     }
 
     fun setMultiCurrencyEnabled(enabled: Boolean) {
@@ -218,6 +280,18 @@ class TransactionViewModel(
         viewModelScope, SharingStarted.WhileSubscribed(5000), false
     )
 
+    val recentNotes: StateFlow<List<String>> = themeManager.recentNotes.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+    )
+
+    fun addRecentNote(note: String) {
+        viewModelScope.launch { themeManager.addRecentNote(note) }
+    }
+
+    fun clearRecentNotes() {
+        viewModelScope.launch { themeManager.clearRecentNotes() }
+    }
+
     fun setAlbumEnabled(enabled: Boolean) {
         viewModelScope.launch { themeManager.setAlbumEnabled(enabled) }
     }
@@ -349,6 +423,37 @@ class TransactionViewModel(
         }
     }
 
+    val allKeywordCategories: Flow<List<KeywordCategory>> = keywordCategoryDao.getAllKeywordCategories()
+
+    fun addKeywordCategory(keyword: String, categoryName: String) {
+        viewModelScope.launch {
+            keywordCategoryDao.insertKeywordCategory(KeywordCategory(keyword = keyword, categoryName = categoryName))
+        }
+    }
+
+    fun updateKeywordCategory(keywordCategory: KeywordCategory) {
+        viewModelScope.launch {
+            keywordCategoryDao.updateKeywordCategory(keywordCategory)
+        }
+    }
+
+    fun deleteKeywordCategory(keywordCategory: KeywordCategory) {
+        viewModelScope.launch {
+            keywordCategoryDao.deleteKeywordCategory(keywordCategory)
+        }
+    }
+
+    suspend fun matchCategoryByKeyword(note: String): String? {
+        if (note.isBlank()) return null
+        val keywords = keywordCategoryDao.getAllKeywordCategoriesOnce()
+        for (kc in keywords) {
+            if (note.contains(kc.keyword, ignoreCase = true)) {
+                return kc.categoryName
+            }
+        }
+        return null
+    }
+
     fun getCurrentVersionName(context: Context): String {
         return try {
             val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
@@ -364,12 +469,13 @@ class TransactionViewModelFactory(
     private val categoryDao: CategoryDao,
     private val currencyAssetDao: CurrencyAssetDao,
     private val albumPhotoDao: AlbumPhotoDao,
+    private val keywordCategoryDao: KeywordCategoryDao,
     private val themeManager: ThemeManager
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(TransactionViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return TransactionViewModel(transactionDao, categoryDao, currencyAssetDao, albumPhotoDao, themeManager) as T
+            return TransactionViewModel(transactionDao, categoryDao, currencyAssetDao, albumPhotoDao, keywordCategoryDao, themeManager) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

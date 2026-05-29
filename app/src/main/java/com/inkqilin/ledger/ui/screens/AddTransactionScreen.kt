@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.inkqilin.ledger.data.*
 import com.inkqilin.ledger.ui.RenQingViewModel
+import kotlinx.coroutines.launch
 import com.inkqilin.ledger.ui.TransactionViewModel
 import com.inkqilin.ledger.ui.motion.*
 import com.inkqilin.ledger.ui.theme.*
@@ -33,7 +34,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 @Suppress("AssignedValueIsNeverRead")
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun AddTransactionScreen(
     viewModel: TransactionViewModel,
@@ -48,6 +49,7 @@ fun AddTransactionScreen(
     var syncToRenQing by remember { mutableStateOf(false) }
     var selectedContact by remember { mutableStateOf<RenQingContact?>(null) }
     var selectedCurrency by remember { mutableStateOf("CNY") }
+    val scope = rememberCoroutineScope()
 
     val allCategories by viewModel.allCategories.collectAsState(initial = emptyList())
     val categories = allCategories.filter { it.type == type }
@@ -56,6 +58,7 @@ fun AddTransactionScreen(
     val multiCurrencyEnabled by viewModel.multiCurrencyEnabled.collectAsState()
     val allAssets by viewModel.allAssets.collectAsState()
     val currentAsset = allAssets.firstOrNull { it.code == selectedCurrency } ?: allAssets.firstOrNull()
+    val recentNotes by viewModel.recentNotes.collectAsState()
 
     val incomeColorHex by viewModel.incomeColor.collectAsState()
     val expenseColorHex by viewModel.expenseColor.collectAsState()
@@ -192,6 +195,80 @@ fun AddTransactionScreen(
 
         item {
             Spacer(modifier = Modifier.height(16.dp))
+            Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
+                Column(modifier = Modifier.padding(4.dp)) {
+                    if (recentNotes.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                "常用备注",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            IconButton(
+                                onClick = { viewModel.clearRecentNotes() },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "清空",
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            recentNotes.forEach { recentNote ->
+                                SuggestionChip(
+                                    onClick = {
+                                        note = recentNote
+                                        if (category.isEmpty()) {
+                                            scope.launch {
+                                                val matched = viewModel.matchCategoryByKeyword(recentNote)
+                                                if (matched != null && categories.any { it.name == matched }) {
+                                                    category = matched
+                                                }
+                                            }
+                                        }
+                                    },
+                                    label = { Text(recentNote, style = MaterialTheme.typography.bodySmall) },
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                    }
+                    OutlinedTextField(
+                        value = note, onValueChange = { newNote ->
+                            note = newNote
+                            if (newNote.isNotBlank() && category.isEmpty()) {
+                                scope.launch {
+                                    val matched = viewModel.matchCategoryByKeyword(newNote)
+                                    if (matched != null && categories.any { it.name == matched }) {
+                                        category = matched
+                                    }
+                                }
+                            }
+                        },
+                        label = { Text("备注（可选）") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+            }
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(16.dp))
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                 horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("选择分类", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -210,19 +287,6 @@ fun AddTransactionScreen(
                     }
                     repeat(3 - rowCategories.size) { Spacer(modifier = Modifier.weight(1f)) }
                 }
-            }
-        }
-
-        item {
-            Spacer(modifier = Modifier.height(16.dp))
-            Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
-                OutlinedTextField(
-                    value = note, onValueChange = { note = it },
-                    label = { Text("备注（可选）") },
-                    modifier = Modifier.fillMaxWidth().padding(4.dp), shape = RoundedCornerShape(12.dp)
-                )
             }
         }
 
@@ -312,6 +376,9 @@ fun AddTransactionScreen(
                                 currency = selectedCurrency
                             )
                         )
+                        if (note.isNotBlank()) {
+                            viewModel.addRecentNote(note)
+                        }
                         if (syncToRenQing) {
                             renQingViewModel.addRenQingEventFromTransaction(
                                 amountDouble, type, category, note, date,

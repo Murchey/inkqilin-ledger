@@ -117,6 +117,7 @@ fun MainScreen(
         currentRoute?.startsWith("category_transactions") == true -> "分类账单"
         currentRoute == "contact_management" -> "联系人管理"
         currentRoute == "currency_management" -> "币种卡片管理"
+        currentRoute == "keyword_category_management" -> "关键词管理"
         currentRoute == "ai_config" -> "AI API 配置"
         currentRoute == "ocr_batch_recognition" -> "OCR 批量识别"
         else -> "墨麒麟记账"
@@ -392,6 +393,9 @@ fun MainScreen(
                             onNavigateToCategoryManagement = {
                                 navController.navigate("category_management")
                             },
+                            onNavigateToKeywordCategoryManagement = {
+                                navController.navigate("keyword_category_management")
+                            },
                             onNavigateToContactManagement = {
                                 navController.navigate("contact_management")
                             },
@@ -436,6 +440,12 @@ fun MainScreen(
             }
             composable("currency_management") {
                 CurrencyManagementScreen(viewModel = viewModel)
+            }
+            composable("keyword_category_management") {
+                KeywordCategoryManagementScreen(
+                    viewModel = viewModel,
+                    onBack = { navController.popBackStack() }
+                )
             }
             composable("add_renqing_event") {
                 AddRenQingEventScreen(

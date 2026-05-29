@@ -285,7 +285,6 @@ fun HomeScreen(
             contentPadding = PaddingValues(bottom = 88.dp)
         ) {
             item {
-                Spacer(modifier = Modifier.height(8.dp))
                 if (isDataLoading) {
                     OverviewCardSkeleton()
                 } else if (multiCurrencyEnabled && allAssets.isNotEmpty()) {

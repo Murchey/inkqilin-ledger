@@ -56,6 +56,7 @@ fun SettingsScreen(
     viewModel: TransactionViewModel,
     renQingViewModel: RenQingViewModel,
     onNavigateToCategoryManagement: () -> Unit,
+    onNavigateToKeywordCategoryManagement: () -> Unit = {},
     onNavigateToContactManagement: () -> Unit = {},
     onNavigateToCurrencyManagement: () -> Unit = {},
     onNavigateToAIConfig: () -> Unit = {}
@@ -430,12 +431,21 @@ fun SettingsScreen(
 
         Text(text = "分类管理", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
         Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
-            ListItem(
-                headlineContent = { Text("账单标签（类别）管理") },
-                supportingContent = { Text("添加、修改或删除收支分类及人情标签") },
-                leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
-                modifier = Modifier.clickable { onNavigateToCategoryManagement() }
-            )
+            Column {
+                ListItem(
+                    headlineContent = { Text("账单标签（类别）管理") },
+                    supportingContent = { Text("添加、修改或删除收支分类及人情标签") },
+                    leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
+                    modifier = Modifier.clickable { onNavigateToCategoryManagement() }
+                )
+                Divider()
+                ListItem(
+                    headlineContent = { Text("备注自动识别关键词管理") },
+                    supportingContent = { Text("配置关键词自动选择账单分类") },
+                    leadingContent = { Icon(Icons.Default.Search, contentDescription = null) },
+                    modifier = Modifier.clickable { onNavigateToKeywordCategoryManagement() }
+                )
+            }
         }
 
         val renQingEnabled by renQingViewModel.renQingEnabled.collectAsState()

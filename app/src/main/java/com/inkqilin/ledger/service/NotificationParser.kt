@@ -18,13 +18,15 @@ object NotificationParser {
     // 收入关键词（高置信度，命中几乎必定是真实收款）
     private val INCOME_KEYWORDS = setOf(
         "到账", "收款", "收到", "转入", "向你付款", "向你转账",
-        "成功收款", "收钱码", "扫码向你付款", "向你支付"
+        "成功收款", "收钱码", "扫码向你付款", "向你支付",
+        "已到账", "收款成功", "转账收款", "收红包"
     )
 
     // 支出关键词（中等置信度，需要排除广告误判）
     private val EXPENSE_KEYWORDS = setOf(
         "支付", "付款", "消费", "扣款", "支出", "成功支付",
-        "代办", "购买", "缴费", "充值"
+        "代办", "购买", "缴费", "充值", "已支付", "已付款",
+        "成功消费", "已扣款", "转账支出"
     )
 
     // 广告/营销关键词：如果文本包含这些，极大概率不是真实交易
@@ -40,7 +42,8 @@ object NotificationParser {
         "成功支付", "付款成功", "支付成功", "交易成功",
         "到账通知", "收款通知", "收银台",
         "账单", "消费提醒", "交易提醒",
-        "扣款通知", "余额变动"
+        "扣款通知", "余额变动", "银行通知",
+        "动账通知", "账户变动", "资金变动"
     )
 
     fun parse(pkg: String, title: String, text: String): ParsedNotification? {
@@ -48,11 +51,20 @@ object NotificationParser {
         val rawText = "$title\n$text".replace("\n", " ").replace("\r", " ")
         Log.d("NotificationParser", "Parsing: pkg=$pkg, rawText=$rawText")
 
-        return when (pkg) {
+        val result = when (pkg) {
             "com.eg.android.AlipayGphone", "com.android.shell" -> parseAlipay(rawText)
             "com.tencent.mm" -> parseWeChat(rawText)
+            "com.unionpay" -> parseUnionPay(rawText)
             else -> parseGeneric(rawText)
         }
+
+        // 过滤0元账单
+        if (result != null && result.amount <= 0.0) {
+            Log.d("NotificationParser", "Filtered zero-amount transaction: ${result.amount}")
+            return null
+        }
+
+        return result
     }
 
     // ──────────────────────────────────────────────
@@ -64,13 +76,16 @@ object NotificationParser {
         // 第 1 层：碰一下/碰一碰 专用匹配（强制支出）
         parseTapToPay(text)?.let { return it }
 
-        // 第 2 层：收入匹配
+        // 第 2 层：付款成功专用匹配（标题为"付款成功"的情况）
+        parsePaymentSuccess(text)?.let { return it }
+
+        // 第 3 层：收入匹配
         parseIncome(text)?.let { return it }
 
-        // 第 3 层：支出匹配
+        // 第 4 层：支出匹配
         parseExpense(text)?.let { return it }
 
-        // 第 4 层：仅包含金额 + 收/支关键词的兜底
+        // 第 5 层：仅包含金额 + 收/支关键词的兜底
         parseFallback(text)?.let { return it }
 
         Log.d("NotificationParser", "Alipay: no match found")
@@ -94,6 +109,81 @@ object NotificationParser {
 
         Log.d("NotificationParser", "WeChat: no match found")
         return null
+    }
+
+    // ──────────────────────────────────────────────
+    //  云闪付解析（适配消费、转账、收款等通知）
+    // ──────────────────────────────────────────────
+    private fun parseUnionPay(text: String): ParsedNotification? {
+        Log.d("NotificationParser", "UnionPay fullText: $text")
+
+        // 云闪付收入关键词
+        val unionPayIncomeKeywords = setOf(
+            "收款", "到账", "转入", "收到转账", "收钱"
+        )
+
+        // 云闪付支出关键词
+        val unionPayExpenseKeywords = setOf(
+            "消费", "支出", "扣款", "付款", "支付", "转出", "已扣",
+            "成功消费", "成功支付", "成功付款", "交易成功"
+        )
+
+        // 强交易信号
+        val unionPayStrongSignals = setOf(
+            "消费成功", "支付成功", "付款成功", "交易成功",
+            "扣款通知", "消费提醒", "交易提醒", "银行通知",
+            "动账通知", "账户变动"
+        )
+
+        // 广告检测
+        if (isAdvertisement(text) && !unionPayStrongSignals.any { text.contains(it) }) {
+            Log.d("NotificationParser", "UnionPay: ad content detected")
+            return null
+        }
+
+        val match = AMOUNT_REGEX.find(text)
+        if (match == null) {
+            // 尝试匹配不带符号的金额格式：数字.数字 元
+            val altMatch = Regex("""(\d+(?:\.\d{1,2})?)\s*元""").find(text)
+            if (altMatch != null) {
+                val amount = altMatch.groupValues[1].toDoubleOrNull() ?: return null
+                return parseUnionPayWithAmount(text, amount, unionPayIncomeKeywords, unionPayExpenseKeywords, unionPayStrongSignals)
+            }
+            Log.d("NotificationParser", "UnionPay: no amount found")
+            return null
+        }
+
+        val amount = match.groupValues[1].toDoubleOrNull() ?: return null
+        return parseUnionPayWithAmount(text, amount, unionPayIncomeKeywords, unionPayExpenseKeywords, unionPayStrongSignals)
+    }
+
+    private fun parseUnionPayWithAmount(
+        text: String,
+        amount: Double,
+        incomeKeywords: Set<String>,
+        expenseKeywords: Set<String>,
+        strongSignals: Set<String>
+    ): ParsedNotification? {
+        val hasIncomeKeyword = incomeKeywords.any { text.contains(it) }
+        val hasExpenseKeyword = expenseKeywords.any { text.contains(it) }
+        val hasStrongSignal = strongSignals.any { text.contains(it) }
+
+        // 判断收支类型
+        val isIncome = when {
+            hasIncomeKeyword && !hasExpenseKeyword -> true
+            hasExpenseKeyword && !hasIncomeKeyword -> false
+            hasStrongSignal -> false // 强交易信号默认为支出
+            else -> false // 默认为支出
+        }
+
+        Log.d("NotificationParser", "UnionPay matched: amount=$amount, isIncome=$isIncome")
+        return ParsedNotification(
+            amount = amount,
+            isIncome = isIncome,
+            category = inferCategory(text),
+            merchant = extractMerchantFallback(text),
+            rawSource = "云闪付"
+        )
     }
 
     // ──────────────────────────────────────────────
@@ -132,6 +222,55 @@ object NotificationParser {
         val amount = match.groupValues[1].toDoubleOrNull() ?: return null
         Log.d("NotificationParser", "Tap-to-pay matched: $amount")
 
+        return ParsedNotification(
+            amount = amount,
+            isIncome = false,
+            category = inferCategory(text),
+            merchant = extractMerchantFallback(text),
+            rawSource = "支付宝"
+        )
+    }
+
+    /**
+     * 付款成功专用匹配
+     * 典型文本:
+     *   标题: "付款成功"
+     *   内容: "￥3.00 付款成功"
+     *   标题: "付款成功￥3.00"
+     *   内容: "你已成功付款3.00元"
+     */
+    private fun parsePaymentSuccess(text: String): ParsedNotification? {
+        if (!text.containsAny("付款成功", "支付成功", "成功付款", "成功支付", "已付款", "已支付")) return null
+
+        // 尝试多种金额格式
+        val amountPatterns = listOf(
+            AMOUNT_REGEX, // ¥15.00 或 ￥15.00
+            Regex("""(\d+(?:\.\d{1,2})?)\s*元"""), // 15.00元
+            Regex("""付款[^\d]*(\d+(?:\.\d{1,2})?)"""), // 付款3.00
+            Regex("""支付[^\d]*(\d+(?:\.\d{1,2})?)"""), // 支付3.00
+        )
+
+        var amount: Double? = null
+        for (pattern in amountPatterns) {
+            val match = pattern.find(text)
+            if (match != null) {
+                amount = match.groupValues[1].toDoubleOrNull()
+                if (amount != null && amount > 0) break
+            }
+        }
+
+        if (amount == null || amount <= 0) {
+            Log.d("NotificationParser", "PaymentSuccess: no valid amount found")
+            return null
+        }
+
+        // 广告检测（付款成功通常不是广告）
+        if (isAdvertisement(text)) {
+            Log.d("NotificationParser", "PaymentSuccess skipped: ad content detected")
+            return null
+        }
+
+        Log.d("NotificationParser", "PaymentSuccess matched: $amount")
         return ParsedNotification(
             amount = amount,
             isIncome = false,
