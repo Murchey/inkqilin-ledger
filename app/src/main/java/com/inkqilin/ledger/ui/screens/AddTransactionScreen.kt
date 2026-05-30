@@ -398,7 +398,8 @@ fun AddTransactionScreen(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (type == TransactionType.EXPENSE) expenseColor else incomeColor
                 ),
-                interactionSource = saveInteractionSource
+                interactionSource = saveInteractionSource,
+                elevation = appButtonElevation()
             ) {
                 Text("保存", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }

@@ -34,6 +34,7 @@ import com.inkqilin.ledger.data.TransactionType
 import com.inkqilin.ledger.ui.TransactionViewModel
 import com.inkqilin.ledger.ui.motion.*
 import com.inkqilin.ledger.ui.theme.*
+import com.inkqilin.ledger.util.AppMode
 import androidx.core.graphics.toColorInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -73,6 +74,10 @@ fun HomeScreen(
     val multiCurrencyEnabled by viewModel.multiCurrencyEnabled.collectAsState()
     val allAssets by viewModel.allAssets.collectAsState()
     val ocrEnabled by viewModel.ocrEnabled.collectAsState()
+    val appMode by viewModel.appMode.collectAsState()
+    val aiAnalysisResult by viewModel.aiAnalysisResult.collectAsState()
+    val aiAnalysisLoading by viewModel.aiAnalysisLoading.collectAsState()
+    val aiAnalysisFailed by viewModel.aiAnalysisFailed.collectAsState()
     val expenseColorHex by viewModel.expenseColor.collectAsState()
     val expenseColor = Color(expenseColorHex.toColorInt())
     val incomeColorHex by viewModel.incomeColor.collectAsState()
@@ -92,6 +97,7 @@ fun HomeScreen(
     LaunchedEffect(Unit) {
         withFrameNanos { }
         enableCardAnimations = true
+        viewModel.checkAndRunDailyAnalysis()
     }
 
     if (showMonthPicker) {
@@ -131,7 +137,8 @@ fun HomeScreen(
                         transactionToDelete?.let { viewModel.deleteTransaction(it) }
                         transactionToDelete = null
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = expenseColor)
+                    colors = ButtonDefaults.buttonColors(containerColor = expenseColor),
+                    elevation = appButtonElevation()
                 ) {
                     Text("删除", color = Color.White)
                 }
@@ -247,6 +254,7 @@ fun HomeScreen(
                 }
 
                 val fabInteractionSource = remember { MutableInteractionSource() }
+                val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
                 FloatingActionButton(
                     onClick = {
                         if (ocrEnabled) {
@@ -257,7 +265,7 @@ fun HomeScreen(
                     },
                     containerColor = MaterialTheme.colorScheme.primary,
                     elevation = FloatingActionButtonDefaults.elevation(
-                        defaultElevation = 4.dp,
+                        defaultElevation = if (isDark) 6.dp else 0.dp,
                         pressedElevation = 0.dp
                     ),
                     shape = RoundedCornerShape(16.dp),
@@ -311,6 +319,55 @@ fun HomeScreen(
                         onMonthClick = { showMonthPicker = true },
                         enableAnimations = enableCardAnimations
                     )
+                }
+            }
+
+            if (appMode == AppMode.SMART) {
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable(
+                                indication = null,
+                                interactionSource = remember { MutableInteractionSource() }
+                            ) { viewModel.runAiAnalysis() }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                if (aiAnalysisLoading) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp,
+                                        color = Color.White
+                                    )
+                                } else {
+                                    Icon(
+                                        Icons.Default.Refresh,
+                                        contentDescription = "刷新AI分析",
+                                        modifier = Modifier.size(16.dp),
+                                        tint = Color.White
+                                    )
+                                }
+                                Text(
+                                    text = if (aiAnalysisLoading) "分析中..." else if (aiAnalysisFailed) "重新分析" else "刷新AI分析",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
@@ -393,6 +450,28 @@ fun HomeScreen(
                                 }
                             }
                         }
+                    }
+                }
+            }
+
+            if (appMode == AppMode.SMART && !isDataLoading) {
+                item {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    if (aiAnalysisResult != null) {
+                        AnomalyAlertCard(
+                            aiAlerts = aiAnalysisResult!!.alerts,
+                            isFailed = false
+                        )
+                    } else if (aiAnalysisFailed) {
+                        AnomalyAlertCard(
+                            aiAlerts = emptyList(),
+                            isFailed = true
+                        )
+                    } else {
+                        AnomalyAlertCard(
+                            transactions = homeData.periodSummary.transactions,
+                            allTransactions = allTransactions
+                        )
                     }
                 }
             }
@@ -935,6 +1014,560 @@ private fun TransactionItemSkeleton() {
             }
         }
     }
+}
+
+@Composable
+internal fun FinancialScoreCard(
+    income: Double,
+    expense: Double,
+    transactions: List<Transaction>,
+    monthlyBudget: Double
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(20.dp)
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+
+    val savingsRate = if (income > 0) ((income - expense) / income * 100).coerceIn(0.0, 100.0) else 0.0
+    val budgetUsage = if (monthlyBudget > 0) (expense / monthlyBudget * 100).coerceIn(0.0, 200.0) else -1.0
+    val categoryCount = transactions.filter { it.type == TransactionType.EXPENSE }.map { it.category }.distinct().size
+    val avgDailyExpense = if (transactions.isNotEmpty()) {
+        val days = transactions.map {
+            val cal = Calendar.getInstance().apply { timeInMillis = it.date }
+            cal.get(Calendar.DAY_OF_YEAR)
+        }.distinct().size.coerceAtLeast(1)
+        expense / days
+    } else 0.0
+
+    val score = calculateFinancialScore(savingsRate, budgetUsage, avgDailyExpense, transactions.size)
+    val scoreColor = when {
+        score >= 80 -> Color(0xFF4CAF50)
+        score >= 60 -> Color(0xFFFF9800)
+        else -> Color(0xFFF44336)
+    }
+    val scoreLabel = when {
+        score >= 80 -> "优秀"
+        score >= 70 -> "良好"
+        score >= 60 -> "一般"
+        else -> "需关注"
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .frostedGlass(shape, isDark)
+            .clickable { expanded = !expanded },
+        shape = shape,
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Star,
+                        contentDescription = null,
+                        tint = scoreColor,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "财务评分",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = scoreLabel,
+                        fontSize = 12.sp,
+                        color = scoreColor
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "${score.toInt()}",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = scoreColor
+                    )
+                    Text(
+                        text = "/100",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            Text(
+                text = "基于储蓄率、预算使用、日均支出、消费类别综合评估",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                modifier = Modifier.padding(top = 4.dp)
+            )
+
+            AnimatedVisibility(visible = expanded) {
+                Column(modifier = Modifier.padding(top = 16.dp)) {
+                    Divider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    ScoreDetailRow("储蓄率", "${String.format("%.1f", savingsRate)}%", savingsRate >= 20)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    if (budgetUsage >= 0) {
+                        ScoreDetailRow("预算使用", "${String.format("%.0f", budgetUsage)}%", budgetUsage <= 80)
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    ScoreDetailRow("消费类别", "${categoryCount}类", categoryCount <= 8)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScoreDetailRow(label: String, value: String, isGood: Boolean) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = value,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Icon(
+                if (isGood) Icons.Default.CheckCircle else Icons.Default.Warning,
+                contentDescription = null,
+                tint = if (isGood) Color(0xFF4CAF50) else Color(0xFFFF9800),
+                modifier = Modifier.size(14.dp)
+            )
+        }
+    }
+}
+
+private fun calculateFinancialScore(
+    savingsRate: Double,
+    budgetUsage: Double,
+    avgDailyExpense: Double,
+    transactionCount: Int
+): Double {
+    var score = 60.0
+
+    score += when {
+        savingsRate >= 30 -> 15.0
+        savingsRate >= 20 -> 10.0
+        savingsRate >= 10 -> 5.0
+        savingsRate >= 0 -> 0.0
+        else -> -10.0
+    }
+
+    if (budgetUsage >= 0) {
+        score += when {
+            budgetUsage <= 60 -> 10.0
+            budgetUsage <= 80 -> 5.0
+            budgetUsage <= 100 -> 0.0
+            budgetUsage <= 120 -> -5.0
+            else -> -10.0
+        }
+    }
+
+    score += when {
+        avgDailyExpense <= 100 -> 10.0
+        avgDailyExpense <= 200 -> 5.0
+        avgDailyExpense <= 300 -> 0.0
+        else -> -5.0
+    }
+
+    if (transactionCount in 10..100) score += 5.0
+    else if (transactionCount > 100) score += 2.0
+
+    return score.coerceIn(0.0, 100.0)
+}
+
+@Composable
+private fun AnomalyAlertCard(
+    transactions: List<Transaction>,
+    allTransactions: List<Transaction>
+) {
+    val anomalies = remember(transactions, allTransactions) {
+        detectAnomalies(transactions, allTransactions)
+    }
+
+    if (anomalies.isEmpty()) return
+
+    val shape = RoundedCornerShape(20.dp)
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .frostedGlass(shape, isDark),
+        shape = shape,
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Notifications,
+                        contentDescription = null,
+                        tint = Color(0xFFFF9800),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "消费提醒",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFFF9800).copy(alpha = 0.1f)
+                ) {
+                    Text(
+                        text = "${anomalies.size}条提醒",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        fontSize = 11.sp,
+                        color = Color(0xFFFF9800)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            anomalies.forEach { anomaly ->
+                AnomalyAlertItem(anomaly)
+                if (anomaly != anomalies.last()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AnomalyAlertCard(
+    aiAlerts: List<com.inkqilin.ledger.service.AiAlert>,
+    isFailed: Boolean
+) {
+    val shape = RoundedCornerShape(20.dp)
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .frostedGlass(shape, isDark),
+        shape = shape,
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Notifications,
+                        contentDescription = null,
+                        tint = if (isFailed) Color(0xFFF44336) else Color(0xFFFF9800),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "消费提醒",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (isFailed) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(
+                            Icons.Default.Warning,
+                            contentDescription = "分析失败",
+                            tint = Color(0xFFF44336),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+                if (!isFailed && aiAlerts.isNotEmpty()) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFFF9800).copy(alpha = 0.1f)
+                    ) {
+                        Text(
+                            text = "${aiAlerts.size}条提醒",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            fontSize = 11.sp,
+                            color = Color(0xFFFF9800)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            if (isFailed) {
+                Text(
+                    text = "AI 分析暂不可用，请检查 API 配置或点击刷新按钮重试",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else if (aiAlerts.isEmpty()) {
+                Text(
+                    text = "暂无消费提醒，继续保持良好习惯！",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                aiAlerts.forEachIndexed { index, alert ->
+                    AiAnomalyAlertItem(alert)
+                    if (index < aiAlerts.size - 1) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AiAnomalyAlertItem(alert: com.inkqilin.ledger.service.AiAlert) {
+    var expanded by remember { mutableStateOf(false) }
+    val alertColor = when (alert.severity) {
+        "warning" -> Color(0xFFF44336)
+        else -> Color(0xFFFF9800)
+    }
+    val alertIcon = when (alert.severity) {
+        "warning" -> Icons.Default.Warning
+        else -> Icons.Default.Info
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { expanded = !expanded },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = alertColor.copy(alpha = 0.08f)
+        )
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        alertIcon,
+                        contentDescription = null,
+                        tint = alertColor,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = alert.title,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Text(
+                    text = alert.percent,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = alertColor
+                )
+            }
+
+            AnimatedVisibility(visible = expanded) {
+                Column(modifier = Modifier.padding(top = 8.dp)) {
+                    Text(
+                        text = alert.detail,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AnomalyAlertItem(anomaly: AnomalyInfo) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { expanded = !expanded },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = anomaly.color.copy(alpha = 0.08f)
+        )
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        anomaly.icon,
+                        contentDescription = null,
+                        tint = anomaly.color,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = anomaly.title,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Text(
+                    text = anomaly.changePercent,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = anomaly.color
+                )
+            }
+
+            AnimatedVisibility(visible = expanded) {
+                Column(modifier = Modifier.padding(top = 8.dp)) {
+                    Text(
+                        text = anomaly.detail,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+private data class AnomalyInfo(
+    val title: String,
+    val changePercent: String,
+    val detail: String,
+    val color: Color,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector
+)
+
+private fun detectAnomalies(
+    currentTransactions: List<Transaction>,
+    allTransactions: List<Transaction>
+): List<AnomalyInfo> {
+    val anomalies = mutableListOf<AnomalyInfo>()
+
+    val currentExpenses = currentTransactions.filter { it.type == TransactionType.EXPENSE }
+    if (currentExpenses.isEmpty()) return emptyList()
+
+    val categoryGroups = currentExpenses.groupBy { it.category }
+    val totalCurrentExpense = currentExpenses.sumOf { it.amount }
+
+    val calendar = Calendar.getInstance()
+    val currentMonth = calendar.get(Calendar.MONTH)
+    val currentYear = calendar.get(Calendar.YEAR)
+
+    val historicalTransactions = allTransactions.filter { tx ->
+        val txCal = Calendar.getInstance().apply { timeInMillis = tx.date }
+        txCal.get(Calendar.YEAR) == currentYear && txCal.get(Calendar.MONTH) < currentMonth
+    }
+    val historicalExpenses = historicalTransactions.filter { it.type == TransactionType.EXPENSE }
+
+    val historicalMonths = historicalTransactions.map {
+        val cal = Calendar.getInstance().apply { timeInMillis = it.date }
+        cal.get(Calendar.MONTH)
+    }.distinct().size.coerceAtLeast(1)
+
+    categoryGroups.forEach { (category, txs) ->
+        val currentCategoryTotal = txs.sumOf { it.amount }
+        val currentCategoryPercent = if (totalCurrentExpense > 0) currentCategoryTotal / totalCurrentExpense * 100 else 0.0
+
+        if (currentCategoryPercent > 30 && currentCategoryTotal > 500) {
+            val historicalCategoryTotal = historicalExpenses.filter { it.category == category }.sumOf { it.amount }
+            val historicalAvg = historicalCategoryTotal / historicalMonths
+
+            if (historicalAvg > 0) {
+                val changePercent = ((currentCategoryTotal - historicalAvg) / historicalAvg * 100)
+                if (changePercent > 20) {
+                    anomalies.add(
+                        AnomalyInfo(
+                            title = "本月${category}支出偏高",
+                            changePercent = "+${String.format("%.0f", changePercent)}%",
+                            detail = "本月${category}支出¥${String.format("%.0f", currentCategoryTotal)}，历史月均¥${String.format("%.0f", historicalAvg)}，占比${String.format("%.0f", currentCategoryPercent)}%",
+                            color = Color(0xFFF44336),
+                            icon = Icons.Default.Warning
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    val dailyExpenses = currentExpenses.groupBy { tx ->
+        val cal = Calendar.getInstance().apply { timeInMillis = tx.date }
+        cal.get(Calendar.DAY_OF_YEAR)
+    }.map { it.value.sumOf { tx -> tx.amount } }
+
+    if (dailyExpenses.isNotEmpty()) {
+        val avgDaily = dailyExpenses.average()
+        val maxDaily = dailyExpenses.maxOrNull() ?: 0.0
+        if (maxDaily > avgDaily * 2 && maxDaily > 300) {
+            anomalies.add(
+                AnomalyInfo(
+                    title = "存在单日高额消费",
+                    changePercent = "¥${String.format("%.0f", maxDaily)}",
+                    detail = "日均支出¥${String.format("%.0f", avgDaily)}，最高单日消费¥${String.format("%.0f", maxDaily)}，是均值的${String.format("%.1f", maxDaily / avgDaily)}倍",
+                    color = Color(0xFFFF9800),
+                    icon = Icons.Default.Info
+                )
+            )
+        }
+    }
+
+    return anomalies.take(3)
 }
 
 private data class HomeData(

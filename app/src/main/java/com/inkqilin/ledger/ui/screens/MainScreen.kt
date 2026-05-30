@@ -404,6 +404,9 @@ fun MainScreen(
                             },
                             onNavigateToAIConfig = {
                                 navController.navigate("ai_config")
+                            },
+                            onNavigateToOCRConfig = {
+                                navController.navigate("ocr_config")
                             }
                         )
                     }
@@ -412,6 +415,12 @@ fun MainScreen(
             composable("search") { SearchScreen(viewModel) }
             composable("ai_config") {
                 AIConfigScreen(
+                    viewModel = viewModel,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable("ocr_config") {
+                OCRConfigScreen(
                     viewModel = viewModel,
                     onBack = { navController.popBackStack() }
                 )

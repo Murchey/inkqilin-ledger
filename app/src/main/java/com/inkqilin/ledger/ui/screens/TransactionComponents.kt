@@ -197,7 +197,10 @@ fun CategoryEditDialog(
             }
         },
         confirmButton = {
-            Button(onClick = { if (name.isNotBlank()) onConfirm(name, icon, color) }) {
+            Button(
+                onClick = { if (name.isNotBlank()) onConfirm(name, icon, color) },
+                elevation = appButtonElevation()
+            ) {
                 Text("确定")
             }
         },

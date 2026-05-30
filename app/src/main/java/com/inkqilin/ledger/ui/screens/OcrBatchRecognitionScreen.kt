@@ -60,9 +60,9 @@ fun OcrBatchRecognitionScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val aiApiKey by viewModel.aiApiKey.collectAsState()
-    val aiBaseUrl by viewModel.aiBaseUrl.collectAsState()
-    val aiModel by viewModel.aiModel.collectAsState()
+    val ocrApiKey by viewModel.ocrApiKey.collectAsState()
+    val ocrBaseUrl by viewModel.ocrBaseUrl.collectAsState()
+    val ocrModel by viewModel.ocrModel.collectAsState()
     val albumEnabled by viewModel.albumEnabled.collectAsState()
     val albumPhotos by viewModel.allAlbumPhotos.collectAsState()
 
@@ -143,12 +143,12 @@ fun OcrBatchRecognitionScreen(
                         }
                         Button(
                             onClick = {
-                                if (aiApiKey.isEmpty()) {
+                                if (ocrApiKey.isEmpty()) {
                                     Toast.makeText(context, "请先在设置中配置 AI API Key", Toast.LENGTH_LONG).show()
                                 } else {
                                     scope.launch {
                                         isRecognizing = true
-                                        val results = performOcr(context, selectedImages, aiApiKey, aiBaseUrl, aiModel)
+                                        val results = performOcr(context, selectedImages, ocrApiKey, ocrBaseUrl, ocrModel)
                                         recognizedTransactions = results
                                         isRecognizing = false
                                         if (results.isEmpty()) {

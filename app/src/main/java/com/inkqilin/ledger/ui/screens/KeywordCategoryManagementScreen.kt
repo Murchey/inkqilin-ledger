@@ -1,3 +1,5 @@
+@file:Suppress("AssignedValueIsNeverRead")
+
 package com.inkqilin.ledger.ui.screens
 
 import androidx.compose.foundation.layout.*
@@ -19,7 +21,7 @@ import com.inkqilin.ledger.ui.TransactionViewModel
 @Composable
 fun KeywordCategoryManagementScreen(
     viewModel: TransactionViewModel,
-    onBack: () -> Unit
+    @Suppress("UNUSED_PARAMETER") onBack: () -> Unit
 ) {
     val allKeywordCategories by viewModel.allKeywordCategories.collectAsState(initial = emptyList())
     val allCategories by viewModel.allCategories.collectAsState(initial = emptyList())

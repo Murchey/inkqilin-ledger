@@ -74,6 +74,15 @@ private val AppShapes = Shapes(
     extraLarge = RoundedCornerShape(32.dp),
 )
 
+@Composable
+fun appButtonElevation() = ButtonDefaults.buttonElevation(
+    defaultElevation = 0.dp,
+    pressedElevation = 0.dp,
+    focusedElevation = 0.dp,
+    hoveredElevation = 0.dp,
+    disabledElevation = 0.dp
+)
+
 fun parseHexColor(hex: String): Color? {
     return try {
         val clean = hex.removePrefix("#")

@@ -59,7 +59,8 @@ fun SettingsScreen(
     onNavigateToKeywordCategoryManagement: () -> Unit = {},
     onNavigateToContactManagement: () -> Unit = {},
     onNavigateToCurrencyManagement: () -> Unit = {},
-    onNavigateToAIConfig: () -> Unit = {}
+    onNavigateToAIConfig: () -> Unit = {},
+    onNavigateToOCRConfig: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -71,6 +72,9 @@ fun SettingsScreen(
     val ocrEnabled by viewModel.ocrEnabled.collectAsState()
     val albumEnabled by viewModel.albumEnabled.collectAsState()
     val aiApiKey by viewModel.aiApiKey.collectAsState()
+    val ocrApiKey by viewModel.ocrApiKey.collectAsState()
+    val appMode by viewModel.appMode.collectAsState()
+    val aiDataRange by viewModel.aiDataRange.collectAsState()
 
     var exportTimeRange by remember { mutableStateOf(ExportTimeRange.ALL) }
     var exportStartDate by remember { mutableLongStateOf(
@@ -244,6 +248,70 @@ fun SettingsScreen(
     )
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+        // region 1. 应用版本
+        Text(text = "应用版本", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
+        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+            Column {
+                ListItem(
+                    headlineContent = { Text("基础版", fontWeight = if (appMode == AppMode.BASIC) FontWeight.Bold else FontWeight.Normal) },
+                    supportingContent = { Text("注重隐私保护，软件不会对本地数据进行任何计算采集") },
+                    leadingContent = {
+                        RadioButton(
+                            selected = appMode == AppMode.BASIC,
+                            onClick = { viewModel.setAppMode(AppMode.BASIC) }
+                        )
+                    },
+                    modifier = Modifier.clickable { viewModel.setAppMode(AppMode.BASIC) }
+                )
+                Divider()
+                ListItem(
+                    headlineContent = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("智能版", fontWeight = if (appMode == AppMode.SMART) FontWeight.Bold else FontWeight.Normal)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer
+                            ) {
+                                Text(
+                                    text = "AI",
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
+                    },
+                    supportingContent = { Text("软件会主动采集分析收入、支出习惯") },
+                    leadingContent = {
+                        RadioButton(
+                            selected = appMode == AppMode.SMART,
+                            onClick = { viewModel.setAppMode(AppMode.SMART) }
+                        )
+                    },
+                    modifier = Modifier.clickable { viewModel.setAppMode(AppMode.SMART) }
+                )
+                if (appMode == AppMode.SMART) {
+                    Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                    ListItem(
+                        headlineContent = { Text("AI 分析配置") },
+                        supportingContent = {
+                            Text(
+                                if (aiApiKey.isBlank()) "未配置 API Key，点击配置"
+                                else "数据范围：${aiDataRange.label}"
+                            )
+                        },
+                        leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
+                        trailingContent = { Icon(Icons.Default.KeyboardArrowRight, contentDescription = null) },
+                        modifier = Modifier.clickable { onNavigateToAIConfig() }
+                    )
+                }
+            }
+        }
+        // endregion
+
+        // region 2. 显示设置
         var displaySettingsExpanded by remember { mutableStateOf(false) }
         Text(
             text = "显示设置",
@@ -578,10 +646,10 @@ fun SettingsScreen(
                 if (ocrEnabled) {
                     Divider()
                     ListItem(
-                        headlineContent = { Text("AI API 配置") },
-                        supportingContent = { Text(if (aiApiKey.isEmpty()) "点击配置 API Key" else "已配置 API Key") },
+                        headlineContent = { Text("OCR 识别 API 配置") },
+                        supportingContent = { Text(if (ocrApiKey.isEmpty()) "点击配置 API Key" else "已配置 API Key") },
                         trailingContent = { Icon(Icons.Default.KeyboardArrowRight, contentDescription = null) },
-                        modifier = Modifier.clickable { onNavigateToAIConfig() }
+                        modifier = Modifier.clickable { onNavigateToOCRConfig() }
                     )
                 }
                 Divider()
@@ -775,16 +843,19 @@ fun SettingsScreen(
                         leadingContent = { Icon(Icons.Default.ExitToApp, contentDescription = null) },
                         modifier = Modifier.fillMaxWidth(),
                         trailingContent = {
-                            Button(onClick = {
-                                scope.launch {
-                                    val contacts = renQingViewModel.allContacts.first()
-                                    if (contacts.isNotEmpty()) {
-                                        renQingContactsExportLauncher.launch("联系人_${System.currentTimeMillis()}.xlsx")
-                                    } else {
-                                        Toast.makeText(context, "暂无联系人可导出", Toast.LENGTH_SHORT).show()
+                            Button(
+                                onClick = {
+                                    scope.launch {
+                                        val contacts = renQingViewModel.allContacts.first()
+                                        if (contacts.isNotEmpty()) {
+                                            renQingContactsExportLauncher.launch("联系人_${System.currentTimeMillis()}.xlsx")
+                                        } else {
+                                            Toast.makeText(context, "暂无联系人可导出", Toast.LENGTH_SHORT).show()
+                                        }
                                     }
-                                }
-                            }) {
+                                },
+                                elevation = appButtonElevation()
+                            ) {
                                 Text("导出")
                             }
                         }
@@ -812,11 +883,12 @@ private fun AnimatedPressButton(
     content: @Composable RowScope.() -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
-    
+
     Button(
         onClick = onClick,
-        modifier = modifier.pressScale(interactionSource), // iOS-style interactive feedback
+        modifier = modifier.pressScale(interactionSource),
         interactionSource = interactionSource,
+        elevation = appButtonElevation(),
         content = content
     )
 }
@@ -950,7 +1022,10 @@ fun CurrencyManagementScreen(
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
-                FilledTonalButton(onClick = { showAddDialog = true }) {
+                FilledTonalButton(
+                    onClick = { showAddDialog = true },
+                    elevation = appButtonElevation()
+                ) {
                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("添加币种")

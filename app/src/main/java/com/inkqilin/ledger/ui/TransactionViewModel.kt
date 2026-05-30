@@ -7,9 +7,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.inkqilin.ledger.data.*
+import com.inkqilin.ledger.service.AIAnalysisService
+import com.inkqilin.ledger.service.AiAlert
+import com.inkqilin.ledger.service.AiAnalysisResult
 import com.inkqilin.ledger.util.DEFAULT_EXPENSE_COLOR_HEX
 import com.inkqilin.ledger.util.DEFAULT_INCOME_COLOR_HEX
 import com.inkqilin.ledger.util.ExcelImporter
+import com.inkqilin.ledger.util.AiDataRange
+import com.inkqilin.ledger.util.AppMode
 import com.inkqilin.ledger.util.ThemeManager
 import com.inkqilin.ledger.util.ThemeMode
 import kotlinx.coroutines.Dispatchers
@@ -279,6 +284,128 @@ class TransactionViewModel(
     val albumEnabled: StateFlow<Boolean> = themeManager.albumEnabled.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), false
     )
+
+    val ocrApiKey: StateFlow<String> = themeManager.ocrApiKey.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), ""
+    )
+
+    val ocrBaseUrl: StateFlow<String> = themeManager.ocrBaseUrl.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), "https://api.openai.com/v1"
+    )
+
+    val ocrModel: StateFlow<String> = themeManager.ocrModel.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), "gpt-4o"
+    )
+
+    fun setOcrApiKey(apiKey: String) {
+        viewModelScope.launch { themeManager.setOcrApiKey(apiKey) }
+    }
+
+    fun setOcrBaseUrl(baseUrl: String) {
+        viewModelScope.launch { themeManager.setOcrBaseUrl(baseUrl) }
+    }
+
+    fun setOcrModel(model: String) {
+        viewModelScope.launch { themeManager.setOcrModel(model) }
+    }
+
+    val appMode: StateFlow<AppMode> = themeManager.appMode.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), AppMode.BASIC
+    )
+
+    fun setAppMode(mode: AppMode) {
+        viewModelScope.launch { themeManager.setAppMode(mode) }
+    }
+
+    val aiDataRange: StateFlow<AiDataRange> = themeManager.aiDataRange.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), AiDataRange.THIS_WEEK_AND_LAST
+    )
+
+    fun setAiDataRange(range: AiDataRange) {
+        viewModelScope.launch { themeManager.setAiDataRange(range) }
+    }
+
+    private val _aiAnalysisResult = MutableStateFlow<AiAnalysisResult?>(null)
+    val aiAnalysisResult: StateFlow<AiAnalysisResult?> = _aiAnalysisResult.asStateFlow()
+
+    private val _aiAnalysisLoading = MutableStateFlow(false)
+    val aiAnalysisLoading: StateFlow<Boolean> = _aiAnalysisLoading.asStateFlow()
+
+    private val _aiAnalysisFailed = MutableStateFlow(false)
+    val aiAnalysisFailed: StateFlow<Boolean> = _aiAnalysisFailed.asStateFlow()
+
+    init {
+        loadCachedAiResult()
+    }
+
+    private fun loadCachedAiResult() {
+        viewModelScope.launch {
+            val score = themeManager.aiScore.first()
+            val label = themeManager.aiScoreLabel.first()
+            val explanation = themeManager.aiScoreExplanation.first()
+            val alertsJson = themeManager.aiAlertsJson.first()
+            val failed = themeManager.aiAnalysisFailed.first()
+
+            if (score != null) {
+                _aiAnalysisResult.value = AiAnalysisResult(
+                    score = score,
+                    scoreLabel = label,
+                    scoreExplanation = explanation,
+                    alerts = AIAnalysisService.deserializeAlerts(alertsJson)
+                )
+            }
+            _aiAnalysisFailed.value = failed
+        }
+    }
+
+    fun checkAndRunDailyAnalysis() {
+        viewModelScope.launch {
+            val mode = appMode.value
+            if (mode != AppMode.SMART) return@launch
+
+            val apiKey = aiApiKey.value
+            if (apiKey.isBlank()) return@launch
+
+            val lastDate = themeManager.aiLastAnalysisDate.first()
+            val today = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+            if (lastDate >= today) return@launch
+
+            runAiAnalysis()
+        }
+    }
+
+    fun runAiAnalysis() {
+        if (_aiAnalysisLoading.value) return
+        viewModelScope.launch {
+            val apiKey = aiApiKey.value
+            val baseUrl = aiBaseUrl.value
+            val model = aiModel.value
+            if (apiKey.isBlank()) {
+                _aiAnalysisFailed.value = true
+                return@launch
+            }
+
+            _aiAnalysisLoading.value = true
+            _aiAnalysisFailed.value = false
+
+            try {
+                val transactions = allTransactions.first()
+                val dataRange = aiDataRange.value
+                val result = AIAnalysisService.analyze(transactions, dataRange, apiKey, baseUrl, model)
+                val alertsJson = AIAnalysisService.serializeAlerts(result.alerts)
+                themeManager.saveAiAnalysisResult(result.score, result.scoreLabel, result.scoreExplanation, alertsJson)
+                _aiAnalysisResult.value = result
+                _aiAnalysisFailed.value = false
+            } catch (_: Exception) {
+                themeManager.markAiAnalysisFailed()
+                _aiAnalysisFailed.value = true
+            } finally {
+                _aiAnalysisLoading.value = false
+            }
+        }
+    }
 
     val recentNotes: StateFlow<List<String>> = themeManager.recentNotes.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()

@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.inkqilin.ledger.data.*
 import com.inkqilin.ledger.ui.RenQingViewModel
+import com.inkqilin.ledger.ui.theme.appButtonElevation
 import com.inkqilin.ledger.ui.theme.InkQilinLedgerTheme
 import java.text.SimpleDateFormat
 import java.util.*
@@ -604,7 +605,8 @@ private fun AddRenQingEventForm(
                     onSaved()
                 },
                 modifier = Modifier.weight(1f),
-                enabled = amount.toDoubleOrNull() != null
+                enabled = amount.toDoubleOrNull() != null,
+                elevation = appButtonElevation()
             ) {
                 Text(if (isEdit) "保存" else "添加")
             }
@@ -1415,7 +1417,10 @@ fun ContactManagementScreen(viewModel: RenQingViewModel) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("共 ${allContacts.size} 位联系人", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Button(onClick = { showAddDialog = true }) {
+            Button(
+                onClick = { showAddDialog = true },
+                elevation = appButtonElevation()
+            ) {
                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(4.dp))
                 Text("添加联系人")

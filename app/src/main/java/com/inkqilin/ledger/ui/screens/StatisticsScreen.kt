@@ -2,6 +2,7 @@
 
 package com.inkqilin.ledger.ui.screens
 
+import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.*
@@ -41,6 +42,7 @@ import com.inkqilin.ledger.data.TransactionType
 import com.inkqilin.ledger.ui.TransactionViewModel
 import com.inkqilin.ledger.ui.motion.*
 import com.inkqilin.ledger.ui.theme.*
+import com.inkqilin.ledger.util.AppMode
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt
@@ -80,6 +82,10 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
     val multiCurrencyEnabled by viewModel.multiCurrencyEnabled.collectAsState()
     val allAssets by viewModel.allAssets.collectAsState()
     val defaultAsset = allAssets.firstOrNull { it.isDefault }
+    val appMode by viewModel.appMode.collectAsState()
+    val monthlyBudget by viewModel.monthlyBudget.collectAsState()
+    val aiAnalysisResult by viewModel.aiAnalysisResult.collectAsState()
+    val aiAnalysisFailed by viewModel.aiAnalysisFailed.collectAsState()
 
     var selectedType by remember { mutableStateOf(TransactionType.EXPENSE) }
     var selectedPeriod by remember { mutableStateOf(TimePeriod.MONTH) }
@@ -503,38 +509,68 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                 colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "环比上期",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        val isUp = changePercent >= 0
-                        Icon(
-                            imageVector = if (isUp) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                            contentDescription = null,
-                            tint = if (isUp) expenseColor else incomeColor,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
                         Text(
-                            text = "${if (isUp) "+" else ""}${String.format("%.1f", changePercent)}%",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = if (isUp) expenseColor else incomeColor
+                            text = "环比上期",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            val isUp = changePercent >= 0
+                            Icon(
+                                imageVector = if (isUp) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                contentDescription = null,
+                                tint = if (isUp) expenseColor else incomeColor,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "${if (isUp) "+" else ""}${String.format("%.1f", changePercent)}%",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = if (isUp) expenseColor else incomeColor
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "上期 ${currencySymbol}${String.format("%.2f", previousTotal)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    val avgDailyExpense = remember(filteredTransactions, selectedPeriod) {
+                        val days = when (selectedPeriod) {
+                            TimePeriod.WEEK -> 7
+                            TimePeriod.MONTH -> Calendar.getInstance().getActualMaximum(Calendar.DAY_OF_MONTH)
+                            TimePeriod.YEAR -> 365
+                            TimePeriod.CUSTOM -> {
+                                val diff = endDate - startDate
+                                (diff / 86400000L).toInt().coerceAtLeast(1)
+                            }
+                        }
+                        if (days > 0) totalAmount / days else 0.0
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
                         Text(
-                            text = "上期 ${currencySymbol}${String.format("%.2f", previousTotal)}",
+                            text = "日均支出",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "${currencySymbol}${String.format("%.2f", avgDailyExpense)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
@@ -613,6 +649,30 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                             )
                         }
                     }
+                }
+            }
+        }
+
+        if (appMode == AppMode.SMART) {
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                if (aiAnalysisResult != null) {
+                    AiFinancialScoreCard(
+                        result = aiAnalysisResult!!,
+                        isFailed = false
+                    )
+                } else if (aiAnalysisFailed) {
+                    AiFinancialScoreCard(
+                        result = null,
+                        isFailed = true
+                    )
+                } else {
+                    FinancialScoreCard(
+                        income = filteredByPeriod.filter { it.type == TransactionType.INCOME }.sumOf { it.amount },
+                        expense = filteredByPeriod.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount },
+                        transactions = filteredByPeriod,
+                        monthlyBudget = monthlyBudget
+                    )
                 }
             }
         }
@@ -918,6 +978,133 @@ private fun AnimatedBarChart(
                     }
                     valuePaint.color = accentColor.toArgb()
                     drawText(valueText, textX, y - 8f, valuePaint)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AiFinancialScoreCard(
+    result: com.inkqilin.ledger.service.AiAnalysisResult?,
+    isFailed: Boolean
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(20.dp)
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+
+    val score = result?.score ?: 60
+    val scoreLabel = result?.scoreLabel ?: "未知"
+    val scoreExplanation = result?.scoreExplanation ?: ""
+    val scoreColor = when {
+        score >= 80 -> Color(0xFF4CAF50)
+        score >= 60 -> Color(0xFFFF9800)
+        else -> Color(0xFFF44336)
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .frostedGlass(shape, isDark)
+            .clickable { expanded = !expanded },
+        shape = shape,
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Star,
+                        contentDescription = null,
+                        tint = if (isFailed) Color(0xFFF44336) else scoreColor,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "财务评分",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (isFailed) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(
+                            Icons.Default.Warning,
+                            contentDescription = "分析失败",
+                            tint = Color(0xFFF44336),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (!isFailed) {
+                        Text(
+                            text = scoreLabel,
+                            fontSize = 12.sp,
+                            color = scoreColor
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "$score",
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = scoreColor
+                        )
+                        Text(
+                            text = "/100",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            if (isFailed) {
+                Text(
+                    text = "AI 分析暂不可用，请检查 API 配置或点击刷新按钮重试",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            } else {
+                Text(
+                    text = scoreExplanation.ifBlank { "AI 智能分析生成的财务评分" },
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+
+            AnimatedVisibility(visible = expanded) {
+                Column(modifier = Modifier.padding(top = 16.dp)) {
+                    Divider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    if (isFailed) {
+                        Text(
+                            text = "请在设置中配置 AI API，或点击首页刷新按钮重试",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        Text(
+                            text = "本评分由 AI 根据您的账单数据综合分析生成",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }

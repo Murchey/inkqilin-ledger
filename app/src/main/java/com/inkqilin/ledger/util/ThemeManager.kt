@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -17,6 +19,16 @@ const val DEFAULT_EXPENSE_COLOR_HEX = "#FF9800"
 
 enum class ThemeMode {
     AUTO, LIGHT, DARK
+}
+
+enum class AppMode {
+    BASIC, SMART
+}
+
+enum class AiDataRange(val label: String) {
+    THIS_WEEK_AND_LAST("本周和上周"),
+    TODAY_AND_YESTERDAY("本日和昨日"),
+    THIS_MONTH_AND_LAST("本月和上月")
 }
 
 class ThemeManager(private val context: Context) {
@@ -34,7 +46,18 @@ class ThemeManager(private val context: Context) {
     private val AI_BASE_URL_KEY = stringPreferencesKey("ai_base_url")
     private val AI_MODEL_KEY = stringPreferencesKey("ai_model")
     private val ALBUM_ENABLED_KEY = booleanPreferencesKey("album_enabled")
+    private val OCR_API_KEY_KEY = stringPreferencesKey("ocr_api_key")
+    private val OCR_BASE_URL_KEY = stringPreferencesKey("ocr_base_url")
+    private val OCR_MODEL_KEY = stringPreferencesKey("ocr_model")
     private val RECENT_NOTES_KEY = stringPreferencesKey("recent_notes")
+    private val APP_MODE_KEY = stringPreferencesKey("app_mode")
+    private val AI_DATA_RANGE_KEY = stringPreferencesKey("ai_data_range")
+    private val AI_LAST_ANALYSIS_DATE_KEY = longPreferencesKey("ai_last_analysis_date")
+    private val AI_SCORE_KEY = intPreferencesKey("ai_score")
+    private val AI_SCORE_LABEL_KEY = stringPreferencesKey("ai_score_label")
+    private val AI_SCORE_EXPLANATION_KEY = stringPreferencesKey("ai_score_explanation")
+    private val AI_ALERTS_JSON_KEY = stringPreferencesKey("ai_alerts_json")
+    private val AI_ANALYSIS_FAILED_KEY = booleanPreferencesKey("ai_analysis_failed")
 
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { preferences ->
         val mode = preferences[THEME_KEY] ?: ThemeMode.AUTO.name
@@ -93,10 +116,56 @@ class ThemeManager(private val context: Context) {
         preferences[ALBUM_ENABLED_KEY] ?: false
     }
 
+    val ocrApiKey: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[OCR_API_KEY_KEY] ?: ""
+    }
+
+    val ocrBaseUrl: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[OCR_BASE_URL_KEY] ?: "https://api.openai.com/v1"
+    }
+
+    val ocrModel: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[OCR_MODEL_KEY] ?: "gpt-4o"
+    }
+
     val recentNotes: Flow<List<String>> = context.dataStore.data.map { preferences ->
         val notesStr = preferences[RECENT_NOTES_KEY] ?: ""
         if (notesStr.isBlank()) emptyList()
         else notesStr.split("|||").filter { it.isNotBlank() }
+    }
+
+    val appMode: Flow<AppMode> = context.dataStore.data.map { preferences ->
+        val mode = preferences[APP_MODE_KEY] ?: AppMode.BASIC.name
+        try { AppMode.valueOf(mode) } catch (_: Exception) { AppMode.BASIC }
+    }
+
+    val aiDataRange: Flow<AiDataRange> = context.dataStore.data.map { preferences ->
+        val range = preferences[AI_DATA_RANGE_KEY] ?: AiDataRange.THIS_WEEK_AND_LAST.name
+        try { AiDataRange.valueOf(range) } catch (_: Exception) { AiDataRange.THIS_WEEK_AND_LAST }
+    }
+
+    val aiLastAnalysisDate: Flow<Long> = context.dataStore.data.map { preferences ->
+        preferences[AI_LAST_ANALYSIS_DATE_KEY] ?: 0L
+    }
+
+    val aiScore: Flow<Int?> = context.dataStore.data.map { preferences ->
+        preferences[AI_SCORE_KEY]
+    }
+
+    val aiScoreLabel: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[AI_SCORE_LABEL_KEY] ?: ""
+    }
+
+    val aiScoreExplanation: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[AI_SCORE_EXPLANATION_KEY] ?: ""
+    }
+
+    val aiAlertsJson: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[AI_ALERTS_JSON_KEY] ?: ""
+    }
+
+    val aiAnalysisFailed: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[AI_ANALYSIS_FAILED_KEY] ?: false
     }
 
     suspend fun setThemeMode(mode: ThemeMode) {
@@ -187,6 +256,24 @@ class ThemeManager(private val context: Context) {
         }
     }
 
+    suspend fun setOcrApiKey(apiKey: String) {
+        context.dataStore.edit { preferences ->
+            preferences[OCR_API_KEY_KEY] = apiKey
+        }
+    }
+
+    suspend fun setOcrBaseUrl(baseUrl: String) {
+        context.dataStore.edit { preferences ->
+            preferences[OCR_BASE_URL_KEY] = baseUrl
+        }
+    }
+
+    suspend fun setOcrModel(model: String) {
+        context.dataStore.edit { preferences ->
+            preferences[OCR_MODEL_KEY] = model
+        }
+    }
+
     suspend fun addRecentNote(note: String) {
         if (note.isBlank()) return
         context.dataStore.edit { preferences ->
@@ -202,6 +289,47 @@ class ThemeManager(private val context: Context) {
     suspend fun clearRecentNotes() {
         context.dataStore.edit { preferences ->
             preferences.remove(RECENT_NOTES_KEY)
+        }
+    }
+
+    suspend fun setAppMode(mode: AppMode) {
+        context.dataStore.edit { preferences ->
+            preferences[APP_MODE_KEY] = mode.name
+        }
+    }
+
+    suspend fun setAiDataRange(range: AiDataRange) {
+        context.dataStore.edit { preferences ->
+            preferences[AI_DATA_RANGE_KEY] = range.name
+        }
+    }
+
+    suspend fun saveAiAnalysisResult(score: Int, scoreLabel: String, scoreExplanation: String, alertsJson: String) {
+        context.dataStore.edit { preferences ->
+            preferences[AI_SCORE_KEY] = score
+            preferences[AI_SCORE_LABEL_KEY] = scoreLabel
+            preferences[AI_SCORE_EXPLANATION_KEY] = scoreExplanation
+            preferences[AI_ALERTS_JSON_KEY] = alertsJson
+            preferences[AI_LAST_ANALYSIS_DATE_KEY] = System.currentTimeMillis()
+            preferences[AI_ANALYSIS_FAILED_KEY] = false
+        }
+    }
+
+    suspend fun markAiAnalysisFailed() {
+        context.dataStore.edit { preferences ->
+            preferences[AI_ANALYSIS_FAILED_KEY] = true
+            preferences[AI_LAST_ANALYSIS_DATE_KEY] = System.currentTimeMillis()
+        }
+    }
+
+    suspend fun clearAiAnalysisResult() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(AI_SCORE_KEY)
+            preferences.remove(AI_SCORE_LABEL_KEY)
+            preferences.remove(AI_SCORE_EXPLANATION_KEY)
+            preferences.remove(AI_ALERTS_JSON_KEY)
+            preferences.remove(AI_LAST_ANALYSIS_DATE_KEY)
+            preferences.remove(AI_ANALYSIS_FAILED_KEY)
         }
     }
 }
