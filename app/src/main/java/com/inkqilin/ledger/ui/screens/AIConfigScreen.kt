@@ -1,5 +1,6 @@
 package com.inkqilin.ledger.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -68,18 +69,17 @@ fun AIConfigScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Column {
+            Box {
                 ListItem(
                     headlineContent = { Text("数据范围") },
                     supportingContent = { Text(aiDataRange.label) },
                     trailingContent = {
-                        IconButton(onClick = { dataRangeExpanded = !dataRangeExpanded }) {
-                            Icon(
-                                if (dataRangeExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                                contentDescription = null
-                            )
-                        }
-                    }
+                        Icon(
+                            if (dataRangeExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                            contentDescription = null
+                        )
+                    },
+                    modifier = Modifier.clickable { dataRangeExpanded = !dataRangeExpanded }
                 )
                 DropdownMenu(
                     expanded = dataRangeExpanded,

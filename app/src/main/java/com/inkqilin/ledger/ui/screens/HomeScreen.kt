@@ -8,6 +8,7 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
+import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -264,8 +265,9 @@ fun HomeScreen(
                         }
                     },
                     containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = Color.White,
                     elevation = FloatingActionButtonDefaults.elevation(
-                        defaultElevation = if (isDark) 6.dp else 0.dp,
+                        defaultElevation = if (isDark) 4.dp else 2.dp,
                         pressedElevation = 0.dp
                     ),
                     shape = RoundedCornerShape(16.dp),
@@ -332,30 +334,37 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        val refreshInteractionSource = remember { MutableInteractionSource() }
                         Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.clickable(
-                                indication = null,
-                                interactionSource = remember { MutableInteractionSource() }
-                            ) { viewModel.runAiAnalysis() }
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (aiAnalysisLoading) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                            else if (aiAnalysisFailed) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .pressScale(refreshInteractionSource)
+                                .clickable(
+                                    enabled = !aiAnalysisLoading,
+                                    interactionSource = refreshInteractionSource,
+                                    indication = rememberRipple()
+                                ) { viewModel.runAiAnalysis() }
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 if (aiAnalysisLoading) {
                                     CircularProgressIndicator(
-                                        modifier = Modifier.size(16.dp),
-                                        strokeWidth = 2.dp,
-                                        color = Color.White
+                                        modifier = Modifier.size(18.dp),
+                                        strokeWidth = 2.5.dp,
+                                        color = Color.White,
+                                        trackColor = Color.White.copy(alpha = 0.3f)
                                     )
                                 } else {
                                     Icon(
                                         Icons.Default.Refresh,
                                         contentDescription = "刷新AI分析",
-                                        modifier = Modifier.size(16.dp),
+                                        modifier = Modifier.size(18.dp),
                                         tint = Color.White
                                     )
                                 }
