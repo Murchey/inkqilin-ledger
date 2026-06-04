@@ -1,113 +1,110 @@
-# 墨麒麟记账 (InkQilin Ledger)
+# InkQilin Ledger
 
-一款基于 Jetpack Compose 构建的 Android 个人记账应用，采用 Material 3 设计语言，支持深浅色主题、多币种管理、账单管理、分类统计、分类管理、Excel 导入导出、人情账本等功能。
+A personal finance Android app built with Jetpack Compose and Material 3. Supports dark/light themes, multi-currency management, bill tracking, category statistics, Excel import/export, and a social gift ledger.
 
-## 功能特性
+> **中文文档请参阅 [README_CN.md](README_CN.md)**
 
-### 主账本
+## Features
 
-- **记账管理** — 快速添加收入/支出账单，支持自定义金额、备注、分类和日期
-- **多币种管理** — 支持多币种资产管理，每种货币可自定义颜色卡片、符号和名称，支持切换默认币种
-- **首页概览** — 紫色主题概览卡片，显示总收入/总支出/净余额，支持日/周/月/年时段切换和柱状图
-- **消费提醒** — 智能版专属，自动检测异常消费模式（如某分类支出偏高、单日高额消费等），点击可查看详情
-- **分类系统** — 内置多种收支分类，支持用户自定义创建新分类，可自定义图标和颜色
-- **账单编辑** — 左滑账单条目展示编辑/删除菜单，弹窗修改金额、备注、类型、分类、时间
-- **数据统计** — 按日/周/月/年/自定义时间范围查看收支统计，支持按分类钻取查看明细，环比上期卡片展示日均支出
-- **财务评分** — 智能版专属，统计页面展示，基于储蓄率、预算使用等维度综合评估财务健康度，点击可展开查看细分指标
-- **预算管理** — 设置月度预算后，首页显示预算卡片，包含总预算进度和分类支出占比
-- **搜索功能** — 按关键词搜索账单
+### Core
 
-### 实验室功能
+- **Transaction Management** — Quickly add income/expense entries with custom amounts, notes, categories, and dates
+- **Multi-Currency Support** — Manage multiple currencies with customizable card colors, symbols, and names; switch default currency anytime
+- **Monthly Overview Card** — Displays total income, expense, and net balance for the selected month with a year-month picker
+- **7-Day Trend Chart** — Visual bar chart of daily spending over the past week
+- **Category System** — Built-in categories for income and expenses; create custom categories with icons and colors
+- **Bill Editing** — Swipe left on any transaction to reveal edit/delete options; modify amount, note, type, category, and date
+- **Statistics** — View spending by week, month, year, or custom date range (inclusive of both start and end dates); drill down by category; period-over-period comparison with daily average
+- **Asset Management** — Track assets across 8 types (real estate, stocks, funds, bonds, deposits, insurance, crypto, other); view totals and breakdowns by type
+- **Search** — Search transactions by keyword
 
-- **OCR 批量识别** — 通过 AI 视觉模型识别账单图片（支持批量上传或从记账相册选择），自动提取日期、金额、分类和备注并一键导入
-- **AI API 配置** — 支持自定义 AI 接口（兼容 OpenAI 格式）、API Key 和模型名称（如 gpt-4o, qwen-vl 等）
-- **自动记账** — 监听支付宝、微信支付、云闪付通知，自动解析交易信息并记录账单，支持后台去重
-- **智能关键词分类** — 内置 50+ 常见中文关键词配置（如"外卖"→餐饮、"滴滴"→交通），支持自定义添加/编辑/删除关键词分类规则
-- **广告智能过滤** — 自动识别并过滤支付宝、微信中的广告、营销、优惠券等非交易通知，避免误记录
-- **多支付平台支持** — 支持支付宝（含"付款成功"类型通知）、微信支付、云闪付三大支付平台的账单通知识别
-- **0元账单过滤** — 自动忽略0元金额的账单通知，避免记录无效交易
+### AI & Lab Features
 
-### 人情账本
+- **AI Financial Analysis** (Smart Mode only) — Automated daily analysis of spending patterns; displays a financial score (0-100) and up to 3 consumption alerts on the home screen
+- **OCR Batch Recognition** — Upload bill images (batch supported) for AI vision model recognition; auto-extracts date, amount, category, and note for one-tap import
+- **Separate API Configuration** — Independent API settings for OCR and analysis, with a one-tap sync button between them
+- **Auto Bookkeeping** — Monitors Alipay, WeChat Pay, and UnionPay notifications; auto-parses and records transactions with deduplication
+- **Smart Keyword Classification** — 50+ built-in keyword rules (e.g. "takeout" -> Dining, "Didi" -> Transport); add/edit/delete custom rules
+- **Ad Filtering** — Automatically detects and filters non-transaction notifications (ads, marketing, coupons) from payment apps
+- **Zero-Amount Filtering** — Ignores 0-amount notifications to avoid invalid records
 
-- **事件记录** — 记录婚礼、丧礼、生日、乔迁、升学、满月等人情往来事件
-- **方向标记** — 区分「收到」和「送出」，自动计算净额
-- **联系人管理** — 维护人情联系人列表，支持亲属/朋友/同事等关系分类
-- **标签系统** — 自定义人情标签（如家族、同学、单位），支持自定义图标和颜色
-- **年度仪表盘** — 按年查看总收入/总支出/净额，按月查看明细
-- **标签统计** — 按标签维度查看人情往来分布
-- **关系分析** — 按联系人维度查看往来金额排行与收支分布
-- **联系人详情** — 查看单个联系人的所有来往记录与净额汇总
-- **Excel 导出** — 支持按时间范围（全部/本年/自定义）导出人情账单和联系人列表
+### Social Gift Ledger (RenQing)
 
-### 数据管理
+- **Event Recording** — Track weddings, funerals, birthdays, housewarming, graduations, baby showers, and more
+- **Direction Tracking** — Mark gifts as "received" or "given"; auto-calculates net amounts
+- **Contact Management** — Maintain a contact list with relationship categories (family, friend, colleague)
+- **Tag System** — Custom tags (e.g. family, school, workplace) with icons and colors
+- **Annual Dashboard** — Yearly income/expense/net summary with monthly breakdowns
+- **Tag & Contact Analytics** — View gift distribution by tag and contact rankings
+- **Excel Export** — Export gift records and contacts by time range
 
-- **时间范围导出** — 导出账单时可选择「全部 / 本年 / 自定义起止日期」，主账本和人情账本均支持
-- **Excel 导出** — 一键导出账单为 Excel 文件，支持自选存储位置
-- **模板下载** — 下载账单模板文件（含填写说明），方便批量导入数据
-- **智能导入** — 从 Excel 导入账单，自动识别并创建不存在的分类
+### Data Management
 
-### 通用
+- **Flexible Export** — Export transactions by "All / This Year / Custom Range" for both ledgers
+- **Excel Export** — One-tap export to Excel with custom save location
+- **Template Download** — Download a pre-formatted template for bulk import
+- **Smart Import** — Import from Excel; auto-creates missing categories
 
-- **应用版本切换** — 支持基础版（注重隐私保护，数据本地存储）和智能版（加强AI功能，含财务评分、消费提醒）两种模式
-- **主题定制** — 浅色模式 (#715CFF) / 深色模式 (#51B4FF)，支持跟随系统自动切换
-- **颜色管理** — 自定义收入/支出展示颜色，应用于所有账单条目和统计图表
-- **沉浸式显示** — 全屏沉浸式布局，透明状态栏与导航栏
-- **更新检测** — 自动检测 GitHub 最新版本，支持查看更新日志并跳转下载
+### General
 
-## 技术栈
+- **App Mode Toggle** — Basic Mode (privacy-focused, local-only) and Smart Mode (AI-powered analysis, financial scoring, consumption alerts)
+- **Theme Customization** — Light mode (#715CFF purple) / Dark mode (#51B4FF blue); follows system setting
+- **Custom Colors** — Customize income/expense display colors across all views
+- **Immersive UI** — Full-screen layout with transparent status and navigation bars
+- **Update Checker** — Auto-checks GitHub for new versions; view changelog and download
 
-| 技术 | 说明 |
-|------|------|
-| Kotlin | 开发语言 |
-| Jetpack Compose | 声明式 UI 框架 |
-| Material 3 | UI 设计规范 |
-| Room | 本地数据库 |
-| Navigation Compose | 页面导航 |
-| DataStore | 偏好数据存储 |
-| Apache POI | Excel 文件读写 |
-| OkHttp | 网络请求（更新检测、AI API） |
+## Tech Stack
 
-## 环境要求
+| Technology | Purpose |
+|------------|---------|
+| Kotlin | Language |
+| Jetpack Compose | Declarative UI framework |
+| Material 3 | Design system |
+| Room | Local database |
+| Navigation Compose | Screen navigation |
+| DataStore | Preferences storage |
+| Apache POI | Excel read/write |
+| OkHttp | Network requests (update check, AI API) |
 
-- **Android Studio** Hedgehog (2023.1.1) 或更高版本
-- **JDK** 8 或以上
+## Requirements
+
+- **Android Studio** Hedgehog (2023.1.1) or later
+- **JDK** 8+
 - **Android SDK** compileSdk 34
-- **最低支持设备** Android 8.0 (API 26)
+- **Minimum device** Android 8.0 (API 26)
 
-## 快速开始
+## Quick Start
 
-### 1. 克隆项目
+### 1. Clone
 
 ```bash
-git clone <仓库地址>
+git clone <repo-url>
 cd inkqilin-ledger
 ```
 
-### 2. 配置 Gradle 镜像（国内用户）
-
-项目已内置阿里云 Maven 镜像配置（位于 `settings.gradle.kts`），国内用户可直接构建。
-
-### 3. 构建运行
+### 2. Build & Run
 
 ```bash
-# 调试版构建
+# Debug build
 ./gradlew assembleDebug
 
-# 安装到设备
+# Install to device
 ./gradlew installDebug
 ```
 
-或直接使用 Android Studio 打开项目，点击 **Run** 按钮运行。
+Or open the project in Android Studio and click **Run**.
 
-## 主题配色
+> For users in China: the project includes Alibaba Cloud Maven mirror configuration in `settings.gradle.kts`.
 
-| 模式 | 主题色 | 说明 |
-|------|--------|------|
-| 浅色模式 | `#715CFF` | 紫色系 |
-| 深色模式 | `#51B4FF` | 蓝色系 |
+## Theme Colors
 
-收入/支出的展示颜色可在设置中自定义，应用于账单条目、统计图表等全局位置。
+| Mode | Color | Description |
+|------|-------|-------------|
+| Light | `#715CFF` | Purple theme |
+| Dark | `#51B4FF` | Blue theme |
 
-## 许可证
+Income/expense display colors are customizable in Settings and apply globally to all transaction views and charts.
 
-本项目采用 [GNU General Public License v3.0](LICENSE) 许可证。
+## License
+
+This project is licensed under the [GNU General Public License v3.0](LICENSE).
