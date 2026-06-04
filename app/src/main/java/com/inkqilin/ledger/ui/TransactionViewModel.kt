@@ -29,6 +29,7 @@ class TransactionViewModel(
     private val currencyAssetDao: CurrencyAssetDao,
     private val albumPhotoDao: AlbumPhotoDao,
     private val keywordCategoryDao: KeywordCategoryDao,
+    private val userAssetDao: UserAssetDao,
     private val themeManager: ThemeManager
 ) : ViewModel() {
     val allTransactions: Flow<List<Transaction>> = transactionDao.getAllTransactions()
@@ -378,6 +379,7 @@ class TransactionViewModel(
 
     fun runAiAnalysis() {
         if (_aiAnalysisLoading.value) return
+        if (appMode.value != AppMode.SMART) return
         viewModelScope.launch {
             val apiKey = aiApiKey.value
             val baseUrl = aiBaseUrl.value
@@ -446,6 +448,25 @@ class TransactionViewModel(
 
     suspend fun getAlbumPhotoById(id: Long): AlbumPhoto? {
         return albumPhotoDao.getPhotoById(id)
+    }
+
+    val allUserAssets: StateFlow<List<UserAsset>> = userAssetDao.getAllAssets()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val userAssetTotalValue: StateFlow<Double> = userAssetDao.getTotalValue()
+        .map { it ?: 0.0 }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+
+    fun addUserAsset(asset: UserAsset) {
+        viewModelScope.launch { userAssetDao.insertAsset(asset) }
+    }
+
+    fun updateUserAsset(asset: UserAsset) {
+        viewModelScope.launch { userAssetDao.updateAsset(asset.copy(lastUpdated = System.currentTimeMillis())) }
+    }
+
+    fun deleteUserAsset(asset: UserAsset) {
+        viewModelScope.launch { userAssetDao.deleteAsset(asset) }
     }
 
     data class CleanupResult(val deletedCount: Int, val freedBytes: Long)
@@ -597,12 +618,13 @@ class TransactionViewModelFactory(
     private val currencyAssetDao: CurrencyAssetDao,
     private val albumPhotoDao: AlbumPhotoDao,
     private val keywordCategoryDao: KeywordCategoryDao,
+    private val userAssetDao: UserAssetDao,
     private val themeManager: ThemeManager
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(TransactionViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return TransactionViewModel(transactionDao, categoryDao, currencyAssetDao, albumPhotoDao, keywordCategoryDao, themeManager) as T
+            return TransactionViewModel(transactionDao, categoryDao, currencyAssetDao, albumPhotoDao, keywordCategoryDao, userAssetDao, themeManager) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

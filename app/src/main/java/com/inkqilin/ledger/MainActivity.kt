@@ -49,6 +49,7 @@ class MainActivity : ComponentActivity() {
             database.currencyAssetDao(),
             database.albumPhotoDao(),
             database.keywordCategoryDao(),
+            database.userAssetDao(),
             themeManager
         )
     }

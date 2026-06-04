@@ -76,12 +76,21 @@ import kotlin.math.roundToInt
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AlbumScreen(
-    viewModel: TransactionViewModel
+    viewModel: TransactionViewModel,
+    isActive: Boolean = true
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     val photos by viewModel.allAlbumPhotos.collectAsState()
+
+    // Reset capsule when page becomes active
+    val expansionProgress = remember { Animatable(0f) }
+    LaunchedEffect(isActive) {
+        if (!isActive) {
+            expansionProgress.snapTo(0f)
+        }
+    }
 
     var selectedPhoto by remember { mutableStateOf<AlbumPhoto?>(null) }
     var showDeleteConfirm by remember { mutableStateOf<AlbumPhoto?>(null) }
@@ -115,7 +124,6 @@ fun AlbumScreen(
 
     var permissionRequestedThisDrag by remember { mutableStateOf(false) }
 
-    val expansionProgress = remember { Animatable(0f) }
     var isDragging by remember { mutableStateOf(false) }
     var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
 
@@ -205,7 +213,8 @@ fun AlbumScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .pointerInput(Unit) {
+            .pointerInput(isActive) {
+                if (!isActive) return@pointerInput
                 awaitPointerEventScope {
                     while (true) {
                         val down = awaitFirstDown(requireUnconsumed = false)
@@ -382,8 +391,9 @@ fun AlbumScreen(
             FloatingActionButton(
                 onClick = { galleryPicker.launch("image/*") },
                 modifier = Modifier.size(56.dp),
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = Color.White,
+                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp)
             ) {
                 Icon(Icons.Default.Add, contentDescription = "从相册选择")
             }

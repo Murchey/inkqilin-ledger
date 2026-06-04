@@ -68,7 +68,8 @@ fun HomeScreen(
     onNavigateToAddTransaction: () -> Unit = {},
     onNavigateToStatistics: () -> Unit = {},
     @Suppress("UNUSED_PARAMETER") onNavigateToSearch: () -> Unit = {},
-    onNavigateToOcrRecognition: () -> Unit = {}
+    onNavigateToOcrRecognition: () -> Unit = {},
+    onNavigateToAssetManagement: () -> Unit = {}
 ) {
     val allTransactions by viewModel.allTransactions.collectAsState(initial = emptyList())
     val monthlyBudget by viewModel.monthlyBudget.collectAsState()
@@ -84,7 +85,6 @@ fun HomeScreen(
     val incomeColorHex by viewModel.incomeColor.collectAsState()
     val incomeColor = Color(incomeColorHex.toColorInt())
 
-    var selectedPeriod by remember { mutableIntStateOf(2) }
     var selectedYearMonth by remember {
         mutableStateOf(Calendar.getInstance().let { it.get(Calendar.YEAR) to it.get(Calendar.MONTH) })
     }
@@ -93,7 +93,6 @@ fun HomeScreen(
     var enableCardAnimations by remember { mutableStateOf(false) }
 
     val defaultAsset = remember(allAssets) { allAssets.firstOrNull { it.isDefault } }
-    val periodOptions = listOf("日", "周", "月", "年")
 
     LaunchedEffect(Unit) {
         withFrameNanos { }
@@ -102,26 +101,72 @@ fun HomeScreen(
     }
 
     if (showMonthPicker) {
-        val initMillis = Calendar.getInstance().apply {
-            set(selectedYearMonth.first, selectedYearMonth.second, 1, 0, 0, 0)
-            set(Calendar.MILLISECOND, 0)
-        }.timeInMillis
-        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initMillis)
-        DatePickerDialog(
+        var pickerYear by remember { mutableIntStateOf(selectedYearMonth.first) }
+        AlertDialog(
             onDismissRequest = { showMonthPicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { millis ->
-                        val cal = Calendar.getInstance().apply { timeInMillis = millis }
-                        selectedYearMonth = cal.get(Calendar.YEAR) to cal.get(Calendar.MONTH)
+            title = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = { pickerYear-- }) {
+                        Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "上一年")
                     }
-                    showMonthPicker = false
-                }) { Text("确定") }
+                    Text(
+                        text = "${pickerYear}年",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    IconButton(onClick = { pickerYear++ }) {
+                        Icon(Icons.Default.KeyboardArrowRight, contentDescription = "下一年")
+                    }
+                }
             },
+            text = {
+                Column {
+                    val months = listOf("1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月")
+                    val currentYM = Calendar.getInstance().let { it.get(Calendar.YEAR) to it.get(Calendar.MONTH) }
+                    for (row in 0..3) {
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            for (col in 0..2) {
+                                val monthIndex = row * 3 + col
+                                val isSelected = pickerYear == selectedYearMonth.first && monthIndex == selectedYearMonth.second
+                                val isCurrent = pickerYear == currentYM.first && monthIndex == currentYM.second
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(4.dp)
+                                        .clickable {
+                                            selectedYearMonth = pickerYear to monthIndex
+                                            showMonthPicker = false
+                                        },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary
+                                    else if (isCurrent) MaterialTheme.colorScheme.primaryContainer
+                                    else Color.Transparent
+                                ) {
+                                    Text(
+                                        text = months[monthIndex],
+                                        modifier = Modifier.padding(vertical = 12.dp),
+                                        textAlign = TextAlign.Center,
+                                        fontWeight = if (isSelected || isCurrent) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isSelected) Color.White
+                                        else if (isCurrent) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.onSurface,
+                                        fontSize = 14.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
             dismissButton = {
                 TextButton(onClick = { showMonthPicker = false }) { Text("取消") }
             }
-        ) { DatePicker(state = datePickerState) }
+        )
     }
 
     var transactionToDelete by remember { mutableStateOf<Transaction?>(null) }
@@ -174,11 +219,10 @@ fun HomeScreen(
     val homeDataState = produceState(
         initialValue = HomeData(),
         allTransactions,
-        selectedPeriod,
         selectedYearMonth
     ) {
         value = withContext(Dispatchers.Default) {
-            val periodSummary = buildPeriodSummary(allTransactions, selectedPeriod, selectedYearMonth)
+            val periodSummary = buildPeriodSummary(allTransactions, 2, selectedYearMonth)
             val recentDays = buildRecentExpenseTrend(allTransactions)
             val groupedTransactions = buildDayTransactionGroups(allTransactions)
             val currencySummaries = buildCurrencySummaries(periodSummary.transactions)
@@ -203,23 +247,24 @@ fun HomeScreen(
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                if (ocrEnabled) {
-                    AnimatedVisibility(
-                        visible = showFabMenu,
-                        enter = expandVertically(expandFrom = Alignment.Bottom) + fadeIn(),
-                        exit = shrinkVertically(shrinkTowards = Alignment.Bottom) + fadeOut()
+                AnimatedVisibility(
+                    visible = showFabMenu,
+                    enter = expandVertically(expandFrom = Alignment.Bottom) + fadeIn(),
+                    exit = shrinkVertically(shrinkTowards = Alignment.Bottom) + fadeOut()
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.End,
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
+                        if (ocrEnabled) {
                             SmallFloatingActionButton(
                                 onClick = {
                                     showFabMenu = false
                                     onNavigateToOcrRecognition()
                                 },
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                containerColor = MaterialTheme.colorScheme.surface,
+                                contentColor = MaterialTheme.colorScheme.onSurface,
+                                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
                                 Row(
@@ -231,24 +276,45 @@ fun HomeScreen(
                                     Text("OCR 批量识别", style = MaterialTheme.typography.labelLarge)
                                 }
                             }
+                        }
 
-                            SmallFloatingActionButton(
-                                onClick = {
-                                    showFabMenu = false
-                                    onNavigateToAddTransaction()
-                                },
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                shape = RoundedCornerShape(12.dp)
+                        SmallFloatingActionButton(
+                            onClick = {
+                                showFabMenu = false
+                                onNavigateToAssetManagement()
+                            },
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("手动输入单条", style = MaterialTheme.typography.labelLarge)
-                                }
+                                Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("资产管理", style = MaterialTheme.typography.labelLarge)
+                            }
+                        }
+
+                        SmallFloatingActionButton(
+                            onClick = {
+                                showFabMenu = false
+                                onNavigateToAddTransaction()
+                            },
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("手动输入单条", style = MaterialTheme.typography.labelLarge)
                             }
                         }
                     }
@@ -258,11 +324,7 @@ fun HomeScreen(
                 val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
                 FloatingActionButton(
                     onClick = {
-                        if (ocrEnabled) {
-                            showFabMenu = !showFabMenu
-                        } else {
-                            onNavigateToAddTransaction()
-                        }
+                        showFabMenu = !showFabMenu
                     },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = Color.White,
@@ -302,9 +364,6 @@ fun HomeScreen(
                         allAssets = allAssets,
                         currencySummaries = homeData.currencySummaries,
                         displayCalendar = displayCalendar,
-                        periodOptions = periodOptions,
-                        selectedPeriod = selectedPeriod,
-                        onPeriodSelected = { selectedPeriod = it },
                         onMonthClick = { showMonthPicker = true },
                         enableAnimations = enableCardAnimations
                     )
@@ -315,9 +374,6 @@ fun HomeScreen(
                         monthlyBudget = monthlyBudget,
                         displayCalendar = displayCalendar,
                         defaultAsset = allAssets.firstOrNull { it.isDefault },
-                        periodOptions = periodOptions,
-                        selectedPeriod = selectedPeriod,
-                        onPeriodSelected = { selectedPeriod = it },
                         onMonthClick = { showMonthPicker = true },
                         enableAnimations = enableCardAnimations
                     )
@@ -597,9 +653,6 @@ private fun SingleCurrencyOverviewCard(
     monthlyBudget: Double,
     displayCalendar: Calendar,
     defaultAsset: CurrencyAsset?,
-    periodOptions: List<String>,
-    selectedPeriod: Int,
-    onPeriodSelected: (Int) -> Unit,
     onMonthClick: () -> Unit,
     enableAnimations: Boolean
 ) {
@@ -612,17 +665,10 @@ private fun SingleCurrencyOverviewCard(
         label = "singleCardColor"
     )
 
-    val interactionSource = remember { MutableInteractionSource() }
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .pressScale(interactionSource) // iOS-style interactive feedback
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = {}
-            ),
+            .padding(horizontal = 16.dp),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = cardColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -641,7 +687,7 @@ private fun SingleCurrencyOverviewCard(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = if (monthlyBudget > 0) "预算剩余 ${symbol}${String.format("%.2f", monthlyBudget - periodExpense)}" else "本${periodOptions[selectedPeriod]}收支",
+                        text = if (monthlyBudget > 0) "预算剩余 ${symbol}${String.format("%.2f", monthlyBudget - periodExpense)}" else "本月收支",
                         color = Color.White.copy(alpha = 0.7f),
                         fontSize = 12.sp
                     )
@@ -676,49 +722,17 @@ private fun SingleCurrencyOverviewCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text(
-                        text = "收入",
-                        color = Color.White.copy(alpha = 0.6f),
-                        fontSize = 12.sp
-                    )
+                    Text(text = "收入", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
                     Text(
                         text = "${symbol}${String.format("%.2f", periodIncome)}",
-                        color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold
+                        color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold
                     )
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = "支出",
-                        color = Color.White.copy(alpha = 0.6f),
-                        fontSize = 12.sp
-                    )
+                    Text(text = "支出", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
                     Text(
                         text = "${symbol}${String.format("%.2f", periodExpense)}",
-                        color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center
-            ) {
-                periodOptions.forEachIndexed { index, label ->
-                    val isSelected = selectedPeriod == index
-                    Text(
-                        text = label,
-                        color = if (isSelected) Color.White else Color.White.copy(alpha = 0.45f),
-                        fontSize = 13.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        modifier = Modifier
-                            .padding(horizontal = 12.dp)
-                            .clickable { onPeriodSelected(index) }
+                        color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold
                     )
                 }
             }
@@ -732,9 +746,6 @@ private fun MultiCurrencyOverviewCards(
     allAssets: List<CurrencyAsset>,
     currencySummaries: Map<String, CurrencyPeriodSummary>,
     displayCalendar: Calendar,
-    periodOptions: List<String>,
-    selectedPeriod: Int,
-    onPeriodSelected: (Int) -> Unit,
     onMonthClick: () -> Unit,
     enableAnimations: Boolean
 ) {
@@ -796,7 +807,7 @@ private fun MultiCurrencyOverviewCards(
                                 }
                             }
                             Text(
-                                text = "本${periodOptions[selectedPeriod]}收支",
+                                text = "本月收支",
                                 color = Color.White.copy(alpha = 0.6f),
                                 fontSize = 12.sp
                             )
@@ -854,26 +865,6 @@ private fun MultiCurrencyOverviewCards(
                                 color = Color.White,
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        periodOptions.forEachIndexed { index, label ->
-                            val isSelected = selectedPeriod == index
-                            Text(
-                                text = label,
-                                color = if (isSelected) Color.White else Color.White.copy(alpha = 0.45f),
-                                fontSize = 13.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                modifier = Modifier
-                                    .padding(horizontal = 12.dp)
-                                    .clickable { onPeriodSelected(index) }
                             )
                         }
                     }

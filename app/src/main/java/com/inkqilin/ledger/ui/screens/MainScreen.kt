@@ -365,10 +365,16 @@ fun MainScreen(
                             },
                             onNavigateToOcrRecognition = {
                                 navController.navigate("ocr_batch_recognition")
+                            },
+                            onNavigateToAssetManagement = {
+                                navController.navigate("asset_management")
                             }
                         )
                         "statistics" -> StatisticsScreen(viewModel, navController)
-                        "album" -> AlbumScreen(viewModel = viewModel)
+                        "album" -> AlbumScreen(
+                            viewModel = viewModel,
+                            isActive = pagerState.currentPage == bottomItems.indexOfFirst { it.route == "album" }
+                        )
                         "renqing" -> RenQingMainScreen(
                             viewModel = renQingViewModel,
                             onNavigateToContactDetail = { contactId ->
@@ -423,6 +429,11 @@ fun MainScreen(
                 OCRConfigScreen(
                     viewModel = viewModel,
                     onBack = { navController.popBackStack() }
+                )
+            }
+            composable("asset_management") {
+                AssetManagementScreen(
+                    viewModel = viewModel
                 )
             }
             composable("ocr_batch_recognition") {

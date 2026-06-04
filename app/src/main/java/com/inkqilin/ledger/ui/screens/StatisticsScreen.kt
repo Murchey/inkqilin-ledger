@@ -86,6 +86,8 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
     val monthlyBudget by viewModel.monthlyBudget.collectAsState()
     val aiAnalysisResult by viewModel.aiAnalysisResult.collectAsState()
     val aiAnalysisFailed by viewModel.aiAnalysisFailed.collectAsState()
+    val allUserAssets by viewModel.allUserAssets.collectAsState()
+    val userAssetTotalValue by viewModel.userAssetTotalValue.collectAsState()
 
     var selectedType by remember { mutableStateOf(TransactionType.EXPENSE) }
     var selectedPeriod by remember { mutableStateOf(TimePeriod.MONTH) }
@@ -135,7 +137,8 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
 
     val filteredByPeriod = remember(transactions, selectedPeriod, startDate, endDate) {
         if (selectedPeriod == TimePeriod.CUSTOM) {
-            transactions.filter { it.date in startDate..endDate }
+            val effectiveEnd = endDate + 86400000L - 1
+            transactions.filter { it.date in startDate..effectiveEnd }
         } else {
             filterByPeriod(transactions, selectedPeriod, Calendar.getInstance())
         }
@@ -322,6 +325,84 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
                             fontSize = 13.sp
                         )
+                    }
+                }
+            }
+        }
+
+        if (allUserAssets.isNotEmpty()) {
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                val shape = RoundedCornerShape(20.dp)
+                val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .frostedGlass(shape, isDark)
+                        .clickable { navController.navigate("asset_management") },
+                    shape = shape,
+                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "资产统计",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "共 ${allUserAssets.size} 项",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "¥${String.format("%,.2f", userAssetTotalValue)}",
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        val grouped = allUserAssets.groupBy { it.type }
+                        grouped.entries.sortedByDescending { assets -> assets.value.sumOf { it.currentValue } }.forEach { (type, assets) ->
+                            val typeTotal = assets.sumOf { it.currentValue }
+                            val percent = if (userAssetTotalValue > 0) typeTotal / userAssetTotalValue * 100 else 0.0
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = type.label,
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "¥${String.format("%,.0f", typeTotal)}",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "${String.format("%.1f", percent)}%",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
