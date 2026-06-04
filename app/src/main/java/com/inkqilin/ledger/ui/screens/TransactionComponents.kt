@@ -57,8 +57,8 @@ fun SwipeableTransactionItem(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .clip(RoundedCornerShape(18.dp))
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f))
     ) {
         Row(
             modifier = Modifier
@@ -90,7 +90,7 @@ fun SwipeableTransactionItem(
             modifier = Modifier
                 .offset { IntOffset(offsetX.roundToInt(), 0) }
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f))
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.8f))
                 .draggable(
                     state = draggableState,
                     orientation = Orientation.Horizontal,
@@ -131,6 +131,7 @@ fun CategoryEditDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(32.dp),
         title = { Text(if (category == null) "添加分类" else "修改分类") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -150,7 +151,7 @@ fun CategoryEditDialog(
                         Box(
                             modifier = Modifier
                                 .size(40.dp)
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(RoundedCornerShape(14.dp))
                                 .background(
                                     if (selected) MaterialTheme.colorScheme.primaryContainer
                                     else MaterialTheme.colorScheme.surfaceVariant
@@ -237,7 +238,7 @@ fun TransactionItem(transaction: Transaction, viewModel: TransactionViewModel) {
         modifier = Modifier
             .fillMaxWidth()
             .pressScale(interactionSource), // Use our custom iOS-style press down
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
             disabledContainerColor = MaterialTheme.colorScheme.surface
@@ -258,7 +259,7 @@ fun TransactionItem(transaction: Transaction, viewModel: TransactionViewModel) {
             Box(
                 modifier = Modifier
                     .size(46.dp)
-                    .clip(RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(12.dp))
                     .background(
                         if (isIncome) incomeColor.copy(alpha = 0.1f)
                         else expenseColor.copy(alpha = 0.1f)
@@ -290,7 +291,7 @@ fun TransactionItem(transaction: Transaction, viewModel: TransactionViewModel) {
                     text = "${if (isIncome) "+" else "-"}${currencySymbol}${String.format("%.2f", transaction.amount)}",
                     color = if (isIncome) incomeColor else expenseColor,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
+                    fontSize = 16.sp
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
@@ -330,7 +331,7 @@ private fun TransactionItemPreview() {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             val isIncome = tx.type == TransactionType.INCOME
-                            val iconColor = if (isIncome) Color(0xFF4CAF50) else Color(0xFFF44336)
+                            val iconColor = if (isIncome) Color(0xFF34C759) else Color(0xFFFF3B30)
                             val iconEmoji = when(tx.category) { "餐饮" -> "🍜"; "购物" -> "🛒"; "工资" -> "💰"; else -> "📋" }
                             Box(
                                 modifier = Modifier.size(46.dp).clip(RoundedCornerShape(14.dp))

@@ -83,14 +83,15 @@ fun RenQingMainScreen(
     }
 
     Scaffold(
+        containerColor = Color.Transparent,
         floatingActionButton = {
             if (selectedTab != 2) {
                 FloatingActionButton(
                     onClick = onNavigateToAddEvent,
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(24.dp),
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
-                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp, pressedElevation = 6.dp)
+                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp, pressedElevation = 0.dp)
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "添加事件")
                 }
@@ -116,7 +117,14 @@ fun RenQingMainScreen(
                                 }
                             }
                         },
-                        singleLine = true
+                        singleLine = true,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent
+                        )
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     IconButton(onClick = { showFilterDialog = true }) {
@@ -239,7 +247,7 @@ private fun RenQingEventsList(events: List<RenQingEvent>, tags: List<RenQingTag>
         }
     } else {
         val grouped = events.groupBy { SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date(it.date)) }
-        LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 16.dp)) {
             grouped.forEach { (month, monthEvents) ->
                 item {
                     Text(
@@ -275,13 +283,13 @@ private fun RenQingEventCard(event: RenQingEvent, tag: RenQingTag?, viewModel: R
     val tagColor = try { Color(android.graphics.Color.parseColor(tag?.color ?: "#715CFF")) } catch (_: Exception) { MaterialTheme.colorScheme.primary }
     val isGiven = event.direction == RenQingDirection.GIVEN
 
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
-                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(tagColor.copy(alpha = 0.1f)),
+                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(tagColor.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(icon, fontSize = 20.sp)
@@ -292,7 +300,7 @@ private fun RenQingEventCard(event: RenQingEvent, tag: RenQingTag?, viewModel: R
                     Text(event.contactName, fontWeight = FontWeight.Medium)
                     Spacer(modifier = Modifier.width(6.dp))
                     Surface(
-                        shape = RoundedCornerShape(4.dp),
+                        shape = RoundedCornerShape(6.dp),
                         color = if (isGiven) MaterialTheme.colorScheme.error.copy(alpha = 0.1f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                     ) {
                         Text(
@@ -428,7 +436,7 @@ private fun AddRenQingEventForm(
         )
     }
 
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 16.dp)) {
         ExposedDropdownMenuBox(
             expanded = contactExpanded,
             onExpandedChange = { contactExpanded = it }
@@ -813,7 +821,7 @@ private fun RenQingContactsList(
                 Text("暂无联系人", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
-            LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+            LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 16.dp)) {
                 items(contacts, key = { it.id }) { contact ->
                     ContactCard(contact, viewModel, onNavigateToContactDetail)
                     Spacer(modifier = Modifier.height(8.dp))
@@ -832,10 +840,10 @@ private fun ContactCard(
     var showMenu by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
     val relationshipColor = when (contact.relationship) {
-        RelationshipType.RELATIVE -> Color(0xFFE91E63)
-        RelationshipType.FRIEND -> Color(0xFF2196F3)
-        RelationshipType.COLLEAGUE -> Color(0xFFFF9800)
-        RelationshipType.OTHER -> Color(0xFF9E9E9E)
+        RelationshipType.RELATIVE -> Color(0xFFFF2D55)
+        RelationshipType.FRIEND -> Color(0xFF007AFF)
+        RelationshipType.COLLEAGUE -> Color(0xFFFF9F0A)
+        RelationshipType.OTHER -> Color(0xFF8E8E93)
     }
 
     if (showEditDialog) {
@@ -847,7 +855,7 @@ private fun ContactCard(
 
     Card(
         modifier = Modifier.fillMaxWidth().clickable { onNavigateToContactDetail(contact.id) },
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(18.dp),
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -950,7 +958,7 @@ fun RenQingStatsScreen(
         return
     }
 
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 16.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { selectedYear-- }) { Icon(Icons.Default.KeyboardArrowLeft, "上一年") }
             Text("$selectedYear 年", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -972,7 +980,7 @@ fun RenQingStatsScreen(
         Spacer(modifier = Modifier.height(8.dp))
         Card(
             modifier = Modifier.fillMaxWidth().clickable { onNavigateToTagStats(selectedYear) },
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(18.dp),
             elevation = CardDefaults.cardElevation(0.dp)
         ) {
             Row(
@@ -1020,11 +1028,11 @@ fun RenQingStatsScreen(
                     Box(modifier = Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.BottomCenter) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom, modifier = Modifier.fillMaxHeight()) {
                             if (given > 0) {
-                                Box(modifier = Modifier.width(8.dp).height(((given / maxAmount) * 100).dp).background(MaterialTheme.colorScheme.error, RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp)))
+                                Box(modifier = Modifier.width(12.dp).height(((given / maxAmount) * 100).dp).background(MaterialTheme.colorScheme.error, RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)))
                             }
                             if (received > 0) {
                                 Spacer(modifier = Modifier.height(2.dp))
-                                Box(modifier = Modifier.width(8.dp).height(((received / maxAmount) * 100).dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp)))
+                                Box(modifier = Modifier.width(12.dp).height(((received / maxAmount) * 100).dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)))
                             }
                         }
                     }
@@ -1034,9 +1042,9 @@ fun RenQingStatsScreen(
         }
         Spacer(modifier = Modifier.height(8.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-            Box(modifier = Modifier.size(10.dp).background(MaterialTheme.colorScheme.error, RoundedCornerShape(2.dp)))
+            Box(modifier = Modifier.size(10.dp).background(MaterialTheme.colorScheme.error, RoundedCornerShape(3.dp)))
             Text(" 支出  ", style = MaterialTheme.typography.labelSmall)
-            Box(modifier = Modifier.size(10.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp)))
+            Box(modifier = Modifier.size(10.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(3.dp)))
             Text(" 收入", style = MaterialTheme.typography.labelSmall)
         }
         Spacer(modifier = Modifier.height(24.dp))
@@ -1052,7 +1060,7 @@ fun RenQingStatsScreen(
         }
         Card(
             modifier = Modifier.fillMaxWidth().clickable { onNavigateToContactAnalysis(selectedYear) },
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(18.dp),
             elevation = CardDefaults.cardElevation(0.dp)
         ) {
             Row(
@@ -1104,7 +1112,7 @@ fun RenQingMonthDetailScreen(viewModel: RenQingViewModel, year: Int, month: Int)
         return
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 16.dp)) {
         Text("${year}年${month + 1}月详情", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
@@ -1142,7 +1150,7 @@ fun RenQingContactDetailScreen(viewModel: RenQingViewModel, contactId: Long) {
     val totalGiven = remember(contactEvents) { contactEvents.filter { it.direction == RenQingDirection.GIVEN }.sumOf { it.amount } }
     val totalReceived = remember(contactEvents) { contactEvents.filter { it.direction == RenQingDirection.RECEIVED }.sumOf { it.amount } }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 16.dp)) {
         when {
             !dataLoaded -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -1151,10 +1159,10 @@ fun RenQingContactDetailScreen(viewModel: RenQingViewModel, contactId: Long) {
             }
             contact != null -> {
                 val relColor = when (contact.relationship) {
-                    RelationshipType.RELATIVE -> Color(0xFFE91E63)
-                    RelationshipType.FRIEND -> Color(0xFF2196F3)
-                    RelationshipType.COLLEAGUE -> Color(0xFFFF9800)
-                    RelationshipType.OTHER -> Color(0xFF9E9E9E)
+                    RelationshipType.RELATIVE -> Color(0xFFFF2D55)
+                    RelationshipType.FRIEND -> Color(0xFF007AFF)
+                    RelationshipType.COLLEAGUE -> Color(0xFFFF9F0A)
+                    RelationshipType.OTHER -> Color(0xFF8E8E93)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(modifier = Modifier.size(56.dp).clip(CircleShape).background(relColor.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
@@ -1216,7 +1224,7 @@ fun RenQingTagStatsScreen(viewModel: RenQingViewModel, year: Int) {
         return
     }
 
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 16.dp)) {
         Text("${year}年按标签统计", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -1225,7 +1233,7 @@ fun RenQingTagStatsScreen(viewModel: RenQingViewModel, year: Int) {
                 Text("暂无数据", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     allTags.forEach { tag ->
                         val tagEvents = yearEvents.filter { it.tagId == tag.id }
@@ -1315,7 +1323,7 @@ fun RenQingContactAnalysisScreen(viewModel: RenQingViewModel, year: Int) {
         return
     }
 
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 16.dp)) {
         Text("${year}年关系分析", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -1324,7 +1332,7 @@ fun RenQingContactAnalysisScreen(viewModel: RenQingViewModel, year: Int) {
                 Text("暂无数据", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     contactStats.forEach { (name, rel, stats) ->
                         val (given, received, count) = stats
@@ -1443,14 +1451,14 @@ fun ContactManagementScreen(viewModel: RenQingViewModel) {
             ) {
                 items(allContacts, key = { it.id }) { contact ->
                     val relColor = when (contact.relationship) {
-                        RelationshipType.RELATIVE -> Color(0xFFE91E63)
-                        RelationshipType.FRIEND -> Color(0xFF2196F3)
-                        RelationshipType.COLLEAGUE -> Color(0xFFFF9800)
-                        RelationshipType.OTHER -> Color(0xFF9E9E9E)
+                        RelationshipType.RELATIVE -> Color(0xFFFF2D55)
+                        RelationshipType.FRIEND -> Color(0xFF007AFF)
+                        RelationshipType.COLLEAGUE -> Color(0xFFFF9F0A)
+                        RelationshipType.OTHER -> Color(0xFF8E8E93)
                     }
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
+                        shape = RoundedCornerShape(18.dp),
                         elevation = CardDefaults.cardElevation(0.dp)
                     ) {
                         Row(
@@ -1468,7 +1476,7 @@ fun ContactManagementScreen(viewModel: RenQingViewModel) {
                                 Text(contact.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Surface(
-                                        shape = RoundedCornerShape(4.dp),
+                                        shape = RoundedCornerShape(6.dp),
                                         color = relColor.copy(alpha = 0.12f)
                                     ) {
                                         Text(
@@ -1506,7 +1514,7 @@ private fun RenQingMainScreenPreview() {
         Surface(color = MaterialTheme.colorScheme.background) {
             Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
                 Text("人情往来", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 16.dp))
-                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF715CFF))) {
+                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF5856D6))) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text("本月人情 · 随礼", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -1520,9 +1528,9 @@ private fun RenQingMainScreenPreview() {
                 }
                 val contacts = listOf("张三" to "朋友", "李四" to "同事", "王五" to "亲属")
                 contacts.forEach { (name, rel) ->
-                    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(0.dp)) {
+                    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(0.dp)) {
                         Row(modifier = Modifier.padding(14.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Box(modifier = Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFF2196F3).copy(alpha = 0.1f)), contentAlignment = Alignment.Center) { Text(name.take(1), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2196F3)) }
+                            Box(modifier = Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF007AFF).copy(alpha = 0.1f)), contentAlignment = Alignment.Center) { Text(name.take(1), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF007AFF)) }
                             Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(name, fontWeight = FontWeight.Medium, fontSize = 15.sp)

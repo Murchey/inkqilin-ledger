@@ -52,12 +52,12 @@ private fun Modifier.frostedGlass(
         } else Modifier
     )*/
     .background(
-        color = if (isDark) FrostedDark.copy(alpha = 0.85f) else FrostedLight.copy(alpha = 0.7f),
+        color = if (isDark) FrostedDark.copy(alpha = 0.8f) else FrostedLight.copy(alpha = 0.75f),
         shape = shape
     )
     .border(
         width = 0.5.dp, // Thinner iOS-style border
-        color = if (isDark) FrostedBorderDark.copy(alpha = 0.5f) else FrostedBorderLight.copy(alpha = 0.3f),
+        color = if (isDark) FrostedBorderDark.copy(alpha = 0.4f) else FrostedBorderLight.copy(alpha = 0.25f),
         shape = shape
     )
 
@@ -89,7 +89,6 @@ fun HomeScreen(
         mutableStateOf(Calendar.getInstance().let { it.get(Calendar.YEAR) to it.get(Calendar.MONTH) })
     }
     var showMonthPicker by remember { mutableStateOf(false) }
-    var showFabMenu by remember { mutableStateOf(false) }
     var enableCardAnimations by remember { mutableStateOf(false) }
 
     val defaultAsset = remember(allAssets) { allAssets.firstOrNull { it.isDefault } }
@@ -141,7 +140,7 @@ fun HomeScreen(
                                             selectedYearMonth = pickerYear to monthIndex
                                             showMonthPicker = false
                                         },
-                                    shape = RoundedCornerShape(12.dp),
+                                    shape = RoundedCornerShape(14.dp),
                                     color = if (isSelected) MaterialTheme.colorScheme.primary
                                     else if (isCurrent) MaterialTheme.colorScheme.primaryContainer
                                     else Color.Transparent
@@ -242,117 +241,12 @@ fun HomeScreen(
     val maxTrendValue = remember(homeData.recentDays) { homeData.recentDays.maxOfOrNull { it.second } ?: 1.0 }
 
     Scaffold(
-        floatingActionButton = {
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                AnimatedVisibility(
-                    visible = showFabMenu,
-                    enter = expandVertically(expandFrom = Alignment.Bottom) + fadeIn(),
-                    exit = shrinkVertically(shrinkTowards = Alignment.Bottom) + fadeOut()
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.End,
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        if (ocrEnabled) {
-                            SmallFloatingActionButton(
-                                onClick = {
-                                    showFabMenu = false
-                                    onNavigateToOcrRecognition()
-                                },
-                                containerColor = MaterialTheme.colorScheme.surface,
-                                contentColor = MaterialTheme.colorScheme.onSurface,
-                                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("OCR 批量识别", style = MaterialTheme.typography.labelLarge)
-                                }
-                            }
-                        }
-
-                        SmallFloatingActionButton(
-                            onClick = {
-                                showFabMenu = false
-                                onNavigateToAssetManagement()
-                            },
-                            containerColor = MaterialTheme.colorScheme.surface,
-                            contentColor = MaterialTheme.colorScheme.onSurface,
-                            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("资产管理", style = MaterialTheme.typography.labelLarge)
-                            }
-                        }
-
-                        SmallFloatingActionButton(
-                            onClick = {
-                                showFabMenu = false
-                                onNavigateToAddTransaction()
-                            },
-                            containerColor = MaterialTheme.colorScheme.surface,
-                            contentColor = MaterialTheme.colorScheme.onSurface,
-                            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("手动输入单条", style = MaterialTheme.typography.labelLarge)
-                            }
-                        }
-                    }
-                }
-
-                val fabInteractionSource = remember { MutableInteractionSource() }
-                val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-                FloatingActionButton(
-                    onClick = {
-                        showFabMenu = !showFabMenu
-                    },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = Color.White,
-                    elevation = FloatingActionButtonDefaults.elevation(
-                        defaultElevation = if (isDark) 4.dp else 2.dp,
-                        pressedElevation = 0.dp
-                    ),
-                    shape = RoundedCornerShape(16.dp),
-                    interactionSource = fabInteractionSource,
-                    modifier = Modifier.pressScale(fabInteractionSource)
-                ) {
-                    val rotation by animateFloatAsState(
-                        targetValue = if (showFabMenu && ocrEnabled) 45f else 0f,
-                        label = "fabRotation"
-                    )
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = "记一笔",
-                        tint = Color.White,
-                        modifier = Modifier.rotate(rotation)
-                    )
-                }
-            }
-        }
+        containerColor = Color.Transparent,
     ) { scaffoldPadding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
                 .padding(scaffoldPadding),
             contentPadding = PaddingValues(bottom = 88.dp)
         ) {
@@ -380,70 +274,15 @@ fun HomeScreen(
                 }
             }
 
-            if (appMode == AppMode.SMART) {
-                item {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        val refreshInteractionSource = remember { MutableInteractionSource() }
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (aiAnalysisLoading) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                            else if (aiAnalysisFailed) MaterialTheme.colorScheme.error
-                            else MaterialTheme.colorScheme.primary,
-                            modifier = Modifier
-                                .pressScale(refreshInteractionSource)
-                                .clickable(
-                                    enabled = !aiAnalysisLoading,
-                                    interactionSource = refreshInteractionSource,
-                                    indication = rememberRipple()
-                                ) { viewModel.runAiAnalysis() }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                if (aiAnalysisLoading) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(18.dp),
-                                        strokeWidth = 2.5.dp,
-                                        color = Color.White,
-                                        trackColor = Color.White.copy(alpha = 0.3f)
-                                    )
-                                } else {
-                                    Icon(
-                                        Icons.Default.Refresh,
-                                        contentDescription = "刷新AI分析",
-                                        modifier = Modifier.size(18.dp),
-                                        tint = Color.White
-                                    )
-                                }
-                                Text(
-                                    text = if (aiAnalysisLoading) "分析中..." else if (aiAnalysisFailed) "重新分析" else "刷新AI分析",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = Color.White
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
             item {
                 Spacer(modifier = Modifier.height(16.dp))
 
                 if (isDataLoading) {
                     TrendChartSkeleton()
                 } else {
-                    val trendShape = RoundedCornerShape(20.dp)
+                    val trendShape = RoundedCornerShape(24.dp)
                     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+                    val totalWeekExpense = homeData.recentDays.sumOf { it.second }
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -454,25 +293,26 @@ fun HomeScreen(
                         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
-                        Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+                        Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "近7日支出趋势",
-                                    fontSize = 14.sp,
+                                    text = "近7日",
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "查看详情 ▸",
-                                    fontSize = 12.sp,
-                                    color = NeonBlue
+                                    text = "¥${String.format("%.0f", totalWeekExpense)}",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -483,32 +323,19 @@ fun HomeScreen(
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                         modifier = Modifier.weight(1f)
                                     ) {
-                                        if (value > 0) {
-                                            Text(
-                                                text = if (value >= 10000) "${String.format("%.1f", value / 10000)}w"
-                                                       else if (value >= 1000) String.format("%.0f", value)
-                                                       else String.format("%.0f", value),
-                                                fontSize = 8.sp,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                textAlign = TextAlign.Center,
-                                                maxLines = 1
-                                            )
-                                        } else {
-                                            Spacer(modifier = Modifier.height(10.dp))
-                                        }
-                                        val barHeight = if (maxTrendValue > 0) (value / maxTrendValue * 56).toFloat().dp else 0.dp
+                                        val barHeight = if (maxTrendValue > 0) (value / maxTrendValue * 48).toFloat().dp else 0.dp
                                         Box(
                                             modifier = Modifier
-                                                .width(20.dp)
+                                                .width(12.dp)
                                                 .height(barHeight.coerceAtLeast(2.dp))
-                                                .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                                                .background(NeonBlue.copy(alpha = 0.85f))
+                                                .clip(RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
+                                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.65f))
                                         )
-                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Spacer(modifier = Modifier.height(6.dp))
                                         Text(
                                             text = label,
                                             fontSize = 10.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                             textAlign = TextAlign.Center
                                         )
                                     }
@@ -521,35 +348,30 @@ fun HomeScreen(
 
             if (appMode == AppMode.SMART && !isDataLoading) {
                 item {
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
                     if (aiAnalysisResult != null) {
                         AnomalyAlertCard(
                             aiAlerts = aiAnalysisResult!!.alerts,
-                            isFailed = false
+                            isFailed = false,
+                            isLoading = aiAnalysisLoading,
+                            onRefresh = { viewModel.runAiAnalysis() }
                         )
                     } else if (aiAnalysisFailed) {
                         AnomalyAlertCard(
                             aiAlerts = emptyList(),
-                            isFailed = true
+                            isFailed = true,
+                            isLoading = aiAnalysisLoading,
+                            onRefresh = { viewModel.runAiAnalysis() }
                         )
                     } else {
                         AnomalyAlertCard(
                             transactions = homeData.periodSummary.transactions,
-                            allTransactions = allTransactions
+                            allTransactions = allTransactions,
+                            isLoading = aiAnalysisLoading,
+                            onRefresh = { viewModel.runAiAnalysis() }
                         )
                     }
                 }
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(20.dp))
-                Text(
-                    text = "账单",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
             }
 
             if (isDataLoading) {
@@ -576,19 +398,20 @@ fun HomeScreen(
                     }
                 }
             } else {
-                val daySdf = SimpleDateFormat("MM月dd日 EEEE", Locale.getDefault())
-                homeData.groupedTransactions.forEachIndexed { groupIndex, group ->
-                    if (groupIndex > 0) {
-                        item {
-                            Divider(
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
-                                thickness = 0.5.dp
-                            )
-                        }
-                    }
+                val todayCal = Calendar.getInstance().apply {
+                    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                }
+                val todayStart = todayCal.timeInMillis
+                val yesterdayStart = todayStart - 86400000L
+                val shortSdf = SimpleDateFormat("MM月dd日", Locale.getDefault())
+                homeData.groupedTransactions.forEachIndexed { _, group ->
                     item {
                         val symbol = defaultAsset?.symbol ?: "¥"
+                        val dateLabel = when {
+                            group.dateKey >= todayStart -> "今天"
+                            group.dateKey >= yesterdayStart -> "昨天"
+                            else -> shortSdf.format(Date(group.dateKey))
+                        }
                         val balanceColor = when {
                             group.balance > 0 -> incomeColor
                             group.balance < 0 -> expenseColor
@@ -602,21 +425,21 @@ fun HomeScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 20.dp, vertical = 10.dp),
+                                .padding(horizontal = 24.dp, vertical = 10.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = daySdf.format(Date(group.dateKey)),
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                text = dateLabel,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
                             )
                             Text(
                                 text = balanceText,
-                                style = MaterialTheme.typography.labelMedium,
+                                style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Medium,
-                                color = balanceColor.copy(alpha = 0.85f)
+                                color = balanceColor.copy(alpha = 0.75f)
                             )
                         }
                     }
@@ -657,82 +480,129 @@ private fun SingleCurrencyOverviewCard(
     enableAnimations: Boolean
 ) {
     val symbol = defaultAsset?.symbol ?: "¥"
-    val isDark = MaterialTheme.colorScheme.background.let { it.red * 0.299f + it.green * 0.587f + it.blue * 0.114f } < 0.5f
-    val resolvedColor = if (defaultAsset != null) resolveCardColor(defaultAsset, isDark) else Color(0xFF6C63FF)
+    val balance = periodIncome - periodExpense
+    val assetAccent = if (defaultAsset != null) resolveCardColor(defaultAsset, true) else Color(0xFF6C63FF)
     val cardColor by animateColorAsState(
-        targetValue = resolvedColor,
+        targetValue = assetAccent,
         animationSpec = if (enableAnimations) MotionSprings.interactive() else snap(),
         label = "singleCardColor"
     )
 
-    Card(
+    // Apple Card style: dark gradient background, data is the hero
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = cardColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(32.dp))
+            .background(
+                brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                    colors = listOf(
+                        cardColor.copy(alpha = 0.95f),
+                        cardColor.copy(alpha = 0.75f).copy(red = (cardColor.red * 0.6f).coerceIn(0f, 1f))
+                    )
+                )
+            )
     ) {
-        Column(modifier = Modifier.padding(24.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 28.dp, vertical = 24.dp)) {
+            // Lightweight header: asset name + month picker
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        text = defaultAsset?.name ?: "个人",
-                        color = Color.White,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = if (monthlyBudget > 0) "预算剩余 ${symbol}${String.format("%.2f", monthlyBudget - periodExpense)}" else "本月收支",
-                        color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 12.sp
-                    )
-                }
-                Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.15f)),
+                Text(
+                    text = defaultAsset?.name ?: "个人",
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color.White.copy(alpha = 0.12f),
                     onClick = onMonthClick
                 ) {
                     Text(
                         text = "${displayCalendar.get(Calendar.YEAR)}.${String.format("%02d", displayCalendar.get(Calendar.MONTH) + 1)} ▾",
-                        color = Color.White,
-                        fontSize = 13.sp,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                        color = Color.White.copy(alpha = 0.8f),
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
+            // Balance hero number - the visual protagonist
             Text(
-                text = "${symbol}${String.format("%.2f", periodIncome - periodExpense)}",
+                text = "${symbol}${String.format("%.2f", balance)}",
                 color = Color.White,
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Bold
+                fontSize = 40.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = (-1).sp
             )
+
+            // Budget progress bar (if budget set)
+            if (monthlyBudget > 0) {
+                Spacer(modifier = Modifier.height(12.dp))
+                val progress = (periodExpense / monthlyBudget).coerceIn(0.0, 1.0).toFloat()
+                val remaining = monthlyBudget - periodExpense
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "预算剩余 ${symbol}${String.format("%.0f", remaining.coerceAtLeast(0.0))}",
+                        color = Color.White.copy(alpha = 0.55f),
+                        fontSize = 11.sp
+                    )
+                    Text(
+                        text = "${String.format("%.0f", progress * 100)}%",
+                        color = Color.White.copy(alpha = 0.55f),
+                        fontSize = 11.sp
+                    )
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(Color.White.copy(alpha = 0.15f))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(progress)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(
+                                if (progress > 0.9f) Color(0xFFFF453A) else Color.White.copy(alpha = 0.7f)
+                            )
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Compact income/expense row
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(32.dp)
             ) {
                 Column {
-                    Text(text = "收入", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
+                    Text(text = "收入", color = Color.White.copy(alpha = 0.45f), fontSize = 11.sp)
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = "${symbol}${String.format("%.2f", periodIncome)}",
-                        color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold
+                        color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold
                     )
                 }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(text = "支出", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
+                Column {
+                    Text(text = "支出", color = Color.White.copy(alpha = 0.45f), fontSize = 11.sp)
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = "${symbol}${String.format("%.2f", periodExpense)}",
-                        color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold
+                        color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold
                     )
                 }
             }
@@ -767,103 +637,106 @@ private fun MultiCurrencyOverviewCards(
             val isDefault = asset.isDefault
 
             val interactionSource = remember { MutableInteractionSource() }
-            Card(
+            // Apple Card style: dark gradient
+            Box(
                 modifier = Modifier
                     .width(300.dp)
-                    .pressScale(interactionSource) // iOS-style interactive feedback
+                    .clip(RoundedCornerShape(32.dp))
+                    .pressScale(interactionSource)
                     .clickable(
                         interactionSource = interactionSource,
                         indication = null,
                         onClick = {}
-                    ),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = cardColor),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    )
+                    .background(
+                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                            colors = listOf(
+                                cardColor.copy(alpha = 0.95f),
+                                cardColor.copy(alpha = 0.75f).copy(red = (cardColor.red * 0.6f).coerceIn(0f, 1f))
+                            )
+                        )
+                    )
             ) {
-                Column(modifier = Modifier.padding(24.dp)) {
+                Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = asset.name,
-                                    color = Color.White,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                if (isDefault) {
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "默认",
-                                        color = Color.White.copy(alpha = 0.6f),
-                                        fontSize = 10.sp,
-                                        modifier = Modifier
-                                            .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
-                                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
-                                }
-                            }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "本月收支",
-                                color = Color.White.copy(alpha = 0.6f),
-                                fontSize = 12.sp
+                                text = asset.name,
+                                color = Color.White.copy(alpha = 0.7f),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium
                             )
+                            if (isDefault) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "默认",
+                                    color = Color.White.copy(alpha = 0.5f),
+                                    fontSize = 10.sp,
+                                    modifier = Modifier
+                                        .background(Color.White.copy(alpha = 0.12f), RoundedCornerShape(6.dp))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
                         }
-                        Card(
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.15f)),
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color.White.copy(alpha = 0.12f),
                             onClick = onMonthClick
                         ) {
                             Text(
                                 text = "${displayCalendar.get(Calendar.YEAR)}.${String.format("%02d", displayCalendar.get(Calendar.MONTH) + 1)} ▾",
-                                color = Color.White,
-                                fontSize = 13.sp,
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                                color = Color.White.copy(alpha = 0.8f),
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Text(
                         text = "${asset.symbol}${String.format("%.2f", income - expense)}",
                         color = Color.White,
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.Bold
+                        fontSize = 40.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = (-1).sp
                     )
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.spacedBy(32.dp)
                     ) {
                         Column {
                             Text(
                                 text = "收入",
-                                color = Color.White.copy(alpha = 0.6f),
-                                fontSize = 12.sp
+                                color = Color.White.copy(alpha = 0.45f),
+                                fontSize = 11.sp
                             )
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "${asset.symbol}${String.format("%.2f", income)}",
                                 color = Color.White,
-                                fontSize = 18.sp,
+                                fontSize = 15.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
-                        Column(horizontalAlignment = Alignment.End) {
+                        Column {
                             Text(
                                 text = "支出",
-                                color = Color.White.copy(alpha = 0.6f),
-                                fontSize = 12.sp
+                                color = Color.White.copy(alpha = 0.45f),
+                                fontSize = 11.sp
                             )
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "${asset.symbol}${String.format("%.2f", expense)}",
                                 color = Color.White,
-                                fontSize = 18.sp,
+                                fontSize = 15.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
@@ -880,7 +753,7 @@ private fun OverviewCardSkeleton() {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(32.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
     ) {
         Column(modifier = Modifier.padding(24.dp)) {
@@ -922,11 +795,11 @@ private fun TrendChartSkeleton() {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Box(modifier = Modifier.fillMaxWidth().frostedGlass(RoundedCornerShape(20.dp), isDark)) {
+        Box(modifier = Modifier.fillMaxWidth().frostedGlass(RoundedCornerShape(24.dp), isDark)) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -944,9 +817,9 @@ private fun TrendChartSkeleton() {
                     repeat(7) {
                         Box(
                             modifier = Modifier
-                                .width(20.dp)
-                                .height(56.dp)
-                                .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                .width(12.dp)
+                                .height(48.dp)
+                                .clip(RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
                                 .shimmer()
                         )
                     }
@@ -962,7 +835,7 @@ private fun TransactionItemSkeleton() {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(
@@ -974,7 +847,7 @@ private fun TransactionItemSkeleton() {
             Box(
                 modifier = Modifier
                     .size(46.dp)
-                    .clip(RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(12.dp))
                     .shimmer()
             )
             Spacer(modifier = Modifier.width(14.dp))
@@ -1024,7 +897,7 @@ internal fun FinancialScoreCard(
     monthlyBudget: Double
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(20.dp)
+    val shape = RoundedCornerShape(24.dp)
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
     val savingsRate = if (income > 0) ((income - expense) / income * 100).coerceIn(0.0, 100.0) else 0.0
@@ -1206,7 +1079,9 @@ private fun calculateFinancialScore(
 @Composable
 private fun AnomalyAlertCard(
     transactions: List<Transaction>,
-    allTransactions: List<Transaction>
+    allTransactions: List<Transaction>,
+    isLoading: Boolean = false,
+    onRefresh: () -> Unit = {}
 ) {
     val anomalies = remember(transactions, allTransactions) {
         detectAnomalies(transactions, allTransactions)
@@ -1214,7 +1089,7 @@ private fun AnomalyAlertCard(
 
     if (anomalies.isEmpty()) return
 
-    val shape = RoundedCornerShape(20.dp)
+    val shape = RoundedCornerShape(24.dp)
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
     Card(
@@ -1226,7 +1101,7 @@ private fun AnomalyAlertCard(
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1236,31 +1111,46 @@ private fun AnomalyAlertCard(
                     Icon(
                         Icons.Default.Notifications,
                         contentDescription = null,
-                        tint = Color(0xFFFF9800),
-                        modifier = Modifier.size(20.dp)
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "消费提醒",
-                        fontSize = 14.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                }
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFFFF9800).copy(alpha = 0.1f)
-                ) {
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "${anomalies.size}条提醒",
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        fontSize = 11.sp,
-                        color = Color(0xFFFF9800)
+                        text = "${anomalies.size}",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+                IconButton(
+                    onClick = onRefresh,
+                    enabled = !isLoading,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = "刷新",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             anomalies.forEach { anomaly ->
                 AnomalyAlertItem(anomaly)
@@ -1275,9 +1165,11 @@ private fun AnomalyAlertCard(
 @Composable
 private fun AnomalyAlertCard(
     aiAlerts: List<com.inkqilin.ledger.service.AiAlert>,
-    isFailed: Boolean
+    isFailed: Boolean,
+    isLoading: Boolean = false,
+    onRefresh: () -> Unit = {}
 ) {
-    val shape = RoundedCornerShape(20.dp)
+    val shape = RoundedCornerShape(24.dp)
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
     Card(
@@ -1289,7 +1181,7 @@ private fun AnomalyAlertCard(
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1299,36 +1191,51 @@ private fun AnomalyAlertCard(
                     Icon(
                         Icons.Default.Notifications,
                         contentDescription = null,
-                        tint = if (isFailed) Color(0xFFF44336) else Color(0xFFFF9800),
-                        modifier = Modifier.size(20.dp)
+                        tint = if (isFailed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "消费提醒",
-                        fontSize = 14.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
+                    if (!isFailed && aiAlerts.isNotEmpty()) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "${aiAlerts.size}",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     if (isFailed) {
                         Spacer(modifier = Modifier.width(6.dp))
                         Icon(
                             Icons.Default.Warning,
                             contentDescription = "分析失败",
-                            tint = Color(0xFFF44336),
-                            modifier = Modifier.size(16.dp)
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(14.dp)
                         )
                     }
                 }
-                if (!isFailed && aiAlerts.isNotEmpty()) {
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = Color(0xFFFF9800).copy(alpha = 0.1f)
-                    ) {
-                        Text(
-                            text = "${aiAlerts.size}条提醒",
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            fontSize = 11.sp,
-                            color = Color(0xFFFF9800)
+                IconButton(
+                    onClick = onRefresh,
+                    enabled = !isLoading,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = "刷新",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -1376,9 +1283,9 @@ private fun AiAnomalyAlertItem(alert: com.inkqilin.ledger.service.AiAlert) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable { expanded = !expanded },
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
-            containerColor = alertColor.copy(alpha = 0.08f)
+            containerColor = alertColor.copy(alpha = 0.05f)
         )
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
@@ -1437,7 +1344,7 @@ private fun AnomalyAlertItem(anomaly: AnomalyInfo) {
             .clickable { expanded = !expanded },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = anomaly.color.copy(alpha = 0.08f)
+            containerColor = anomaly.color.copy(alpha = 0.05f)
         )
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
@@ -1935,14 +1842,14 @@ private fun HomeScreenPreview() {
                         }
                     }
                     items(txs) { tx ->
-                        Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp), shape = RoundedCornerShape(16.dp),
+                        Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp), shape = RoundedCornerShape(18.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
                             Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                 val isIncome = tx.type == TransactionType.INCOME
                                 val accent = if (isIncome) Color(0xFF4CAF50) else Color(0xFFF44336)
                                 val emoji = mapOf("餐饮" to "🍜", "交通" to "🚌", "购物" to "🛒", "工资" to "💰")
-                                Box(modifier = Modifier.size(46.dp).clip(RoundedCornerShape(14.dp)).background(accent.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
+                                Box(modifier = Modifier.size(46.dp).clip(RoundedCornerShape(12.dp)).background(accent.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
                                     Text(emoji[tx.category] ?: "📋", fontSize = 20.sp)
                                 }
                                 Spacer(modifier = Modifier.width(14.dp))

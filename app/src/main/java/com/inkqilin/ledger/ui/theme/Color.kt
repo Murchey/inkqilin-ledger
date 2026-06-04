@@ -3,62 +3,84 @@ package com.inkqilin.ledger.ui.theme
 import androidx.compose.ui.graphics.Color
 import com.inkqilin.ledger.data.CurrencyAsset
 
-val InkPrimary = Color(0xFF04BE02)
-val InkPrimaryLight = Color(0xFF04BE02)
-val InkPrimaryDark = Color(0xFF04BE02)
+// ─── Apple HIG Primary Colors ───
+val InkPrimary = Color(0xFF34C759)
+val InkPrimaryLight = Color(0xFF34C759)
+val InkPrimaryDark = Color(0xFF30D158)
 
-val GoogleBlue = InkPrimaryLight
-val GoogleBlueLight = Color(0xFF8C7AFF)
-val GoogleGreen = Color(0xFF34A853)
-val GoogleYellow = Color(0xFFFBBC04)
-val GoogleRed = Color(0xFFEA4335)
-val GoogleGrey100 = Color(0xFFF1F3F4)
-val GoogleGrey200 = Color(0xFFE8EAED)
-val GoogleGrey300 = Color(0xFFDADCE0)
-val GoogleGrey600 = Color(0xFF80868B)
-val GoogleGrey800 = Color(0xFF3C4043)
-val GoogleGrey900 = Color(0xFF202124)
+// ─── Apple HIG Secondary Colors ───
+val InkSecondary = Color(0xFF007AFF)
+val InkSecondaryDark = Color(0xFF0A84FF)
 
-val InkGreen = Color(0xFF34A853)
-val InkRed = Color(0xFFEA4335)
-val InkYellow = Color(0xFFFBBC04)
+// ─── Apple HIG Accent Colors ───
+val AppleGreen = Color(0xFF34C759)
+val AppleBlue = Color(0xFF007AFF)
+val AppleOrange = Color(0xFFFF9F0A)
+val AppleRed = Color(0xFFFF3B30)
+val AppleYellow = Color(0xFFFFCC00)
+val ApplePurple = Color(0xFFAF52DE)
+val ApplePink = Color(0xFFFF2D55)
+val AppleTeal = Color(0xFF5AC8FA)
+val AppleIndigo = Color(0xFF5856D6)
 
-val SurfaceLight = Color(0xFFFAFAFA)
-val SurfaceDark = Color(0xFF191A1C)
-val BackgroundLight = Color(0xFFFFFFFF)
-val BackgroundDark = Color(0xFF0F1115)
+// ─── Apple HIG Light Mode Colors ───
+val BackgroundLight = Color(0xFFF5F5F7)
+val SurfaceLight = Color(0xFFFFFFFF)
+val SecondarySurfaceLight = Color(0xFFEFEFF4)
+val OnSurfaceLight = Color(0xFF1D1D1F)
+val OnSurfaceVariantLight = Color(0xFF6E6E73)
+val OutlineLight = Color(0xFFD1D1D6)
+val SurfaceVariantLight = Color(0xFFE5E5EA)
 
-val SurfaceVariantLight = Color(0xFFEDEDED)
-val SurfaceVariantDark = Color(0xFF1F2022)
-val OutlineLight = Color(0xFFCCCCCC)
+// ─── Apple HIG Dark Mode Colors ───
+val BackgroundDark = Color(0xFF0B0B0F)
+val SurfaceDark = Color(0xFF111318)
+val SecondarySurfaceDark = Color(0xFF161A22)
+val OnSurfaceDark = Color(0xFFFFFFFF)
+val OnSurfaceVariantDark = Color(0xB3FFFFFF) // rgba(255,255,255,0.65)
 val OutlineDark = Color(0xFF2E2F32)
-val OnSurfaceLight = Color(0xFF1C1C1E)
-val OnSurfaceDark = Color(0xFFF3F4F6)
+val SurfaceVariantDark = Color(0xFF1C1E24)
 
-val InkSecondary = Color(0xFFFF9F43)
+// ─── Frosted Glass (Apple-style) ───
+val FrostedLight = Color(0xFFF2F2F7)
+val FrostedDark = Color(0xFF1C1C1E)
+val FrostedBorderLight = Color(0xFFD1D1D6)
+val FrostedBorderDark = Color(0xFF38383A)
 
-val NeonGreen = Color(0xFF00E676)
-val NeonBlue = Color(0xFF448AFF)
-val NeonPurple = Color(0xFFBB86FC)
-val NeonCyan = Color(0xFF00E5FF)
-val NeonPink = Color(0xFFFF4081)
+// ─── Legacy aliases (kept for compatibility) ───
+val GoogleBlue = InkPrimaryLight
+val GoogleBlueLight = Color(0xFF5AC8FA)
+val GoogleGreen = AppleGreen
+val GoogleYellow = AppleYellow
+val GoogleRed = AppleRed
+val GoogleGrey100 = Color(0xFFF2F2F7)
+val GoogleGrey200 = Color(0xFFE5E5EA)
+val GoogleGrey300 = Color(0xFFD1D1D6)
+val GoogleGrey600 = Color(0xFF8E8E93)
+val GoogleGrey800 = Color(0xFF48484A)
+val GoogleGrey900 = Color(0xFF1C1C1E)
 
-val FrostedDark = Color(0xFF191A1C)
-val FrostedLight = Color(0xFFF5F7FA)
-val FrostedBorderDark = Color(0xFF2E2F32)
-val FrostedBorderLight = Color(0xFFE0E4EA)
+val InkGreen = AppleGreen
+val InkRed = AppleRed
+val InkYellow = AppleYellow
+
+val NeonGreen = AppleGreen
+val NeonBlue = AppleBlue
+val NeonPurple = ApplePurple
+val NeonCyan = AppleTeal
+val NeonPink = ApplePink
 
 data class CardColorPreset(val dark: String, val light: String, val label: String)
 
 val CardColorPresets = listOf(
-    CardColorPreset("#1859CC", "#496CCC", "蓝"),
-    CardColorPreset("#CC6325", "#CC763D", "橙"),
-    CardColorPreset("#7C4ACC", "#926FCC", "紫"),
-    CardColorPreset("#24ABA1", "#2EB1A7", "青"),
-    CardColorPreset("#CC3D57", "#CC4A5C", "红"),
-    CardColorPreset("#229F54", "#31B96B", "绿"),
-    CardColorPreset("#CCAB3D", "#CCB352", "黄"),
-    CardColorPreset("#CC689D", "#CC79A7", "粉")
+    CardColorPreset("#007AFF", "#5AC8FA", "蓝"),
+    CardColorPreset("#FF9500", "#FF9F0A", "橙"),
+    CardColorPreset("#AF52DE", "#BF5AF2", "紫"),
+    CardColorPreset("#34C759", "#30D158", "绿"),
+    CardColorPreset("#FF3B30", "#FF453A", "红"),
+    CardColorPreset("#5856D6", "#5E5CE6", "靛"),
+    CardColorPreset("#FF2D55", "#FF375F", "粉"),
+    CardColorPreset("#00C7BE", "#30B0C7", "青")
 )
 
 fun resolveCardColor(asset: CurrencyAsset, isDark: Boolean): Color {
@@ -66,6 +88,6 @@ fun resolveCardColor(asset: CurrencyAsset, isDark: Boolean): Color {
         val hex = if (isDark) asset.cardColor else (asset.cardColorLight ?: asset.cardColor)
         Color(android.graphics.Color.parseColor(hex))
     } catch (_: Exception) {
-        Color(0xFF6C63FF)
+        if (isDark) Color(0xFF0A84FF) else Color(0xFF007AFF)
     }
 }

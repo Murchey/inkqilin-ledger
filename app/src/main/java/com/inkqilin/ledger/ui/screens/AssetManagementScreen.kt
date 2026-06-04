@@ -35,7 +35,7 @@ fun AssetManagementScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp)
         ) {
@@ -178,7 +178,8 @@ private fun AssetItem(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(18.dp),
+        elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Row(
             modifier = Modifier
@@ -188,8 +189,8 @@ private fun AssetItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
                 modifier = Modifier.size(40.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -232,7 +233,7 @@ private fun AssetItem(
                     Text(
                         text = "${if (change >= 0) "+" else ""}${String.format("%.1f", changePercent)}%",
                         fontSize = 11.sp,
-                        color = if (change >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
+                        color = if (change >= 0) Color(0xFF34C759) else Color(0xFFFF3B30)
                     )
                 }
             }

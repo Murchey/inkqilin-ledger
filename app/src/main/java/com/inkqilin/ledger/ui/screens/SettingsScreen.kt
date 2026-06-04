@@ -247,10 +247,10 @@ fun SettingsScreen(
         }
     )
 
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 16.dp)) {
         // region 1. 应用版本
-        Text(text = "应用版本", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
-        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+        Text(text = "应用版本", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 12.dp))
+        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
                 ListItem(
                     headlineContent = { Text("基础版", fontWeight = if (appMode == AppMode.BASIC) FontWeight.Bold else FontWeight.Normal) },
@@ -263,14 +263,14 @@ fun SettingsScreen(
                     },
                     modifier = Modifier.clickable { viewModel.setAppMode(AppMode.BASIC) }
                 )
-                Divider()
+                Spacer(modifier = Modifier.height(0.5.dp))
                 ListItem(
                     headlineContent = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("智能版", fontWeight = if (appMode == AppMode.SMART) FontWeight.Bold else FontWeight.Normal)
                             Spacer(modifier = Modifier.width(8.dp))
                             Surface(
-                                shape = RoundedCornerShape(4.dp),
+                                shape = RoundedCornerShape(6.dp),
                                 color = MaterialTheme.colorScheme.primaryContainer
                             ) {
                                 Text(
@@ -293,7 +293,7 @@ fun SettingsScreen(
                     modifier = Modifier.clickable { viewModel.setAppMode(AppMode.SMART) }
                 )
                 if (appMode == AppMode.SMART) {
-                    Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                    Spacer(modifier = Modifier.height(0.5.dp))
                     ListItem(
                         headlineContent = { Text("AI 分析配置") },
                         supportingContent = {
@@ -319,9 +319,9 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { displaySettingsExpanded = !displaySettingsExpanded }
-                .padding(bottom = 8.dp)
+                .padding(top = 8.dp, bottom = 12.dp)
         )
-        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
                 ListItem(
                     headlineContent = { Text("深浅色模式") },
@@ -355,7 +355,7 @@ fun SettingsScreen(
                         }
                     }
                 )
-                Divider()
+                Spacer(modifier = Modifier.height(0.5.dp))
                 ListItem(
                     headlineContent = { Text("收入展示颜色") },
                     trailingContent = {
@@ -365,7 +365,7 @@ fun SettingsScreen(
                         )
                     }
                 )
-                Divider()
+                Spacer(modifier = Modifier.height(0.5.dp))
                 ListItem(
                     headlineContent = { Text("支出展示颜色") },
                     trailingContent = {
@@ -375,7 +375,7 @@ fun SettingsScreen(
                         )
                     }
                 )
-                Divider()
+                Spacer(modifier = Modifier.height(0.5.dp))
                 ListItem(
                     headlineContent = { Text("主题色") },
                     supportingContent = { Text(if (customPrimaryColorHex != null) "自定义" else "默认靛蓝") },
@@ -406,20 +406,20 @@ fun SettingsScreen(
                     )
                 ) {
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        Divider()
+                        Spacer(modifier = Modifier.height(0.5.dp))
                         Spacer(modifier = Modifier.height(12.dp))
                         val currentPrimary = MaterialTheme.colorScheme.primary
                         val presetThemeColors = listOf(
-                            "#7C5CFF" to "紫罗兰",
+                            "#5856D6" to "靛蓝",
                             DEFAULT_PRIMARY_COLOR_HEX to "青翠绿",
-                            "#1565C0" to "深蓝",
+                            "#007AFF" to "深蓝",
                             "#00897B" to "青绿",
-                            "#43A047" to "翠绿",
-                            "#E65100" to "深橙",
-                            "#D32F2F" to "中国红",
+                            "#34C759" to "翠绿",
+                            "#FF9500" to "深橙",
+                            "#FF3B30" to "苹果红",
                             "#00838F" to "暗青",
                             "#5C6BC0" to "蓝紫",
-                            "#EC407A" to "玫粉"
+                            "#FF2D55" to "玫粉"
                         )
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             items(presetThemeColors) { (hex, _) ->
@@ -482,7 +482,7 @@ fun SettingsScreen(
                                 singleLine = true,
                                 modifier = Modifier.weight(1f),
                                 textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
-                                shape = RoundedCornerShape(12.dp)
+                                shape = RoundedCornerShape(14.dp)
                             )
                         }
 
@@ -497,8 +497,8 @@ fun SettingsScreen(
             }
         }
 
-        Text(text = "分类管理", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
-        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+        Text(text = "分类管理", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
+        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
                 ListItem(
                     headlineContent = { Text("账单标签（类别）管理") },
@@ -506,7 +506,7 @@ fun SettingsScreen(
                     leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
                     modifier = Modifier.clickable { onNavigateToCategoryManagement() }
                 )
-                Divider()
+                Spacer(modifier = Modifier.height(0.5.dp))
                 ListItem(
                     headlineContent = { Text("备注自动识别关键词管理") },
                     supportingContent = { Text("配置关键词自动选择账单分类") },
@@ -517,8 +517,8 @@ fun SettingsScreen(
         }
 
         val renQingEnabled by renQingViewModel.renQingEnabled.collectAsState()
-        Text(text = "人情账本", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
-        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+        Text(text = "人情账本", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
+        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
             ListItem(
                 headlineContent = { Text("启用人情账本") },
                 supportingContent = { Text(if (renQingEnabled) "已启用，底部导航栏显示" else "未启用") },
@@ -529,8 +529,8 @@ fun SettingsScreen(
         }
 
         val multiCurrencyEnabled by viewModel.multiCurrencyEnabled.collectAsState()
-        Text(text = "多币种管理", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
-        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+        Text(text = "多币种管理", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
+        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
                 ListItem(
                     headlineContent = { Text("多币种资金管理") },
@@ -540,7 +540,7 @@ fun SettingsScreen(
                     }
                 )
                 if (multiCurrencyEnabled) {
-                    Divider()
+                    Spacer(modifier = Modifier.height(0.5.dp))
                     ListItem(
                         headlineContent = { Text("币种卡片管理") },
                         supportingContent = { Text("添加、编辑或删除币种金额卡片") },
@@ -552,8 +552,8 @@ fun SettingsScreen(
         }
 
         val checkUpdateEnabled by viewModel.checkUpdateEnabled.collectAsState()
-        Text(text = "更新检测", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
-        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+        Text(text = "更新检测", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
+        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
                 ListItem(
                     headlineContent = { Text("启动时检测新版本") },
@@ -565,8 +565,8 @@ fun SettingsScreen(
             }
         }
 
-        Text(text = "实验室功能", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
-        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+        Text(text = "实验室功能", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
+        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
                 ListItem(
                     headlineContent = { Text("自动记账") },
@@ -587,7 +587,7 @@ fun SettingsScreen(
                     }
                 )
                 if (autoRecordEnabled && !isNotificationServiceEnabled(context)) {
-                    Divider()
+                    Spacer(modifier = Modifier.height(0.5.dp))
                     ListItem(
                         headlineContent = { Text("未开启监听权限", color = MaterialTheme.colorScheme.error) },
                         supportingContent = { Text("点击去开启，否则自动记账无法生效") },
@@ -602,7 +602,7 @@ fun SettingsScreen(
                     )
                 }
                 if (albumEnabled) {
-                    Divider()
+                    Spacer(modifier = Modifier.height(0.5.dp))
                     var cleanupResult by remember { mutableStateOf<TransactionViewModel.CleanupResult?>(null) }
                     var isCleaning by remember { mutableStateOf(false) }
                     ListItem(
@@ -632,7 +632,7 @@ fun SettingsScreen(
                         }
                     )
                 }
-                Divider()
+                Spacer(modifier = Modifier.height(0.5.dp))
                 ListItem(
                     headlineContent = { Text("OCR账单识别") },
                     supportingContent = { Text("通过 AI 识别图片账单并批量导入") },
@@ -644,7 +644,7 @@ fun SettingsScreen(
                     }
                 )
                 if (ocrEnabled) {
-                    Divider()
+                    Spacer(modifier = Modifier.height(0.5.dp))
                     ListItem(
                         headlineContent = { Text("OCR 识别 API 配置") },
                         supportingContent = { Text(if (ocrApiKey.isEmpty()) "点击配置 API Key" else "已配置 API Key") },
@@ -652,7 +652,7 @@ fun SettingsScreen(
                         modifier = Modifier.clickable { onNavigateToOCRConfig() }
                     )
                 }
-                Divider()
+                Spacer(modifier = Modifier.height(0.5.dp))
                 ListItem(
                     headlineContent = { Text("记账相册") },
                     supportingContent = { Text("用于保存重要账单的原件，可以直接连接OCR功能。拍摄的照片会同步到系统相册，删除照片仅在本APP生效，不会删除系统相册内容。") },
@@ -666,8 +666,8 @@ fun SettingsScreen(
             }
         }
 
-        Text(text = "数据管理", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
-        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+        Text(text = "数据管理", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
                 ListItem(
                     headlineContent = { Text("导出账单为 Excel") },
@@ -735,7 +735,7 @@ fun SettingsScreen(
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                 }
-                Divider()
+                Spacer(modifier = Modifier.height(0.5.dp))
                 ListItem(
                     headlineContent = { Text("下载账单模板") },
                     supportingContent = { Text("导出 Excel 模板，填写后可导入") },
@@ -748,7 +748,7 @@ fun SettingsScreen(
                         }
                     }
                 )
-                Divider()
+                Spacer(modifier = Modifier.height(0.5.dp))
                 ListItem(
                     headlineContent = { Text("导入账单") },
                     supportingContent = { Text("从填写好的 Excel 模板导入记录") },
@@ -762,14 +762,14 @@ fun SettingsScreen(
                     }
                 )
                 if (renQingEnabled) {
-                    Divider()
+                    Spacer(modifier = Modifier.height(0.5.dp))
                     ListItem(
                         headlineContent = { Text("联系人管理") },
                         supportingContent = { Text("添加、编辑或删除人情联系人") },
                         leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
                         modifier = Modifier.clickable { onNavigateToContactManagement() }
                     )
-                    Divider()
+                    Spacer(modifier = Modifier.height(0.5.dp))
                     ListItem(
                         headlineContent = { Text("导出人情账单") },
                         supportingContent = { Text("选择时间范围并导出人情来往记录") },
@@ -836,7 +836,7 @@ fun SettingsScreen(
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                     }
-                    Divider()
+                    Spacer(modifier = Modifier.height(0.5.dp))
                     ListItem(
                         headlineContent = { Text("导出联系人") },
                         supportingContent = { Text("导出所有人情联系人列表") },
@@ -861,7 +861,7 @@ fun SettingsScreen(
                         }
                     )
                 }
-                Divider()
+                Spacer(modifier = Modifier.height(0.5.dp))
                 ListItem(
                     headlineContent = { Text("关于 墨麒麟记账") },
                     supportingContent = { Text("版本 ${viewModel.getCurrentVersionName(context)} · GitHub 仓库") },
@@ -897,7 +897,7 @@ private fun AnimatedPressButton(
 fun ColorPickerButton(selectedColor: String, onColorSelected: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     var colorInput by remember { mutableStateOf(selectedColor) }
-    val colors = listOf("#715CFF", "#51B4FF", "#4CAF50", "#F44336", "#FF9800", "#9C27B0", "#E91E63", "#00BCD4", "#000000", "#795548")
+    val colors = listOf("#5856D6", "#51B4FF", "#34C759", "#FF3B30", "#FF9500", "#9C27B0", "#FF2D55", "#00BCD4", "#000000", "#795548")
 
     Box {
         Box(
@@ -1008,7 +1008,7 @@ fun CurrencyManagementScreen(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item {
@@ -1052,7 +1052,7 @@ fun CurrencyManagementScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .pressScale(assetInteractionSource), // iOS-style interactive feedback
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(containerColor = animatedCardColor),
                 interactionSource = assetInteractionSource,
                 onClick = {}
@@ -1251,31 +1251,31 @@ private fun CurrencyEditDialog(
 private fun SettingsScreenPreview() {
     InkQilinLedgerTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
-            Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-                Text("显示设置", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
-                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+            Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 16.dp)) {
+                Text("显示设置", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 12.dp))
+                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
                     Column {
                         ListItem(headlineContent = { Text("深浅色模式") }, supportingContent = { Text("跟随系统") }, trailingContent = { TextButton(onClick = {}) { Text("切换") } })
-                        Divider()
-                        ListItem(headlineContent = { Text("收入展示颜色") }, trailingContent = { Box(modifier = Modifier.size(32.dp).clip(CircleShape).background(Color(0xFF4CAF50))) })
-                        Divider()
-                        ListItem(headlineContent = { Text("支出展示颜色") }, trailingContent = { Box(modifier = Modifier.size(32.dp).clip(CircleShape).background(Color(0xFFF44336))) })
+                        Spacer(modifier = Modifier.height(0.5.dp))
+                        ListItem(headlineContent = { Text("收入展示颜色") }, trailingContent = { Box(modifier = Modifier.size(32.dp).clip(CircleShape).background(Color(0xFF34C759))) })
+                        Spacer(modifier = Modifier.height(0.5.dp))
+                        ListItem(headlineContent = { Text("支出展示颜色") }, trailingContent = { Box(modifier = Modifier.size(32.dp).clip(CircleShape).background(Color(0xFFFF3B30))) })
                     }
                 }
-                Text("分类管理", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
-                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+                Text("分类管理", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
+                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
                     ListItem(headlineContent = { Text("账单标签（类别）管理") }, supportingContent = { Text("添加、修改或删除收支分类及人情标签") }, leadingContent = { Icon(Icons.Default.Info, null) }, modifier = Modifier.clickable {})
                 }
-                Text("更新检测", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
-                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+                Text("更新检测", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
+                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
                     ListItem(
                         headlineContent = { Text("启动时检测新版本") },
                         supportingContent = { Text("已启用，启动时自动检测 GitHub 新版本") },
                         trailingContent = { Switch(checked = true, onCheckedChange = {}) }
                     )
                 }
-                Text("关于", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
-                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+                Text("关于", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
+                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
                     ListItem(headlineContent = { Text("关于 墨麒麟记账") }, supportingContent = { Text("版本 1.3.0 · GitHub 仓库") }, leadingContent = { Icon(Icons.Default.Info, null) }, modifier = Modifier.clickable {})
                 }
             }

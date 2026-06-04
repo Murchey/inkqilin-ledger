@@ -61,12 +61,12 @@ private fun Modifier.frostedGlass(
         } else Modifier
     )*/
     .background(
-        color = if (isDark) FrostedDark.copy(alpha = 0.85f) else FrostedLight.copy(alpha = 0.7f),
+        color = if (isDark) FrostedDark.copy(alpha = 0.8f) else FrostedLight.copy(alpha = 0.75f),
         shape = shape
     )
     .border(
         width = 0.5.dp, // Thinner iOS-style border
-        color = if (isDark) FrostedBorderDark.copy(alpha = 0.5f) else FrostedBorderLight.copy(alpha = 0.3f),
+        color = if (isDark) FrostedBorderDark.copy(alpha = 0.4f) else FrostedBorderLight.copy(alpha = 0.25f),
         shape = shape
     )
 
@@ -299,7 +299,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(14.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
                     .padding(4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -309,7 +309,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(RoundedCornerShape(12.dp))
                             .background(
                                 if (selected) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.surfaceVariant
@@ -333,7 +333,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
         if (allUserAssets.isNotEmpty()) {
             item {
                 Spacer(modifier = Modifier.height(16.dp))
-                val shape = RoundedCornerShape(20.dp)
+                val shape = RoundedCornerShape(24.dp)
                 val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
                 Card(
                     modifier = Modifier
@@ -440,7 +440,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(14.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
                     .padding(4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -451,7 +451,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(RoundedCornerShape(12.dp))
                             .background(
                                 if (selected) accentColor
                                 else MaterialTheme.colorScheme.surfaceVariant
@@ -552,7 +552,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                 colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
-                Column(modifier = Modifier.padding(20.dp)) {
+                Column(modifier = Modifier.padding(24.dp)) {
                     Text(
                         text = selectedPeriod.label + "总" + if (selectedType == TransactionType.EXPENSE) "支出" else "收入",
                         style = MaterialTheme.typography.bodyMedium,
@@ -577,7 +577,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
 
         item {
             Spacer(modifier = Modifier.height(12.dp))
-            val compShape = RoundedCornerShape(16.dp)
+            val compShape = RoundedCornerShape(20.dp)
             val isDarkComp = MaterialTheme.colorScheme.background.luminance() < 0.5f
             val compInteractionSource = remember { MutableInteractionSource() }
             Card(
@@ -672,7 +672,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                 var tooltipIndex by remember { mutableStateOf<Int?>(null) }
                 val hasAnyData = barChartData.any { it.second > 0 }
 
-                val chartShape = RoundedCornerShape(20.dp)
+                val chartShape = RoundedCornerShape(24.dp)
                 val isDarkChart = MaterialTheme.colorScheme.background.luminance() < 0.5f
                 val chartInteractionSource = remember { MutableInteractionSource() }
                 Card(
@@ -802,8 +802,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp, vertical = 4.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .clip(RoundedCornerShape(18.dp))
                 ) {
                     // 滑动展示的编辑按钮
                     Box(
@@ -849,7 +848,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                                 val dateRange = getDateRangeForPeriod(selectedPeriod, startDate, endDate)
                                 navController.navigate("category_transactions/$categoryName/${selectedType.name}?startDate=${dateRange.first}&endDate=${dateRange.second}")
                             },
-                        shape = RoundedCornerShape(16.dp),
+                        shape = RoundedCornerShape(18.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
@@ -1071,16 +1070,16 @@ private fun AiFinancialScoreCard(
     isFailed: Boolean
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(20.dp)
+    val shape = RoundedCornerShape(24.dp)
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
     val score = result?.score ?: 60
     val scoreLabel = result?.scoreLabel ?: "未知"
     val scoreExplanation = result?.scoreExplanation ?: ""
     val scoreColor = when {
-        score >= 80 -> Color(0xFF4CAF50)
-        score >= 60 -> Color(0xFFFF9800)
-        else -> Color(0xFFF44336)
+        score >= 80 -> Color(0xFF34C759)
+        score >= 60 -> Color(0xFFFF9F0A)
+        else -> Color(0xFFFF3B30)
     }
 
     Card(
@@ -1103,7 +1102,7 @@ private fun AiFinancialScoreCard(
                     Icon(
                         Icons.Default.Star,
                         contentDescription = null,
-                        tint = if (isFailed) Color(0xFFF44336) else scoreColor,
+                        tint = if (isFailed) Color(0xFFFF3B30) else scoreColor,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -1118,7 +1117,7 @@ private fun AiFinancialScoreCard(
                         Icon(
                             Icons.Default.Warning,
                             contentDescription = "分析失败",
-                            tint = Color(0xFFF44336),
+                            tint = Color(0xFFFF3B30),
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -1171,7 +1170,6 @@ private fun AiFinancialScoreCard(
 
             AnimatedVisibility(visible = expanded) {
                 Column(modifier = Modifier.padding(top = 16.dp)) {
-                    Divider(color = MaterialTheme.colorScheme.outlineVariant)
                     Spacer(modifier = Modifier.height(12.dp))
                     if (isFailed) {
                         Text(
@@ -1212,7 +1210,7 @@ private fun StatisticsScreenPreview() {
                     FilterChip(selected = false, onClick = {}, label = { Text("收入") })
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF44336)), elevation = CardDefaults.cardElevation(0.dp)) {
+                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFFF3B30)), elevation = CardDefaults.cardElevation(0.dp)) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text("总支出", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
                         Text("¥1,234.56", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
@@ -1238,7 +1236,7 @@ private fun StatisticsScreenPreview() {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(name, fontWeight = FontWeight.Medium, fontSize = 14.sp)
                                 Spacer(modifier = Modifier.height(4.dp))
-                                LinearProgressIndicator(progress = data.first.toFloat(), modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)), color = Color(0xFFF44336), trackColor = Color(0xFFF44336).copy(alpha = 0.1f))
+                                LinearProgressIndicator(progress = data.first.toFloat(), modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)), color = Color(0xFFFF3B30), trackColor = Color(0xFFFF3B30).copy(alpha = 0.1f))
                             }
                             Spacer(modifier = Modifier.width(8.dp))
                             Column(horizontalAlignment = Alignment.End) {

@@ -111,14 +111,16 @@ fun AddTransactionScreen(
                 AssistChip(
                     onClick = { showDatePicker = true },
                     label = { Text(sdf.format(Date(date))) },
-                    leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                    leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    shape = RoundedCornerShape(10.dp),
+                    border = null
                 )
             }
         }
 
         item {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).clip(RoundedCornerShape(12.dp))
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).clip(RoundedCornerShape(14.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant).padding(4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
@@ -126,7 +128,7 @@ fun AddTransactionScreen(
                     val selected = type == t
                     val accentColor = if (t == TransactionType.EXPENSE) expenseColor else incomeColor
                     Box(
-                        modifier = Modifier.weight(1f).clip(RoundedCornerShape(10.dp))
+                        modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
                             .background(if (selected) accentColor else MaterialTheme.colorScheme.surfaceVariant)
                             .clickable { type = t; category = "" }.padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
@@ -140,16 +142,16 @@ fun AddTransactionScreen(
 
         item {
             Spacer(modifier = Modifier.height(24.dp))
-            Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), shape = RoundedCornerShape(16.dp),
+            Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     OutlinedTextField(
                         value = amount, onValueChange = { amount = it },
                         label = { Text("金额") },
                         prefix = { Text("${currentAsset?.symbol ?: "¥"} ", fontWeight = FontWeight.Bold, fontSize = 20.sp) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
                         textStyle = LocalTextStyle.current.copy(fontSize = 24.sp, fontWeight = FontWeight.Bold),
                         singleLine = true
                     )
@@ -195,9 +197,9 @@ fun AddTransactionScreen(
 
         item {
             Spacer(modifier = Modifier.height(16.dp))
-            Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), shape = RoundedCornerShape(16.dp),
+            Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
                 Column(modifier = Modifier.padding(4.dp)) {
                     if (recentNotes.isNotEmpty()) {
                         Row(
@@ -241,7 +243,8 @@ fun AddTransactionScreen(
                                         }
                                     },
                                     label = { Text(recentNote, style = MaterialTheme.typography.bodySmall) },
-                                    shape = RoundedCornerShape(8.dp)
+                                    shape = RoundedCornerShape(10.dp),
+                                    border = null
                                 )
                             }
                         }
@@ -261,7 +264,7 @@ fun AddTransactionScreen(
                         },
                         label = { Text("备注（可选）") },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(14.dp)
                     )
                 }
             }
@@ -293,9 +296,9 @@ fun AddTransactionScreen(
         if (renQingEnabled) {
             item {
                 Spacer(modifier = Modifier.height(12.dp))
-                Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), shape = RoundedCornerShape(16.dp),
+                Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), shape = RoundedCornerShape(18.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -318,7 +321,7 @@ fun AddTransactionScreen(
                                     modifier = Modifier.fillMaxWidth().clickable { contactMenuExpanded = true },
                                     label = { Text("选择联系人") },
                                     readOnly = true,
-                                    shape = RoundedCornerShape(12.dp),
+                                    shape = RoundedCornerShape(14.dp),
                                     trailingIcon = {
                                         IconButton(onClick = { contactMenuExpanded = true }) {
                                             Icon(Icons.Default.ArrowDropDown, contentDescription = null)
@@ -394,7 +397,7 @@ fun AddTransactionScreen(
                     .padding(horizontal = 20.dp)
                     .height(52.dp)
                     .pressScale(saveInteractionSource), // iOS-style interactive feedback
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (type == TransactionType.EXPENSE) expenseColor else incomeColor
                 ),
@@ -431,7 +434,7 @@ private fun RowScope.CategoryChip(cat: String, icon: String, selected: Boolean, 
                 interactionSource = chipInteractionSource,
                 indication = null
             ) { onClick() },
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (selected) accentColor.copy(alpha = 0.15f)
             else MaterialTheme.colorScheme.surfaceVariant
@@ -468,15 +471,15 @@ private fun AddTransactionScreenPreview() {
             Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("记一笔", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    AssistChip(onClick = {}, label = { Text("2024-05-11") }, leadingIcon = { Icon(Icons.Default.DateRange, null, modifier = Modifier.size(18.dp)) })
+                    AssistChip(onClick = {}, label = { Text("2024-05-11") }, leadingIcon = { Icon(Icons.Default.DateRange, null, modifier = Modifier.size(18.dp)) }, shape = RoundedCornerShape(10.dp), border = null)
                 }
-                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Box(modifier = Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).background(Color(0xFFF44336)).padding(vertical = 12.dp), contentAlignment = Alignment.Center) { Text("支出", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
-                    Box(modifier = Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(vertical = 12.dp), contentAlignment = Alignment.Center) { Text("收入", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 15.sp) }
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Box(modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(Color(0xFFFF3B30)).padding(vertical = 12.dp), contentAlignment = Alignment.Center) { Text("支出", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
+                    Box(modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(vertical = 12.dp), contentAlignment = Alignment.Center) { Text("收入", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 15.sp) }
                 }
                 Spacer(modifier = Modifier.height(12.dp))
-                Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(1.dp)) {
-                    OutlinedTextField(value = "35.50", onValueChange = {}, label = { Text("金额") }, prefix = { Text("¥ ", fontWeight = FontWeight.Bold, fontSize = 20.sp) }, modifier = Modifier.fillMaxWidth().padding(4.dp), shape = RoundedCornerShape(12.dp), textStyle = LocalTextStyle.current.copy(fontSize = 24.sp, fontWeight = FontWeight.Bold), singleLine = true)
+                Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(0.dp)) {
+                    OutlinedTextField(value = "35.50", onValueChange = {}, label = { Text("金额") }, prefix = { Text("¥ ", fontWeight = FontWeight.Bold, fontSize = 20.sp) }, modifier = Modifier.fillMaxWidth().padding(4.dp), shape = RoundedCornerShape(14.dp), textStyle = LocalTextStyle.current.copy(fontSize = 24.sp, fontWeight = FontWeight.Bold), singleLine = true)
                 }
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("选择分类", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -486,7 +489,7 @@ private fun AddTransactionScreenPreview() {
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     cats.forEachIndexed { i, (name, icon) ->
                         val accent = MaterialTheme.colorScheme.secondary
-                        Card(modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp),
+                        Card(modifier = Modifier.weight(1f), shape = RoundedCornerShape(18.dp),
                             colors = CardDefaults.cardColors(containerColor = if (i == 0) accent.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant),
                             border = if (i == 0) BorderStroke(1.dp, accent.copy(alpha = 0.3f)) else null,
                             elevation = CardDefaults.cardElevation(0.dp)) {
@@ -495,11 +498,11 @@ private fun AddTransactionScreenPreview() {
                     }
                 }
                 Spacer(modifier = Modifier.height(12.dp))
-                Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(1.dp)) {
-                    OutlinedTextField(value = "午餐", onValueChange = {}, label = { Text("备注（可选）") }, modifier = Modifier.fillMaxWidth().padding(4.dp), shape = RoundedCornerShape(12.dp))
+                Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(0.dp)) {
+                    OutlinedTextField(value = "午餐", onValueChange = {}, label = { Text("备注（可选）") }, modifier = Modifier.fillMaxWidth().padding(4.dp), shape = RoundedCornerShape(14.dp))
                 }
                 Spacer(modifier = Modifier.height(24.dp))
-                Button(onClick = {}, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(52.dp), shape = RoundedCornerShape(14.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF44336))) { Text("保存", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+                Button(onClick = {}, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(52.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF3B30))) { Text("保存", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
             }
         }
     }

@@ -140,7 +140,7 @@ private fun KeywordCategoryItem(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(18.dp)
     ) {
         Row(
             modifier = Modifier
@@ -203,7 +203,7 @@ private fun KeywordCategoryEditDialog(
                     placeholder = { Text("例如：外卖、打车") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(14.dp)
                 )
                 ExposedDropdownMenuBox(
                     expanded = expanded,
@@ -218,7 +218,7 @@ private fun KeywordCategoryEditDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .menuAnchor(),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(14.dp),
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) }
                     )
                     ExposedDropdownMenu(

@@ -13,9 +13,9 @@ import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "settings")
 
-const val DEFAULT_PRIMARY_COLOR_HEX = "#04BE02"
-const val DEFAULT_INCOME_COLOR_HEX = "#4CAF50"
-const val DEFAULT_EXPENSE_COLOR_HEX = "#FF9800"
+const val DEFAULT_PRIMARY_COLOR_HEX = "#34C759"
+const val DEFAULT_INCOME_COLOR_HEX = "#34C759"
+const val DEFAULT_EXPENSE_COLOR_HEX = "#FF9500"
 
 enum class ThemeMode {
     AUTO, LIGHT, DARK

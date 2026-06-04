@@ -79,7 +79,7 @@ fun CategoryManagementScreen(
     }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
@@ -103,7 +103,7 @@ fun CategoryManagementScreen(
                 onDelete = { viewModel.deleteCategory(it) }
             )
         }
-        item { Divider(modifier = Modifier.padding(vertical = 8.dp)) }
+        item { Spacer(modifier = Modifier.height(12.dp)) }
         item {
             Text("收入类别", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
@@ -114,7 +114,7 @@ fun CategoryManagementScreen(
                 onDelete = { viewModel.deleteCategory(it) }
             )
         }
-        item { Divider(modifier = Modifier.padding(vertical = 8.dp)) }
+        item { Spacer(modifier = Modifier.height(12.dp)) }
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -176,7 +176,7 @@ private fun CategoryItem(
                 indication = null,
                 onClick = {}
             ),
-        elevation = CardDefaults.cardElevation(1.dp)
+        elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
@@ -244,7 +244,7 @@ private fun RenQingTagItem(
                 indication = null,
                 onClick = {}
             ),
-        elevation = CardDefaults.cardElevation(1.dp)
+        elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
@@ -402,7 +402,7 @@ private fun CategoryManagementPreview() {
             LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 item { Text("支出类别", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
                 items(expenseCats) { category -> CategoryPreviewItem(category) }
-                item { Divider(modifier = Modifier.padding(vertical = 8.dp)) }
+                item { Spacer(modifier = Modifier.height(12.dp)) }
                 item { Text("收入类别", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
                 items(incomeCats) { category -> CategoryPreviewItem(category) }
             }
@@ -413,7 +413,7 @@ private fun CategoryManagementPreview() {
 @Composable
 private fun CategoryPreviewItem(category: Category) {
     val categoryColor = try { Color(android.graphics.Color.parseColor(category.color)) } catch (_: Exception) { MaterialTheme.colorScheme.primary }
-    Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(1.dp)) {
+    Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(0.dp)) {
         Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.size(44.dp).clip(CircleShape).background(categoryColor.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) { Text(category.icon, fontSize = 20.sp) }
             Spacer(modifier = Modifier.width(12.dp))

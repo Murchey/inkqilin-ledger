@@ -77,7 +77,9 @@ import kotlin.math.roundToInt
 @Composable
 fun AlbumScreen(
     viewModel: TransactionViewModel,
-    isActive: Boolean = true
+    isActive: Boolean = true,
+    fabTrigger: Boolean = false,
+    onFabTriggered: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -210,6 +212,14 @@ fun AlbumScreen(
         }
     }
 
+    // Trigger gallery picker from nav bar FAB
+    LaunchedEffect(fabTrigger) {
+        if (fabTrigger) {
+            galleryPicker.launch("image/*")
+            onFabTriggered()
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -337,9 +347,9 @@ fun AlbumScreen(
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     items(photos, key = { it.id }) { photo ->
                         AlbumPhotoCard(
@@ -383,22 +393,6 @@ fun AlbumScreen(
             )
         }
 
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp)
-        ) {
-            FloatingActionButton(
-                onClick = { galleryPicker.launch("image/*") },
-                modifier = Modifier.size(56.dp),
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = Color.White,
-                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp)
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "从相册选择")
-            }
-        }
-
         selectedPhoto?.let { photo ->
             PhotoViewerScreen(
                 photo = photo,
@@ -416,6 +410,7 @@ fun AlbumScreen(
                 onDismissRequest = { showDeleteConfirm = null },
                 title = { Text("删除照片") },
                 text = { Text("确定要删除这张照片吗？") },
+                shape = RoundedCornerShape(32.dp),
                 confirmButton = {
                     TextButton(
                         onClick = {
@@ -438,6 +433,7 @@ fun AlbumScreen(
                 onDismissRequest = { showBatchDeleteConfirm = false },
                 title = { Text("批量删除") },
                 text = { Text("确定要删除选中的 ${selectedIds.size} 张照片吗？") },
+                shape = RoundedCornerShape(32.dp),
                 confirmButton = {
                     TextButton(
                         onClick = {
@@ -744,14 +740,14 @@ private fun AlbumPhotoCard(
             .fillMaxWidth()
             .aspectRatio(1f)
             .then(
-                if (isSelected) Modifier.border(3.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
+                if (isSelected) Modifier.border(3.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(18.dp))
                 else Modifier
             )
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
             ),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(18.dp),
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -943,7 +939,6 @@ private fun PhotoViewerScreen(
                         onClick = { menuExpanded = false; showTimeEditor = true },
                         leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) }
                     )
-                    Divider()
                     DropdownMenuItem(
                         text = { Text("删除", color = MaterialTheme.colorScheme.error) },
                         onClick = { menuExpanded = false; onDelete() },
@@ -988,6 +983,7 @@ private fun PhotoViewerScreen(
         AlertDialog(
             onDismissRequest = { showNoteEditor = false },
             title = { Text("编辑备注") },
+            shape = RoundedCornerShape(32.dp),
             text = {
                 OutlinedTextField(
                     value = editNote,

@@ -21,24 +21,26 @@ private fun dynamicDarkColorScheme(primary: Color) = darkColorScheme(
     onPrimary = Color.White,
     primaryContainer = primary.copy(alpha = 0.15f),
     onPrimaryContainer = primary,
-    secondary = NeonPurple,
+    secondary = InkSecondaryDark,
     onSecondary = Color.White,
-    secondaryContainer = NeonPurple.copy(alpha = 0.15f),
-    onSecondaryContainer = NeonPurple,
-    tertiary = NeonCyan,
+    secondaryContainer = InkSecondaryDark.copy(alpha = 0.15f),
+    onSecondaryContainer = InkSecondaryDark,
+    tertiary = AppleTeal,
     onTertiary = Color.Black,
-    tertiaryContainer = NeonCyan.copy(alpha = 0.15f),
-    onTertiaryContainer = NeonCyan,
+    tertiaryContainer = AppleTeal.copy(alpha = 0.15f),
+    onTertiaryContainer = AppleTeal,
     background = BackgroundDark,
     onBackground = OnSurfaceDark,
-    surface = FrostedDark,
+    surface = SurfaceDark,
     onSurface = OnSurfaceDark,
     surfaceVariant = SurfaceVariantDark,
-    onSurfaceVariant = OnSurfaceDark.copy(alpha = 0.65f),
-    outline = FrostedBorderDark,
+    onSurfaceVariant = OnSurfaceVariantDark,
+    outline = OutlineDark,
     outlineVariant = OutlineDark.copy(alpha = 0.5f),
-    error = NeonPink,
+    error = AppleRed,
     onError = Color.White,
+    inverseSurface = SurfaceLight,
+    inverseOnSurface = OnSurfaceLight,
 )
 
 private fun dynamicLightColorScheme(primary: Color) = lightColorScheme(
@@ -50,26 +52,29 @@ private fun dynamicLightColorScheme(primary: Color) = lightColorScheme(
     onSecondary = Color.White,
     secondaryContainer = InkSecondary.copy(alpha = 0.1f),
     onSecondaryContainer = InkSecondary,
-    tertiary = GoogleGreen,
+    tertiary = AppleGreen,
     onTertiary = Color.White,
-    tertiaryContainer = GoogleGreen.copy(alpha = 0.1f),
-    onTertiaryContainer = GoogleGreen,
+    tertiaryContainer = AppleGreen.copy(alpha = 0.1f),
+    onTertiaryContainer = AppleGreen,
     background = BackgroundLight,
     onBackground = OnSurfaceLight,
-    surface = FrostedLight,
+    surface = SurfaceLight,
     onSurface = OnSurfaceLight,
     surfaceVariant = SurfaceVariantLight,
-    onSurfaceVariant = OnSurfaceLight.copy(alpha = 0.65f),
-    outline = FrostedBorderLight,
+    onSurfaceVariant = OnSurfaceVariantLight,
+    outline = OutlineLight,
     outlineVariant = OutlineLight.copy(alpha = 0.5f),
-    error = InkRed,
+    error = AppleRed,
     onError = Color.White,
+    inverseSurface = SurfaceDark,
+    inverseOnSurface = OnSurfaceDark,
 )
 
+// Apple HIG Rounded Corner System
 private val AppShapes = Shapes(
     extraSmall = RoundedCornerShape(8.dp),
     small = RoundedCornerShape(12.dp),
-    medium = RoundedCornerShape(16.dp),
+    medium = RoundedCornerShape(18.dp),
     large = RoundedCornerShape(24.dp),
     extraLarge = RoundedCornerShape(32.dp),
 )
@@ -94,8 +99,8 @@ fun parseHexColor(hex: String): Color? {
     }
 }
 
-val DarkDefaultPrimary = Color(0xFF04BE02)
-val LightDefaultPrimary = Color(0xFF04BE02)
+val DarkDefaultPrimary = Color(0xFF30D158)
+val LightDefaultPrimary = Color(0xFF34C759)
 
 @Composable
 fun InkQilinLedgerTheme(
@@ -112,7 +117,7 @@ fun InkQilinLedgerTheme(
 
     val animatedPrimary = animateColorAsState(
         targetValue = customPrimary ?: defaultPrimary,
-        animationSpec = MotionSprings.interactive(), // iOS-like bouncy theme transition
+        animationSpec = MotionSprings.interactive(),
         label = "primaryColorTransition"
     )
 
