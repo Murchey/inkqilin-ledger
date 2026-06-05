@@ -1121,9 +1121,9 @@ private fun AnomalyAlertCard(
                     modifier = Modifier.size(32.dp)
                 ) {
                     if (isLoading) {
-                        CircularProgressIndicator(
+                        AppleLoadingIndicator(
                             modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
+                            strokeWidth = 2f,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     } else {
@@ -1212,9 +1212,9 @@ private fun AnomalyAlertCard(
                     modifier = Modifier.size(32.dp)
                 ) {
                     if (isLoading) {
-                        CircularProgressIndicator(
+                        AppleLoadingIndicator(
                             modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
+                            strokeWidth = 2f,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     } else {

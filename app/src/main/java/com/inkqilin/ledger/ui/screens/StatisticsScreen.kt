@@ -5,6 +5,7 @@ package com.inkqilin.ledger.ui.screens
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -26,6 +27,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -663,12 +665,67 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
 
         if (barChartData.isNotEmpty()) {
             item {
+                var showPieChart by remember { mutableStateOf(false) }
                 Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "趋势图",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(horizontal = 20.dp)
-                )
+
+                // Title + toggle buttons
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (showPieChart) "分类占比" else "趋势图",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .padding(2.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(
+                                    if (!showPieChart) MaterialTheme.colorScheme.primary
+                                    else Color.Transparent
+                                )
+                                .clickable { showPieChart = false }
+                                .padding(horizontal = 10.dp, vertical = 5.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "趋势",
+                                fontSize = 12.sp,
+                                fontWeight = if (!showPieChart) FontWeight.Bold else FontWeight.Normal,
+                                color = if (!showPieChart) MaterialTheme.colorScheme.onPrimary
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(
+                                    if (showPieChart) MaterialTheme.colorScheme.primary
+                                    else Color.Transparent
+                                )
+                                .clickable { showPieChart = true }
+                                .padding(horizontal = 10.dp, vertical = 5.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "占比",
+                                fontSize = 12.sp,
+                                fontWeight = if (showPieChart) FontWeight.Bold else FontWeight.Normal,
+                                color = if (showPieChart) MaterialTheme.colorScheme.onPrimary
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
                 Spacer(modifier = Modifier.height(12.dp))
 
                 val accentColor = if (selectedType == TransactionType.EXPENSE) expenseColor else incomeColor
@@ -682,55 +739,74 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp)
-                        .pressScale(chartInteractionSource) // iOS-style interactive feedback
+                        .pressScale(chartInteractionSource)
                         .frostedGlass(chartShape, isDarkChart),
                     shape = chartShape,
                     colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
-                    if (hasAnyData) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            AnimatedBarChart(
-                                data = barChartData,
-                                accentColor = accentColor,
-                                onBarLongPress = { index -> tooltipIndex = index },
-                                onBarRelease = { tooltipIndex = null },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(200.dp)
-                                    .horizontalScroll(rememberScrollState())
-                            )
-
-                            if (tooltipIndex != null && tooltipIndex!! < barChartData.size) {
-                                val (label, value) = barChartData[tooltipIndex!!]
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = MaterialTheme.colorScheme.inverseSurface,
-                                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                                ) {
-                                    Text(
-                                        text = "$label · ${currencySymbol}${String.format("%.2f", value)}",
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                        color = MaterialTheme.colorScheme.inverseOnSurface,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
+                    if (!showPieChart) {
+                        // Bar chart mode
+                        if (hasAnyData) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                AnimatedBarChart(
+                                    data = barChartData,
+                                    accentColor = accentColor,
+                                    onBarLongPress = { index -> tooltipIndex = index },
+                                    onBarRelease = { tooltipIndex = null },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(200.dp)
+                                        .horizontalScroll(rememberScrollState())
+                                )
+                                if (tooltipIndex != null && tooltipIndex!! < barChartData.size) {
+                                    val (label, value) = barChartData[tooltipIndex!!]
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = MaterialTheme.colorScheme.inverseSurface,
+                                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                                    ) {
+                                        Text(
+                                            text = "$label · ${currencySymbol}${String.format("%.2f", value)}",
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                            color = MaterialTheme.colorScheme.inverseOnSurface,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
                                 }
+                            }
+                        } else {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().height(120.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "暂无数据",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     } else {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(120.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "暂无数据",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                        // Pie chart mode
+                        if (categoryTotals.isNotEmpty()) {
+                            CategoryPieChart(
+                                categoryTotals = categoryTotals,
+                                modifier = Modifier.fillMaxWidth()
                             )
+                        } else {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().height(120.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "暂无数据",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
@@ -1061,6 +1137,119 @@ private fun AnimatedBarChart(
                     }
                     valuePaint.color = accentColor.toArgb()
                     drawText(valueText, textX, y - 8f, valuePaint)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CategoryPieChart(
+    categoryTotals: List<Pair<String, Double>>,
+    modifier: Modifier = Modifier
+) {
+    val total = categoryTotals.sumOf { it.second }
+    if (total <= 0 || categoryTotals.isEmpty()) {
+        Box(modifier = modifier, contentAlignment = Alignment.Center) {
+            Text("暂无数据", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        return
+    }
+
+    val palette = listOf(
+        Color(0xFFFF2D55), Color(0xFF007AFF), Color(0xFFFF9F0A),
+        Color(0xFF34C759), Color(0xFFAF52DE), Color(0xFFFF3B30),
+        Color(0xFF5AC8FA), Color(0xFFFFCC00), Color(0xFF8E8E93),
+        Color(0xFF00C7BE), Color(0xFFFF6482), Color(0xFF30B0C7)
+    )
+
+    val sweepAngles = categoryTotals.map { (it.second / total * 360f).toFloat() }
+
+    val animProgress = remember { Animatable(0f) }
+    LaunchedEffect(categoryTotals) {
+        animProgress.snapTo(0f)
+        animProgress.animateTo(1f, animationSpec = tween(600, easing = FastOutSlowInEasing))
+    }
+
+    Column(modifier = modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        val density = LocalDensity.current
+        val strokeWidthPx = with(density) { 28.dp.toPx() }
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(180.dp)) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val radius = (size.minDimension - strokeWidthPx) / 2
+                val topLeft = Offset((size.width - radius * 2) / 2, (size.height - radius * 2) / 2)
+                val arcSize = Size(radius * 2, radius * 2)
+
+                var startAngle = -90f
+                sweepAngles.forEachIndexed { index, sweep ->
+                    val color = palette[index % palette.size]
+                    drawArc(
+                        color = color,
+                        startAngle = startAngle,
+                        sweepAngle = sweep * animProgress.value,
+                        useCenter = false,
+                        topLeft = topLeft,
+                        size = arcSize,
+                        style = Stroke(width = strokeWidthPx, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                    )
+                    startAngle += sweep
+                }
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "总计",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = String.format("%.2f", total),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Legend
+        val displayItems = categoryTotals.take(6)
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            displayItems.chunked(2).forEach { row ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    row.forEachIndexed { _, (name, amount) ->
+                        val globalIdx = categoryTotals.indexOfFirst { it.first == name }
+                        val color = palette[globalIdx % palette.size]
+                        val pct = (amount / total * 100)
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(color)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Column {
+                                Text(
+                                    text = name,
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1
+                                )
+                                Text(
+                                    text = "${String.format("%.1f", pct)}%",
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

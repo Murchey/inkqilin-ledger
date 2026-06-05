@@ -166,7 +166,7 @@ fun OcrBatchRecognitionScreen(
                             elevation = appButtonElevation()
                         ) {
                             if (isRecognizing) {
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                                AppleLoadingIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2f)
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text("识别中...")
                             } else {
