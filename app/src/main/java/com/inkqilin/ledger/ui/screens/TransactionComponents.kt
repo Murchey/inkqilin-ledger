@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -32,6 +33,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -385,14 +388,9 @@ fun AppleAlertDialog(
     content: @Composable (() -> Unit)? = null,
     buttons: List<AppleDialogButton>
 ) {
-    // Use MaterialTheme.colorScheme for reliable dark detection in Popup context
     val bgColor = MaterialTheme.colorScheme.background
     val isDark = (bgColor.red * 0.299f + bgColor.green * 0.587f + bgColor.blue * 0.114f) < 0.5f
 
-    // ── Back handler ──
-    BackHandler(onBack = onDismissRequest)
-
-    // ── Entry animation state ──
     var animateIn by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { animateIn = true }
 
@@ -412,189 +410,183 @@ fun AppleAlertDialog(
         label = "scrimAlpha"
     )
 
-    // ── Glass material colors ──
-    // Dark: opaque deep gray-blue (no white bleed-through)
-    // Light: semi-transparent white
     val glassColor = if (isDark) Color(0xFF1C1C1E)
                      else Color.White.copy(alpha = 0.82f)
 
-    // ── Full-screen Popup (renders at window level, no white border) ──
-    Popup(
-        alignment = Alignment.Center,
-        properties = PopupProperties(
-            usePlatformDefaultWidth = false,
-            clippingEnabled = false
-        )
+    val view = LocalView.current
+    Dialog(
+        onDismissRequest = onDismissRequest,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        // ── Animated scrim ──
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = scrimAlpha))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onDismissRequest
-                )
-        )
+        LaunchedEffect(Unit) {
+            (view.context as? android.app.Activity)?.window?.let { window ->
+                window.decorView.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            }
+        }
 
-        // ── Dialog card ──
         Box(
-            modifier = Modifier
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                    alpha = contentAlpha
-                }
-                .widthIn(min = 260.dp, max = 300.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(glassColor)
-                .drawBehind {
-                    // Gradient border: top catches light, bottom fades
-                    val h = size.height
-                    val cr = 14.dp.toPx()
-                    drawRoundRect(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                Color.White.copy(alpha = if (isDark) 0.12f else 0.35f),
-                                Color.White.copy(alpha = if (isDark) 0.03f else 0.08f),
-                                Color.Transparent
-                            ),
-                            startY = 0f,
-                            endY = h
-                        ),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(cr),
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 0.5f)
-                    )
-                }
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                // ── Content area ──
-                Column(
-                    modifier = Modifier.padding(
-                        top = 20.dp, start = 16.dp, end = 16.dp, bottom = 16.dp
-                    ),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    // Title: 17sp SemiBold, centered
-                    Text(
-                        text = title,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        textAlign = TextAlign.Center,
-                        color = if (isDark) Color.White else Color(0xFF1D1D1F),
-                        modifier = Modifier.fillMaxWidth()
+            // Scrim
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = scrimAlpha))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onDismissRequest
                     )
-                    // Message: 13sp Normal, lineHeight 1.4, centered
-                    if (message != null) {
+            )
+
+            // Dialog card
+            Box(
+                modifier = Modifier
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        alpha = contentAlpha
+                    }
+                    .widthIn(min = 260.dp, max = 300.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(glassColor)
+                    .drawBehind {
+                        val h = size.height
+                        val cr = 14.dp.toPx()
+                        drawRoundRect(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.White.copy(alpha = if (isDark) 0.12f else 0.35f),
+                                    Color.White.copy(alpha = if (isDark) 0.03f else 0.08f),
+                                    Color.Transparent
+                                ),
+                                startY = 0f,
+                                endY = h
+                            ),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(cr),
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 0.5f)
+                        )
+                    }
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    // Content area
+                    Column(
+                        modifier = Modifier.padding(
+                            top = 20.dp, start = 16.dp, end = 16.dp, bottom = 16.dp
+                        ),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
                         Text(
-                            text = message,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Normal,
+                            text = title,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.SemiBold,
                             textAlign = TextAlign.Center,
-                            color = if (isDark) Color.White.copy(alpha = 0.65f)
-                                    else Color(0xFF6E6E73),
-                            modifier = Modifier.fillMaxWidth(),
-                            style = TextStyle(
+                            color = if (isDark) Color.White else Color(0xFF1D1D1F),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        if (message != null) {
+                            Text(
+                                text = message,
                                 fontSize = 13.sp,
-                                lineHeight = (13 * 1.4).sp
-                            )
-                        )
-                    }
-                    // Custom content
-                    if (content != null) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        content()
-                    }
-                }
-
-                // ── Horizontal divider: 0.5dp ──
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(0.5.dp)
-                        .background(
-                            if (isDark) Color.White.copy(alpha = 0.1f)
-                            else Color.Black.copy(alpha = 0.1f)
-                        )
-                )
-
-                // ── Button row ──
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    buttons.forEachIndexed { index, button ->
-                        // Vertical divider between buttons
-                        if (index > 0) {
-                            Box(
-                                modifier = Modifier
-                                    .width(0.5.dp)
-                                    .height(44.dp)
-                                    .background(
-                                        if (isDark) Color.White.copy(alpha = 0.1f)
-                                        else Color.Black.copy(alpha = 0.1f)
-                                    )
+                                fontWeight = FontWeight.Normal,
+                                textAlign = TextAlign.Center,
+                                color = if (isDark) Color.White.copy(alpha = 0.65f)
+                                        else Color(0xFF6E6E73),
+                                modifier = Modifier.fillMaxWidth(),
+                                style = TextStyle(
+                                    fontSize = 13.sp,
+                                    lineHeight = (13 * 1.4).sp
+                                )
                             )
                         }
-                        val textColor = when (button.style) {
-                            AppleDialogButtonStyle.DESTRUCTIVE -> Color(0xFFFF3B30)
-                            else -> if (isDark) MaterialTheme.colorScheme.primary
-                                    else Color(0xFF007AFF)
+                        if (content != null) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            content()
                         }
-                        val btnFontWeight = when (button.style) {
-                            AppleDialogButtonStyle.CANCEL -> FontWeight.SemiBold
-                            else -> FontWeight.Normal
-                        }
+                    }
 
-                        // ── No-ripple press: gray overlay ──
-                        val interactionSource = remember { MutableInteractionSource() }
-                        var isPressed by remember { mutableStateOf(false) }
-                        LaunchedEffect(interactionSource) {
-                            interactionSource.interactions.collect { interaction ->
-                                when (interaction) {
-                                    is PressInteraction.Press -> isPressed = true
-                                    is PressInteraction.Release -> isPressed = false
-                                    is PressInteraction.Cancel -> isPressed = false
+                    // Horizontal divider
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(0.5.dp)
+                            .background(
+                                if (isDark) Color.White.copy(alpha = 0.1f)
+                                else Color.Black.copy(alpha = 0.1f)
+                            )
+                    )
+
+                    // Button row
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        buttons.forEachIndexed { index, button ->
+                            if (index > 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(0.5.dp)
+                                        .height(44.dp)
+                                        .background(
+                                            if (isDark) Color.White.copy(alpha = 0.1f)
+                                            else Color.Black.copy(alpha = 0.1f)
+                                        )
+                                )
+                            }
+                            val textColor = when (button.style) {
+                                AppleDialogButtonStyle.DESTRUCTIVE -> Color(0xFFFF3B30)
+                                else -> if (isDark) MaterialTheme.colorScheme.primary
+                                        else Color(0xFF007AFF)
+                            }
+                            val btnFontWeight = when (button.style) {
+                                AppleDialogButtonStyle.CANCEL -> FontWeight.SemiBold
+                                else -> FontWeight.Normal
+                            }
+
+                            val interactionSource = remember { MutableInteractionSource() }
+                            var isPressed by remember { mutableStateOf(false) }
+                            LaunchedEffect(interactionSource) {
+                                interactionSource.interactions.collect { interaction ->
+                                    when (interaction) {
+                                        is PressInteraction.Press -> isPressed = true
+                                        is PressInteraction.Release -> isPressed = false
+                                        is PressInteraction.Cancel -> isPressed = false
+                                    }
                                 }
                             }
-                        }
 
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable(
-                                    interactionSource = interactionSource,
-                                    indication = null,
-                                    onClick = button.onClick
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable(
+                                        interactionSource = interactionSource,
+                                        indication = null,
+                                        onClick = button.onClick
+                                    )
+                                    .background(
+                                        if (isPressed) Color.Gray.copy(alpha = 0.1f)
+                                        else Color.Transparent
+                                    )
+                                    .padding(vertical = 12.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = button.text,
+                                    color = textColor,
+                                    fontWeight = btnFontWeight,
+                                    fontSize = 16.sp
                                 )
-                                .background(
-                                    if (isPressed) Color.Gray.copy(alpha = 0.1f)
-                                    else Color.Transparent
-                                )
-                                .padding(vertical = 12.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = button.text,
-                                color = textColor,
-                                fontWeight = btnFontWeight,
-                                fontSize = 16.sp
-                            )
+                            }
                         }
                     }
                 }
             }
         }
     }
-    } // Popup
 }
 
 /**
  * Transparent-background DatePickerDialog.
- * Uses Popup (not Android Dialog) to eliminate the white border.
+ * Uses Dialog with transparent window to eliminate the white border.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 @Composable
@@ -607,8 +599,6 @@ fun AppleDatePickerDialog(
 ) {
     val bgColor = MaterialTheme.colorScheme.background
     val isDark = (bgColor.red * 0.299f + bgColor.green * 0.587f + bgColor.blue * 0.114f) < 0.5f
-
-    BackHandler(onBack = onDismissRequest)
 
     // Entry animation
     var animateIn by remember { mutableStateOf(false) }
@@ -629,13 +619,17 @@ fun AppleDatePickerDialog(
         label = "datePickerScrim"
     )
 
-    Popup(
-        alignment = Alignment.Center,
-        properties = PopupProperties(
-            usePlatformDefaultWidth = false,
-            clippingEnabled = false
-        )
+    val view = LocalView.current
+    Dialog(
+        onDismissRequest = onDismissRequest,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
+        LaunchedEffect(Unit) {
+            (view.context as? android.app.Activity)?.window?.let { window ->
+                window.decorView.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            }
+        }
+
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center

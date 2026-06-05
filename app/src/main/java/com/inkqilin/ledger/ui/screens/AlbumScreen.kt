@@ -10,7 +10,6 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.widget.Toast
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
@@ -64,13 +63,14 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import com.inkqilin.ledger.data.AlbumPhoto
 import com.inkqilin.ledger.ui.TransactionViewModel
@@ -1020,15 +1020,17 @@ private fun PhotoViewerScreen(
         val bgColor = MaterialTheme.colorScheme.background
         val isDark = (bgColor.red * 0.299f + bgColor.green * 0.587f + bgColor.blue * 0.114f) < 0.5f
 
-        BackHandler(onBack = { showTimeEditor = false })
-
-        Popup(
-            alignment = Alignment.Center,
-            properties = PopupProperties(
-                usePlatformDefaultWidth = false,
-                clippingEnabled = false
-            )
+        val view = LocalView.current
+        Dialog(
+            onDismissRequest = { showTimeEditor = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
         ) {
+            LaunchedEffect(Unit) {
+                (view.context as? android.app.Activity)?.window?.let { window ->
+                    window.decorView.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                }
+            }
+
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
