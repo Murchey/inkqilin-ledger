@@ -254,60 +254,64 @@ fun MainScreen(
                 }
             ) {
                 // ══════════════════════════════════════════════
-                //  Apple Liquid Glass Navigation Bar
-                //  Optical glass · Refraction · Depth
+                //  Apple Music Style Floating Tab Bar
+                //  Lightweight · Minimal · Subtle
                 // ══════════════════════════════════════════════
                 val bgLuminance = MaterialTheme.colorScheme.background.let {
                     it.red * 0.299f + it.green * 0.587f + it.blue * 0.114f
                 }
                 val isDarkMode = bgLuminance < 0.5f
-                val unselectedColor = if (isDarkMode) Color.White.copy(alpha = 0.6f) else Color(0xFF6E6E73)
-                val selectedColor = if (isDarkMode) Color(0xFFFFFFFF) else Color(0xFF1D1D1F)
-                val barRadius = 36.dp
+
+                // Apple Music colors: subtle, low-contrast
+                val unselectedColor = if (isDarkMode) Color.White.copy(alpha = 0.55f) else Color(0xFF8E8E93)
+                val selectedColor = if (isDarkMode) Color.White else Color(0xFF1D1D1F)
+
+                // Compact container
+                val barRadius = 22.dp
                 val density = androidx.compose.ui.platform.LocalDensity.current
                 val barCornerPx = with(density) { barRadius.toPx() }
-                val fabSize = 48.dp
-                val fabRadius = 24.dp
+                val fabSize = 44.dp
+                val fabRadius = 22.dp
 
                 val showFab = currentPageRoute == "home" || currentPageRoute == "album"
                 val navBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(6.dp)
 
-                // ── Glass lens indicator position ──
+                // ── Smooth indicator position ──
                 var indicatorCenterX by remember { mutableFloatStateOf(0f) }
                 var indicatorWidth by remember { mutableStateOf(0.dp) }
                 val animIndicatorX by animateFloatAsState(
                     targetValue = indicatorCenterX,
                     animationSpec = if (enableAnimations)
-                        spring(dampingRatio = 0.65f, stiffness = 280f)
+                        spring(dampingRatio = 1f, stiffness = 200f)
                     else snap(),
-                    label = "glassBubbleX"
+                    label = "tabIndicatorX"
                 )
                 val animIndicatorW by animateDpAsState(
                     targetValue = indicatorWidth,
                     animationSpec = if (enableAnimations)
-                        spring(dampingRatio = 0.7f, stiffness = 320f)
+                        spring(dampingRatio = 1f, stiffness = 200f)
                     else snap(),
-                    label = "glassBubbleW"
+                    label = "tabIndicatorW"
                 )
 
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp)
+                        .padding(horizontal = 16.dp)
                         .padding(top = 4.dp, bottom = navBottomPadding),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // ── Liquid Glass Container ──
+                    // ── Apple Music Tab Bar Container ──
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .graphicsLayer {
-                                shadowElevation = if (isDarkMode) 8f else 4f
+                                shadowElevation = if (isDarkMode) 3f else 2f
                                 shape = RoundedCornerShape(barRadius)
                                 clip = false
-                                ambientShadowColor = Color.Black.copy(alpha = if (isDarkMode) 0.20f else 0.06f)
-                                spotShadowColor = Color.Black.copy(alpha = if (isDarkMode) 0.15f else 0.04f)
+                                ambientShadowColor = Color.Black.copy(alpha = if (isDarkMode) 0.12f else 0.04f)
+                                spotShadowColor = Color.Black.copy(alpha = if (isDarkMode) 0.08f else 0.03f)
                             }
                     ) {
                         Box(
@@ -315,210 +319,40 @@ fun MainScreen(
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(barRadius))
                                 .drawBehind {
-                                    val h = size.height
                                     val cr = barCornerPx
-
-                                    // ════ L1: Deep Glass Base ════
-                                    // Dark: black-tinted for depth (not pure black — keeps blur alive)
-                                    // Light: white-tinted for clarity
                                     drawRoundRect(
-                                        color = if (isDarkMode) Color.Black.copy(alpha = 0.4f)
-                                                else Color.White.copy(alpha = 0.35f),
+                                        color = if (isDarkMode) Color.White.copy(alpha = 0.12f)
+                                                else Color.White.copy(alpha = 0.65f),
                                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(cr)
                                     )
-
-                                    // ════ L2: Diffused Specular ════
-                                    // Very faint top glow — ambient light, NOT a harsh white beam
-                                    drawRoundRect(
-                                        brush = Brush.verticalGradient(
-                                            colors = listOf(
-                                                Color.White.copy(alpha = if (isDarkMode) 0.08f else 0.15f),
-                                                Color.Transparent
-                                            ),
-                                            startY = 0f,
-                                            endY = h * 0.30f
-                                        ),
-                                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(cr)
-                                    )
-
-                                    // ════ L3: Edge Refraction ════
-                                    // Light bends at curved glass boundaries
-                                    drawRoundRect(
-                                        brush = Brush.horizontalGradient(
-                                            colors = listOf(
-                                                Color.White.copy(alpha = if (isDarkMode) 0.04f else 0.10f),
-                                                Color.Transparent,
-                                                Color.Transparent,
-                                                Color.White.copy(alpha = if (isDarkMode) 0.04f else 0.10f)
-                                            )
-                                        ),
-                                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(cr)
-                                    )
-
-                                    // ════ L4: Bottom Depth Shadow ════
-                                    // Glass thickness — bottom absorbs more light
-                                    drawRoundRect(
-                                        brush = Brush.verticalGradient(
-                                            colors = listOf(
-                                                Color.Transparent,
-                                                Color.Black.copy(alpha = if (isDarkMode) 0.12f else 0.06f)
-                                            ),
-                                            startY = h * 0.65f,
-                                            endY = h
-                                        ),
-                                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(cr)
-                                    )
-
-                                    // ════ L5: Directional Rim Light ════
-                                    // Top: bright edge (light source from above)
-                                    // Sides/bottom: dark or transparent (shadow absorption)
-                                    // Simulates physical light hitting a curved glass surface
-                                    val rimStrokeW = 0.5f
-                                    val crOffset = cr
-
-                                    // Top edge — the brightest catch
                                     drawLine(
-                                        color = Color.White.copy(alpha = if (isDarkMode) 0.30f else 0.50f),
-                                        start = Offset(crOffset * 0.6f, 0.5f),
-                                        end = Offset(size.width - crOffset * 0.6f, 0.5f),
-                                        strokeWidth = rimStrokeW
-                                    )
-                                    // Left edge — dimmer, ambient
-                                    drawLine(
-                                        color = Color.White.copy(alpha = if (isDarkMode) 0.06f else 0.12f),
-                                        start = Offset(0.5f, crOffset),
-                                        end = Offset(0.5f, h - crOffset),
-                                        strokeWidth = rimStrokeW
-                                    )
-                                    // Right edge — dimmer, ambient
-                                    drawLine(
-                                        color = Color.White.copy(alpha = if (isDarkMode) 0.06f else 0.12f),
-                                        start = Offset(size.width - 0.5f, crOffset),
-                                        end = Offset(size.width - 0.5f, h - crOffset),
-                                        strokeWidth = rimStrokeW
-                                    )
-                                    // Bottom edge — near invisible, shadow zone
-                                    drawLine(
-                                        color = Color.Black.copy(alpha = if (isDarkMode) 0.15f else 0.06f),
-                                        start = Offset(crOffset * 0.6f, h - 0.5f),
-                                        end = Offset(size.width - crOffset * 0.6f, h - 0.5f),
-                                        strokeWidth = rimStrokeW
+                                        color = Color.White.copy(alpha = if (isDarkMode) 0.08f else 0.20f),
+                                        start = androidx.compose.ui.geometry.Offset(cr * 0.5f, 0.5f),
+                                        end = androidx.compose.ui.geometry.Offset(size.width - cr * 0.5f, 0.5f),
+                                        strokeWidth = 0.3f
                                     )
                                 }
-                                .padding(horizontal = 4.dp, vertical = 5.dp)
+                                .padding(horizontal = 4.dp, vertical = 4.dp)
                         ) {
-                            // ── Convex Glass Lens Indicator ──
-                            // A piece of black crystal floating in deep space
-                            // Transparent, lightweight, with physical thickness
+                            // ── Apple Photos Style Indicator ──
                             if (animIndicatorW > 0.dp) {
                                 Box(
                                     modifier = Modifier
                                         .offset {
                                             val centerXPx = animIndicatorX.toInt()
-                                            val halfW = (animIndicatorW.roundToPx() / 2)
+                                            val halfW = animIndicatorW.roundToPx() / 2
                                             IntOffset(centerXPx - halfW, 0)
                                         }
-                                        .size(width = animIndicatorW, height = 42.dp)
-                                        .drawBehind {
-                                            val bcr = size.height / 2f
-                                            val bh = size.height
-
-                                            // ════ L1: Glass Body ════
-                                            // Translucent base — light passes through
-                                            // alpha=0.10 ensures NO dark fill, only a whisper of white
-                                            drawRoundRect(
-                                                color = Color.White.copy(alpha = 0.10f),
-                                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(bcr)
-                                            )
-
-                                            // ════ L2: Top Diffused Highlight ════
-                                            // 15dp soft vertical gradient — light sweeps across the curved surface
-                                            // NOT a sharp line, but a gentle wash of ambient light
-                                            drawRoundRect(
-                                                brush = Brush.verticalGradient(
-                                                    colors = listOf(
-                                                        Color.White.copy(alpha = 0.20f),
-                                                        Color.Transparent
-                                                    ),
-                                                    startY = 0f,
-                                                    endY = 15.dp.toPx()
-                                                ),
-                                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(bcr)
-                                            )
-
-                                            // ════ L3: Inner Shadow ════
-                                            // Subtle darkening at bottom simulates glass physical thickness
-                                            // Black(alpha=0.05) — barely visible, just enough for depth
-                                            drawRoundRect(
-                                                brush = Brush.verticalGradient(
-                                                    colors = listOf(
-                                                        Color.Transparent,
-                                                        Color.Black.copy(alpha = 0.05f)
-                                                    ),
-                                                    startY = bh * 0.65f,
-                                                    endY = bh
-                                                ),
-                                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(bcr)
-                                            )
-
-                                            // ════ L4: Asymmetric Rim Light ════
-                                            // Top + sides: White glow (ambient light from above)
-                                            // Bottom: Black shadow (ground reflection absorption)
-                                            // This creates physical thickness — like a mercury droplet
-                                            val rimStrokeW = 0.5f
-                                            // Top arc
-                                            drawArc(
-                                                brush = Brush.verticalGradient(
-                                                    colors = listOf(
-                                                        Color.White.copy(alpha = 0.20f),
-                                                        Color.Transparent
-                                                    ),
-                                                    startY = 0f,
-                                                    endY = bh * 0.5f
-                                                ),
-                                                startAngle = 180f,
-                                                sweepAngle = 180f,
-                                                useCenter = false,
-                                                topLeft = androidx.compose.ui.geometry.Offset.Zero,
-                                                size = Size(bh, bh),
-                                                style = androidx.compose.ui.graphics.drawscope.Stroke(width = rimStrokeW)
-                                            )
-                                            // Right side
-                                            drawLine(
-                                                color = Color.White.copy(alpha = 0.15f),
-                                                start = androidx.compose.ui.geometry.Offset(size.width - bh / 2f, 0f),
-                                                end = androidx.compose.ui.geometry.Offset(size.width - bh / 2f, bh),
-                                                strokeWidth = rimStrokeW
-                                            )
-                                            // Bottom arc
-                                            drawArc(
-                                                brush = Brush.verticalGradient(
-                                                    colors = listOf(
-                                                        Color.Transparent,
-                                                        Color.Black.copy(alpha = 0.40f)
-                                                    ),
-                                                    startY = bh * 0.5f,
-                                                    endY = bh
-                                                ),
-                                                startAngle = 0f,
-                                                sweepAngle = 180f,
-                                                useCenter = false,
-                                                topLeft = androidx.compose.ui.geometry.Offset(size.width - bh, 0f),
-                                                size = Size(bh, bh),
-                                                style = androidx.compose.ui.graphics.drawscope.Stroke(width = rimStrokeW)
-                                            )
-                                            // Left side
-                                            drawLine(
-                                                color = Color.White.copy(alpha = 0.15f),
-                                                start = androidx.compose.ui.geometry.Offset(bh / 2f, 0f),
-                                                end = androidx.compose.ui.geometry.Offset(bh / 2f, bh),
-                                                strokeWidth = rimStrokeW
-                                            )
-                                        }
+                                        .size(width = animIndicatorW, height = 34.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(
+                                            if (isDarkMode) Color.White.copy(alpha = 0.08f)
+                                            else Color.Black.copy(alpha = 0.06f)
+                                        )
                                 )
                             }
 
-                            // ── Tab Icons ──
+                            // ── Tab Items ──
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceEvenly,
@@ -526,16 +360,15 @@ fun MainScreen(
                             ) {
                                 bottomItems.forEachIndexed { index, item ->
                                     val selected = pagerState.currentPage == index
-                                    val iconScale by animateFloatAsState(
-                                        targetValue = if (selected) 1.1f else 1f,
-                                        animationSpec = if (enableAnimations) MotionSprings.interactive() else snap(),
-                                        label = "navIconScale_${item.route}"
-                                    )
+
                                     val iconColor by animateColorAsState(
                                         targetValue = if (selected) selectedColor else unselectedColor,
-                                        animationSpec = if (enableAnimations) MotionSprings.interactive() else snap(),
-                                        label = "navColor_${item.route}"
+                                        animationSpec = if (enableAnimations)
+                                            tween(durationMillis = 250, easing = FastOutSlowInEasing)
+                                        else snap(),
+                                        label = "tabColor_${item.route}"
                                     )
+
                                     Column(
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                         modifier = Modifier
@@ -546,10 +379,11 @@ fun MainScreen(
                                                     if (parentCoords != null) {
                                                         val localCenter = coords.size.width / 2
                                                         val posInParent = parentCoords.localPositionOf(
-                                                            coords, androidx.compose.ui.geometry.Offset(localCenter.toFloat(), 0f)
+                                                            coords,
+                                                            androidx.compose.ui.geometry.Offset(localCenter.toFloat(), 0f)
                                                         )
                                                         indicatorCenterX = posInParent.x
-                                                        indicatorWidth = with(density) { (coords.size.width * 1.2f).toDp() }
+                                                        indicatorWidth = with(density) { (coords.size.width * 0.9f).toDp() }
                                                     }
                                                 }
                                             }
@@ -559,39 +393,16 @@ fun MainScreen(
                                             ) {
                                                 scope.launch { pagerState.animateScrollToPage(index) }
                                             }
-                                            .padding(vertical = 4.dp)
+                                            .padding(vertical = 3.dp)
                                     ) {
                                         Icon(
                                             imageVector = item.icon,
                                             contentDescription = item.label,
                                             modifier = Modifier
                                                 .size(21.dp)
-                                                .scale(iconScale)
                                                 .then(
-                                                    if (selected) Modifier
-                                                        .graphicsLayer {
-                                                            // Subtle shadow for depth — "inner glow" effect
-                                                            shadowElevation = 2f
-                                                            ambientShadowColor = Color.Black.copy(alpha = 0.05f)
-                                                            spotShadowColor = Color.Black.copy(alpha = 0.03f)
-                                                        }
-                                                        .drawBehind {
-                                                            // Light seeping through glass from behind
-                                                            drawCircle(
-                                                                brush = Brush.radialGradient(
-                                                                    colors = listOf(
-                                                                        Color.White.copy(alpha = 0.20f),
-                                                                        Color.Transparent
-                                                                    )
-                                                                ),
-                                                                radius = size.maxDimension * 0.7f
-                                                            )
-                                                        }
-                                                    else Modifier
-                                                        .graphicsLayer {
-                                                            // Frosted glass: slightly transparent, like a dim glow behind glass
-                                                            alpha = 0.9f
-                                                        }
+                                                    if (selected) Modifier.graphicsLayer { alpha = 1f }
+                                                    else Modifier.graphicsLayer { alpha = 0.9f }
                                                 ),
                                             tint = iconColor
                                         )
@@ -607,93 +418,23 @@ fun MainScreen(
                         }
                     }
 
-                    // ── Liquid Glass FAB ──
+                    // ── Apple Music Style FAB ──
                     if (showFab) {
                         val fabInteractionSource = remember { MutableInteractionSource() }
+                        val fabGreen = if (isDarkMode) Color(0xFF30D158) else Color(0xFF34C759)
+
                         Box(
                             modifier = Modifier
                                 .size(fabSize)
                                 .graphicsLayer {
-                                    shadowElevation = if (isDarkMode) 8f else 4f
+                                    shadowElevation = if (isDarkMode) 3f else 2f
                                     shape = RoundedCornerShape(fabRadius)
                                     clip = false
-                                    ambientShadowColor = Color.Black.copy(alpha = if (isDarkMode) 0.20f else 0.06f)
-                                    spotShadowColor = Color.Black.copy(alpha = if (isDarkMode) 0.15f else 0.04f)
+                                    ambientShadowColor = Color.Black.copy(alpha = if (isDarkMode) 0.15f else 0.05f)
+                                    spotShadowColor = Color.Black.copy(alpha = if (isDarkMode) 0.10f else 0.03f)
                                 }
                                 .clip(RoundedCornerShape(fabRadius))
-                                .drawBehind {
-                                    val w = size.width
-                                    val h = size.height
-                                    val fcr = fabRadius.toPx()
-
-                                    // Glass base
-                                    drawRoundRect(
-                                        color = Color.White.copy(alpha = if (isDarkMode) 0.10f else 0.35f),
-                                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(fcr)
-                                    )
-
-                                    // Subtle green tint
-                                    drawRoundRect(
-                                        color = (if (isDarkMode) Color(0xFF30D158) else Color(0xFF34C759))
-                                            .copy(alpha = if (isDarkMode) 0.20f else 0.14f),
-                                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(fcr)
-                                    )
-
-                                    // Specular band
-                                    drawRoundRect(
-                                        brush = Brush.verticalGradient(
-                                            colors = listOf(
-                                                Color.White.copy(alpha = if (isDarkMode) 0.25f else 0.50f),
-                                                Color.White.copy(alpha = if (isDarkMode) 0.04f else 0.08f),
-                                                Color.Transparent
-                                            ),
-                                            startY = 0f,
-                                            endY = h * 0.40f
-                                        ),
-                                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(fcr)
-                                    )
-
-                                    // Edge refraction
-                                    drawRoundRect(
-                                        brush = Brush.horizontalGradient(
-                                            colors = listOf(
-                                                Color.White.copy(alpha = if (isDarkMode) 0.08f else 0.15f),
-                                                Color.Transparent,
-                                                Color.Transparent,
-                                                Color.White.copy(alpha = if (isDarkMode) 0.08f else 0.15f)
-                                            )
-                                        ),
-                                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(fcr)
-                                    )
-
-                                    // Bottom depth
-                                    drawRoundRect(
-                                        brush = Brush.verticalGradient(
-                                            colors = listOf(
-                                                Color.Transparent,
-                                                Color.Black.copy(alpha = if (isDarkMode) 0.12f else 0.06f)
-                                            ),
-                                            startY = h * 0.55f,
-                                            endY = h
-                                        ),
-                                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(fcr)
-                                    )
-
-                                    // Reflective rim
-                                    drawRoundRect(
-                                        color = Color.White.copy(alpha = if (isDarkMode) 0.12f else 0.30f),
-                                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(fcr),
-                                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 0.6f)
-                                    )
-
-                                    // Top razor highlight
-                                    drawLine(
-                                        color = Color.White.copy(alpha = if (isDarkMode) 0.28f else 0.70f),
-                                        start = androidx.compose.ui.geometry.Offset(fcr * 0.8f, 0.5f),
-                                        end = androidx.compose.ui.geometry.Offset(w - fcr * 0.8f, 0.5f),
-                                        strokeWidth = 0.8f
-                                    )
-                                }
+                                .background(fabGreen)
                                 .clickable(
                                     interactionSource = fabInteractionSource,
                                     indication = null
@@ -709,8 +450,8 @@ fun MainScreen(
                             Icon(
                                 Icons.Default.Add,
                                 contentDescription = "记一笔",
-                                tint = if (isDarkMode) Color(0xFF30D158) else Color(0xFF34C759),
-                                modifier = Modifier.size(22.dp)
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
