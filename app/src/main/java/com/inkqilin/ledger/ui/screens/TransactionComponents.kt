@@ -1,9 +1,11 @@
 package com.inkqilin.ledger.ui.screens
 
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.*
@@ -16,13 +18,24 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.activity.compose.BackHandler
 import com.inkqilin.ledger.data.Transaction
 import com.inkqilin.ledger.data.TransactionType
 import com.inkqilin.ledger.ui.TransactionViewModel
@@ -129,19 +142,37 @@ fun CategoryEditDialog(
         "👶", "🧹", "💊", "📌", "💡", "🔥", "⭐", "❤️", "✅", "🆕"
     )
 
-    AlertDialog(
+    val bgColor = MaterialTheme.colorScheme.background
+    val isDark = (bgColor.red * 0.299f + bgColor.green * 0.587f + bgColor.blue * 0.114f) < 0.5f
+
+    AppleAlertDialog(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(32.dp),
-        title = { Text(if (category == null) "添加分类" else "修改分类") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        title = if (category == null) "添加分类" else "修改分类",
+        content = {
+            val textFieldColors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = if (isDark) MaterialTheme.colorScheme.primary else Color(0xFF007AFF),
+                unfocusedBorderColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.1f),
+                focusedLabelColor = if (isDark) MaterialTheme.colorScheme.primary else Color(0xFF007AFF),
+                unfocusedLabelColor = if (isDark) Color.White.copy(alpha = 0.5f) else Color(0xFF6E6E73),
+                cursorColor = if (isDark) Color.White else Color(0xFF1D1D1F),
+                focusedTextColor = if (isDark) Color.White else Color(0xFF1D1D1F),
+                unfocusedTextColor = if (isDark) Color.White else Color(0xFF1D1D1F)
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text("分类名称") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = textFieldColors
                 )
-                Text("选择图标", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    "选择图标",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = if (isDark) Color.White.copy(alpha = 0.65f) else Color(0xFF6E6E73)
+                )
                 LazyRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -151,10 +182,11 @@ fun CategoryEditDialog(
                         Box(
                             modifier = Modifier
                                 .size(40.dp)
-                                .clip(RoundedCornerShape(14.dp))
+                                .clip(RoundedCornerShape(10.dp))
                                 .background(
-                                    if (selected) MaterialTheme.colorScheme.primaryContainer
-                                    else MaterialTheme.colorScheme.surfaceVariant
+                                    if (selected) Color(0xFF007AFF).copy(alpha = 0.12f)
+                                    else if (isDark) Color.White.copy(alpha = 0.08f)
+                                    else Color.Black.copy(alpha = 0.05f)
                                 )
                                 .clickable { icon = emoji },
                             contentAlignment = Alignment.Center
@@ -168,9 +200,16 @@ fun CategoryEditDialog(
                     onValueChange = { icon = it },
                     label = { Text("或手动输入 Emoji") },
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    singleLine = true,
+                    shape = RoundedCornerShape(10.dp),
+                    colors = textFieldColors
                 )
-                Text("选择颜色", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    "选择颜色",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = if (isDark) Color.White.copy(alpha = 0.65f) else Color(0xFF6E6E73)
+                )
                 val colors = listOf("#715CFF", "#51B4FF", "#4CAF50", "#F44336", "#FF9800", "#9C27B0", "#E91E63", "#00BCD4")
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -184,7 +223,7 @@ fun CategoryEditDialog(
                                 .background(Color(android.graphics.Color.parseColor(colorHex)))
                                 .clickable { color = colorHex }
                                 .then(
-                                    if (color == colorHex) Modifier.background(Color.Black.copy(alpha = 0.1f), CircleShape)
+                                    if (color == colorHex) Modifier.border(2.dp, Color.White, CircleShape)
                                     else Modifier
                                 ),
                             contentAlignment = Alignment.Center
@@ -197,19 +236,18 @@ fun CategoryEditDialog(
                 }
             }
         },
-        confirmButton = {
-            Button(
-                onClick = { if (name.isNotBlank()) onConfirm(name, icon, color) },
-                elevation = appButtonElevation()
-            ) {
-                Text("确定")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
-        }
+        buttons = listOf(
+            AppleDialogButton(
+                text = "取消",
+                style = AppleDialogButtonStyle.CANCEL,
+                onClick = onDismiss
+            ),
+            AppleDialogButton(
+                text = "确定",
+                style = AppleDialogButtonStyle.DEFAULT,
+                onClick = { if (name.isNotBlank()) onConfirm(name, icon, color) }
+            )
+        )
     )
 }
 
@@ -300,6 +338,404 @@ fun TransactionItem(transaction: Transaction, viewModel: TransactionViewModel) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 11.sp
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Apple-style dialog button definition
+ */
+data class AppleDialogButton(
+    val text: String,
+    val style: AppleDialogButtonStyle = AppleDialogButtonStyle.DEFAULT,
+    val onClick: () -> Unit
+)
+
+enum class AppleDialogButtonStyle {
+    DEFAULT,     // System blue
+    DESTRUCTIVE, // System red
+    CANCEL       // Bold system blue
+}
+
+// ─── Apple iOS EaseOutCubic ───
+private val AppleEaseOutCubic = CubicBezierEasing(0.25f, 0.46f, 0.45f, 0.94f)
+
+/**
+ * Apple iOS system-grade AlertDialog
+ *
+ * Uses a full-screen overlay instead of platform Dialog to avoid
+ * the white window background that causes the white border issue.
+ *
+ * Material: frosted glass (light: White@0.82, dark: #1C1C1E)
+ * Corner: 14dp continuous curvature (Squircle)
+ * No elevation — uses 0.5dp gradient border instead
+ * Typography: 17sp SemiBold title, 13sp Normal body (lineHeight 1.4)
+ * Buttons: system blue #007AFF, destructive red #FF3B30
+ * Press: no ripple, instant gray overlay (alpha=0.1)
+ * Entry: scale(1.1)+alpha(0) → scale(1)+alpha(1), 250ms EaseOutCubic
+ * Scrim: black alpha 0 → 0.4
+ */
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+fun AppleAlertDialog(
+    onDismissRequest: () -> Unit,
+    title: String,
+    message: String? = null,
+    content: @Composable (() -> Unit)? = null,
+    buttons: List<AppleDialogButton>
+) {
+    // Use MaterialTheme.colorScheme for reliable dark detection in Popup context
+    val bgColor = MaterialTheme.colorScheme.background
+    val isDark = (bgColor.red * 0.299f + bgColor.green * 0.587f + bgColor.blue * 0.114f) < 0.5f
+
+    // ── Back handler ──
+    BackHandler(onBack = onDismissRequest)
+
+    // ── Entry animation state ──
+    var animateIn by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { animateIn = true }
+
+    val scale by animateFloatAsState(
+        targetValue = if (animateIn) 1f else 1.1f,
+        animationSpec = tween(durationMillis = 250, easing = AppleEaseOutCubic),
+        label = "dialogScale"
+    )
+    val contentAlpha by animateFloatAsState(
+        targetValue = if (animateIn) 1f else 0f,
+        animationSpec = tween(durationMillis = 250, easing = AppleEaseOutCubic),
+        label = "dialogAlpha"
+    )
+    val scrimAlpha by animateFloatAsState(
+        targetValue = if (animateIn) 0.4f else 0f,
+        animationSpec = tween(durationMillis = 250, easing = AppleEaseOutCubic),
+        label = "scrimAlpha"
+    )
+
+    // ── Glass material colors ──
+    // Dark: opaque deep gray-blue (no white bleed-through)
+    // Light: semi-transparent white
+    val glassColor = if (isDark) Color(0xFF1C1C1E)
+                     else Color.White.copy(alpha = 0.82f)
+
+    // ── Full-screen Popup (renders at window level, no white border) ──
+    Popup(
+        alignment = Alignment.Center,
+        properties = PopupProperties(
+            usePlatformDefaultWidth = false,
+            clippingEnabled = false
+        )
+    ) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        // ── Animated scrim ──
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = scrimAlpha))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismissRequest
+                )
+        )
+
+        // ── Dialog card ──
+        Box(
+            modifier = Modifier
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                    alpha = contentAlpha
+                }
+                .widthIn(min = 260.dp, max = 300.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(glassColor)
+                .drawBehind {
+                    // Gradient border: top catches light, bottom fades
+                    val h = size.height
+                    val cr = 14.dp.toPx()
+                    drawRoundRect(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = if (isDark) 0.12f else 0.35f),
+                                Color.White.copy(alpha = if (isDark) 0.03f else 0.08f),
+                                Color.Transparent
+                            ),
+                            startY = 0f,
+                            endY = h
+                        ),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(cr),
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 0.5f)
+                    )
+                }
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // ── Content area ──
+                Column(
+                    modifier = Modifier.padding(
+                        top = 20.dp, start = 16.dp, end = 16.dp, bottom = 16.dp
+                    ),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    // Title: 17sp SemiBold, centered
+                    Text(
+                        text = title,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center,
+                        color = if (isDark) Color.White else Color(0xFF1D1D1F),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    // Message: 13sp Normal, lineHeight 1.4, centered
+                    if (message != null) {
+                        Text(
+                            text = message,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Normal,
+                            textAlign = TextAlign.Center,
+                            color = if (isDark) Color.White.copy(alpha = 0.65f)
+                                    else Color(0xFF6E6E73),
+                            modifier = Modifier.fillMaxWidth(),
+                            style = TextStyle(
+                                fontSize = 13.sp,
+                                lineHeight = (13 * 1.4).sp
+                            )
+                        )
+                    }
+                    // Custom content
+                    if (content != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        content()
+                    }
+                }
+
+                // ── Horizontal divider: 0.5dp ──
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(0.5.dp)
+                        .background(
+                            if (isDark) Color.White.copy(alpha = 0.1f)
+                            else Color.Black.copy(alpha = 0.1f)
+                        )
+                )
+
+                // ── Button row ──
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    buttons.forEachIndexed { index, button ->
+                        // Vertical divider between buttons
+                        if (index > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .width(0.5.dp)
+                                    .height(44.dp)
+                                    .background(
+                                        if (isDark) Color.White.copy(alpha = 0.1f)
+                                        else Color.Black.copy(alpha = 0.1f)
+                                    )
+                            )
+                        }
+                        val textColor = when (button.style) {
+                            AppleDialogButtonStyle.DESTRUCTIVE -> Color(0xFFFF3B30)
+                            else -> if (isDark) MaterialTheme.colorScheme.primary
+                                    else Color(0xFF007AFF)
+                        }
+                        val btnFontWeight = when (button.style) {
+                            AppleDialogButtonStyle.CANCEL -> FontWeight.SemiBold
+                            else -> FontWeight.Normal
+                        }
+
+                        // ── No-ripple press: gray overlay ──
+                        val interactionSource = remember { MutableInteractionSource() }
+                        var isPressed by remember { mutableStateOf(false) }
+                        LaunchedEffect(interactionSource) {
+                            interactionSource.interactions.collect { interaction ->
+                                when (interaction) {
+                                    is PressInteraction.Press -> isPressed = true
+                                    is PressInteraction.Release -> isPressed = false
+                                    is PressInteraction.Cancel -> isPressed = false
+                                }
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable(
+                                    interactionSource = interactionSource,
+                                    indication = null,
+                                    onClick = button.onClick
+                                )
+                                .background(
+                                    if (isPressed) Color.Gray.copy(alpha = 0.1f)
+                                    else Color.Transparent
+                                )
+                                .padding(vertical = 12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = button.text,
+                                color = textColor,
+                                fontWeight = btnFontWeight,
+                                fontSize = 16.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+    } // Popup
+}
+
+/**
+ * Transparent-background DatePickerDialog.
+ * Uses Popup (not Android Dialog) to eliminate the white border.
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
+@Composable
+fun AppleDatePickerDialog(
+    onDismissRequest: () -> Unit,
+    confirmButton: @Composable () -> Unit,
+    dismissButton: @Composable () -> Unit,
+    state: DatePickerState,
+    title: String = "选择日期"
+) {
+    val bgColor = MaterialTheme.colorScheme.background
+    val isDark = (bgColor.red * 0.299f + bgColor.green * 0.587f + bgColor.blue * 0.114f) < 0.5f
+
+    BackHandler(onBack = onDismissRequest)
+
+    // Entry animation
+    var animateIn by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { animateIn = true }
+    val scale by animateFloatAsState(
+        targetValue = if (animateIn) 1f else 1.1f,
+        animationSpec = tween(durationMillis = 250, easing = AppleEaseOutCubic),
+        label = "datePickerScale"
+    )
+    val contentAlpha by animateFloatAsState(
+        targetValue = if (animateIn) 1f else 0f,
+        animationSpec = tween(durationMillis = 250, easing = AppleEaseOutCubic),
+        label = "datePickerAlpha"
+    )
+    val scrimAlpha by animateFloatAsState(
+        targetValue = if (animateIn) 0.4f else 0f,
+        animationSpec = tween(durationMillis = 250, easing = AppleEaseOutCubic),
+        label = "datePickerScrim"
+    )
+
+    Popup(
+        alignment = Alignment.Center,
+        properties = PopupProperties(
+            usePlatformDefaultWidth = false,
+            clippingEnabled = false
+        )
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            // Scrim
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = scrimAlpha))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onDismissRequest
+                    )
+            )
+            // Dialog card
+            Surface(
+                shape = RoundedCornerShape(28.dp),
+                color = if (isDark) Color(0xFF1C1C1E) else MaterialTheme.colorScheme.surface,
+                tonalElevation = 0.dp,
+                modifier = Modifier
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        alpha = contentAlpha
+                    }
+                    .widthIn(min = 328.dp, max = 360.dp)
+                    .drawBehind {
+                        val cr = 28.dp.toPx()
+                        val h = size.height
+                        drawRoundRect(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.White.copy(alpha = if (isDark) 0.12f else 0.35f),
+                                    Color.White.copy(alpha = if (isDark) 0.03f else 0.08f),
+                                    Color.Transparent
+                                ),
+                                startY = 0f, endY = h
+                            ),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(cr),
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 0.5f)
+                        )
+                    }
+            ) {
+                Column {
+                    // Title
+                    Text(
+                        text = title,
+                        modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 0.dp),
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
+                    )
+                    // Date picker
+                    DatePicker(
+                        state = state,
+                        title = null,
+                        headline = null,
+                        showModeToggle = true,
+                        colors = DatePickerDefaults.colors(
+                            containerColor = if (isDark) Color(0xFF1C1C1E) else MaterialTheme.colorScheme.surface,
+                            titleContentColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface,
+                            headlineContentColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface,
+                            weekdayContentColor = if (isDark) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                            subheadContentColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface,
+                            yearContentColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                            currentYearContentColor = if (isDark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary,
+                            selectedYearContentColor = if (isDark) Color.White else MaterialTheme.colorScheme.onPrimary,
+                            selectedYearContainerColor = if (isDark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary,
+                            dayContentColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface,
+                            disabledDayContentColor = if (isDark) Color.White.copy(alpha = 0.3f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                            selectedDayContentColor = if (isDark) Color.White else MaterialTheme.colorScheme.onPrimary,
+                            selectedDayContainerColor = if (isDark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary,
+                            todayContentColor = if (isDark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary,
+                            todayDateBorderColor = if (isDark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary,
+                            dayInSelectionRangeContentColor = if (isDark) Color.White else MaterialTheme.colorScheme.onPrimaryContainer,
+                            dayInSelectionRangeContainerColor = if (isDark) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.primaryContainer,
+                        )
+                    )
+                    // Divider
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(0.5.dp)
+                            .background(
+                                if (isDark) Color.White.copy(alpha = 0.1f)
+                                else Color.Black.copy(alpha = 0.1f)
+                            )
+                    )
+                    // Button row
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        dismissButton()
+                        Spacer(modifier = Modifier.width(8.dp))
+                        confirmButton()
+                    }
+                }
             }
         }
     }

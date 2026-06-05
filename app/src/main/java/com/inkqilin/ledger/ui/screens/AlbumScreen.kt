@@ -10,6 +10,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
@@ -27,12 +28,16 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -43,6 +48,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
@@ -63,6 +69,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import androidx.core.content.ContextCompat
 import com.inkqilin.ledger.data.AlbumPhoto
 import com.inkqilin.ledger.ui.TransactionViewModel
@@ -344,10 +352,11 @@ fun AlbumScreen(
                     )
                 }
             } else {
+                val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(6.dp)
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+                    contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 12.dp, bottom = navBarBottomPadding + 76.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
@@ -406,52 +415,36 @@ fun AlbumScreen(
         }
 
         showDeleteConfirm?.let { photo ->
-            AlertDialog(
+            AppleAlertDialog(
                 onDismissRequest = { showDeleteConfirm = null },
-                title = { Text("删除照片") },
-                text = { Text("确定要删除这张照片吗？") },
-                shape = RoundedCornerShape(32.dp),
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            viewModel.deleteAlbumPhoto(photo)
-                            showDeleteConfirm = null
-                        },
-                        colors = ButtonDefaults.textButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error
-                        )
-                    ) { Text("删除") }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showDeleteConfirm = null }) { Text("取消") }
-                }
+                title = "删除照片",
+                message = "确定要删除这张照片吗？",
+                buttons = listOf(
+                    AppleDialogButton("取消", AppleDialogButtonStyle.CANCEL) { showDeleteConfirm = null },
+                    AppleDialogButton("删除", AppleDialogButtonStyle.DESTRUCTIVE) {
+                        viewModel.deleteAlbumPhoto(photo)
+                        showDeleteConfirm = null
+                    }
+                )
             )
         }
 
         if (showBatchDeleteConfirm) {
-            AlertDialog(
+            AppleAlertDialog(
                 onDismissRequest = { showBatchDeleteConfirm = false },
-                title = { Text("批量删除") },
-                text = { Text("确定要删除选中的 ${selectedIds.size} 张照片吗？") },
-                shape = RoundedCornerShape(32.dp),
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            selectedIds.forEach { id ->
-                                photos.find { it.id == id }?.let { viewModel.deleteAlbumPhoto(it) }
-                            }
-                            selectedIds = emptySet()
-                            isSelectionMode = false
-                            showBatchDeleteConfirm = false
-                        },
-                        colors = ButtonDefaults.textButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error
-                        )
-                    ) { Text("删除") }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showBatchDeleteConfirm = false }) { Text("取消") }
-                }
+                title = "批量删除",
+                message = "确定要删除选中的 ${selectedIds.size} 张照片吗？",
+                buttons = listOf(
+                    AppleDialogButton("取消", AppleDialogButtonStyle.CANCEL) { showBatchDeleteConfirm = false },
+                    AppleDialogButton("删除", AppleDialogButtonStyle.DESTRUCTIVE) {
+                        selectedIds.forEach { id ->
+                            photos.find { it.id == id }?.let { viewModel.deleteAlbumPhoto(it) }
+                        }
+                        selectedIds = emptySet()
+                        isSelectionMode = false
+                        showBatchDeleteConfirm = false
+                    }
+                )
             )
         }
     }
@@ -833,7 +826,7 @@ private fun AlbumPhotoCard(
 }
 
 @Suppress("AssignedValueIsNeverRead")
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 @Composable
 private fun PhotoViewerScreen(
     photo: AlbumPhoto,
@@ -980,11 +973,10 @@ private fun PhotoViewerScreen(
     }
 
     if (showNoteEditor) {
-        AlertDialog(
+        AppleAlertDialog(
             onDismissRequest = { showNoteEditor = false },
-            title = { Text("编辑备注") },
-            shape = RoundedCornerShape(32.dp),
-            text = {
+            title = "编辑备注",
+            content = {
                 OutlinedTextField(
                     value = editNote,
                     onValueChange = { editNote = it },
@@ -994,19 +986,17 @@ private fun PhotoViewerScreen(
                     placeholder = { Text("输入备注") }
                 )
             },
-            confirmButton = {
-                TextButton(onClick = {
+            buttons = listOf(
+                AppleDialogButton("取消", AppleDialogButtonStyle.CANCEL) {
+                    editNote = currentPhoto.note
+                    showNoteEditor = false
+                },
+                AppleDialogButton("保存", AppleDialogButtonStyle.DEFAULT) {
                     currentPhoto = currentPhoto.copy(note = editNote)
                     onUpdate(currentPhoto)
                     showNoteEditor = false
-                }) { Text("保存") }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    editNote = currentPhoto.note
-                    showNoteEditor = false
-                }) { Text("取消") }
-            }
+                }
+            )
         )
     }
 
@@ -1027,61 +1017,98 @@ private fun PhotoViewerScreen(
             initialSelectedDateMillis = currentPhoto.createdAt
         )
 
-        DatePickerDialog(
-            onDismissRequest = { showTimeEditor = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    val selectedDate = datePickerState.selectedDateMillis ?: currentPhoto.createdAt
-                    val hour = hourText.toIntOrNull()?.coerceIn(0, 23) ?: 0
-                    val minute = minuteText.toIntOrNull()?.coerceIn(0, 59) ?: 0
-                    val cal = Calendar.getInstance().apply {
-                        timeInMillis = selectedDate
-                        set(Calendar.HOUR_OF_DAY, hour)
-                        set(Calendar.MINUTE, minute)
-                        set(Calendar.SECOND, 0)
-                        set(Calendar.MILLISECOND, 0)
-                    }
-                    currentPhoto = currentPhoto.copy(createdAt = cal.timeInMillis)
-                    onUpdate(currentPhoto)
-                    showTimeEditor = false
-                }) { Text("确定") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showTimeEditor = false }) { Text("取消") }
-            }
+        val bgColor = MaterialTheme.colorScheme.background
+        val isDark = (bgColor.red * 0.299f + bgColor.green * 0.587f + bgColor.blue * 0.114f) < 0.5f
+
+        BackHandler(onBack = { showTimeEditor = false })
+
+        Popup(
+            alignment = Alignment.Center,
+            properties = PopupProperties(
+                usePlatformDefaultWidth = false,
+                clippingEnabled = false
+            )
         ) {
-            Column(
-                modifier = Modifier
-                    .padding(16.dp)
-                    .heightIn(max = 500.dp)
-                    .verticalScroll(rememberScrollState())
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
             ) {
-                DatePicker(state = datePickerState)
-                Spacer(modifier = Modifier.height(12.dp))
-                Text("时间", style = MaterialTheme.typography.labelLarge)
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                // Scrim
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.4f))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { showTimeEditor = false }
+                        )
+                )
+                Surface(
+                    shape = RoundedCornerShape(28.dp),
+                    color = if (isDark) Color(0xFF1C1C1E) else MaterialTheme.colorScheme.surface,
+                    tonalElevation = 0.dp,
+                    modifier = Modifier.widthIn(min = 328.dp, max = 360.dp)
                 ) {
-                    OutlinedTextField(
-                        value = hourText,
-                        onValueChange = { hourText = it.filter { c -> c.isDigit() }.take(2) },
-                        modifier = Modifier.width(72.dp),
-                        label = { Text("时") },
-                        singleLine = true
-                    )
-                    Text(":", style = MaterialTheme.typography.titleLarge)
-                    OutlinedTextField(
-                        value = minuteText,
-                        onValueChange = { minuteText = it.filter { c -> c.isDigit() }.take(2) },
-                        modifier = Modifier.width(72.dp),
-                        label = { Text("分") },
-                        singleLine = true
-                    )
+                Column {
+                    DatePicker(state = datePickerState)
+                    Column(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .heightIn(max = 500.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        Text("时间", style = MaterialTheme.typography.labelLarge)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = hourText,
+                                onValueChange = { hourText = it.filter { c -> c.isDigit() }.take(2) },
+                                modifier = Modifier.width(72.dp),
+                                label = { Text("时") },
+                                singleLine = true
+                            )
+                            Text(":", style = MaterialTheme.typography.titleLarge)
+                            OutlinedTextField(
+                                value = minuteText,
+                                onValueChange = { minuteText = it.filter { c -> c.isDigit() }.take(2) },
+                                modifier = Modifier.width(72.dp),
+                                label = { Text("分") },
+                                singleLine = true
+                            )
+                        }
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = { showTimeEditor = false }) { Text("取消") }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        TextButton(onClick = {
+                            val selectedDate = datePickerState.selectedDateMillis ?: currentPhoto.createdAt
+                            val hour = hourText.toIntOrNull()?.coerceIn(0, 23) ?: 0
+                            val minute = minuteText.toIntOrNull()?.coerceIn(0, 59) ?: 0
+                            val cal = Calendar.getInstance().apply {
+                                timeInMillis = selectedDate
+                                set(Calendar.HOUR_OF_DAY, hour)
+                                set(Calendar.MINUTE, minute)
+                                set(Calendar.SECOND, 0)
+                                set(Calendar.MILLISECOND, 0)
+                            }
+                            currentPhoto = currentPhoto.copy(createdAt = cal.timeInMillis)
+                            onUpdate(currentPhoto)
+                            showTimeEditor = false
+                        }) { Text("确定") }
+                    }
                 }
-            }
-        }
+            } // Surface
+            } // Box
+        } // Popup
     }
 }
 

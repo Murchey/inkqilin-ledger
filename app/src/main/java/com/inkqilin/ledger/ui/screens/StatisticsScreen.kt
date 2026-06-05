@@ -105,8 +105,9 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
 
     if (showStartDatePicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = startDate)
-        DatePickerDialog(
+        AppleDatePickerDialog(
             onDismissRequest = { showStartDatePicker = false },
+            state = datePickerState,
             confirmButton = {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { startDate = it }
@@ -116,13 +117,14 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
             dismissButton = {
                 TextButton(onClick = { showStartDatePicker = false }) { Text("取消") }
             }
-        ) { DatePicker(state = datePickerState) }
+        )
     }
 
     if (showEndDatePicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = endDate)
-        DatePickerDialog(
+        AppleDatePickerDialog(
             onDismissRequest = { showEndDatePicker = false },
+            state = datePickerState,
             confirmButton = {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { endDate = it }
@@ -132,7 +134,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
             dismissButton = {
                 TextButton(onClick = { showEndDatePicker = false }) { Text("取消") }
             }
-        ) { DatePicker(state = datePickerState) }
+        )
     }
 
     val filteredByPeriod = remember(transactions, selectedPeriod, startDate, endDate) {
@@ -290,9 +292,10 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
         groups
     }
 
+    val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(6.dp)
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 16.dp)
+        contentPadding = PaddingValues(bottom = navBarBottomPadding + 76.dp)
     ) {
         item {
             Row(

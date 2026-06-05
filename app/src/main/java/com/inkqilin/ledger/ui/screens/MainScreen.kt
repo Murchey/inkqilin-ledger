@@ -209,6 +209,7 @@ fun MainScreen(
                         }
                     },
                     actions = {
+                        // 主页搜索按钮
                         AnimatedVisibility(
                             visible = currentRoute == "main" && currentPageRoute == "home",
                             enter = if (enableAnimations) fadeIn(MotionSprings.interactive()) else EnterTransition.None,
@@ -216,6 +217,16 @@ fun MainScreen(
                         ) {
                             IconButton(onClick = { navController.navigate("search") }) {
                                 Icon(Icons.Default.Search, contentDescription = "搜索")
+                            }
+                        }
+                        // 人情账本添加按钮
+                        AnimatedVisibility(
+                            visible = currentRoute == "main" && currentPageRoute == "renqing",
+                            enter = if (enableAnimations) fadeIn(MotionSprings.interactive()) else EnterTransition.None,
+                            exit = if (enableAnimations) fadeOut(MotionSprings.interactive()) else ExitTransition.None
+                        ) {
+                            IconButton(onClick = { navController.navigate("add_renqing_event") }) {
+                                Icon(Icons.Default.Add, contentDescription = "添加事件")
                             }
                         }
                     }
@@ -250,7 +261,7 @@ fun MainScreen(
                     it.red * 0.299f + it.green * 0.587f + it.blue * 0.114f
                 }
                 val isDarkMode = bgLuminance < 0.5f
-                val unselectedColor = if (isDarkMode) Color(0xFFAEAEB2) else Color(0xFF636366)
+                val unselectedColor = if (isDarkMode) Color.White.copy(alpha = 0.6f) else Color(0xFF6E6E73)
                 val selectedColor = if (isDarkMode) Color(0xFFFFFFFF) else Color(0xFF1D1D1F)
                 val barRadius = 36.dp
                 val density = androidx.compose.ui.platform.LocalDensity.current
@@ -304,112 +315,101 @@ fun MainScreen(
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(barRadius))
                                 .drawBehind {
-                                    val w = size.width
                                     val h = size.height
                                     val cr = barCornerPx
 
-                                    // ── L1: Glass Base ──
-                                    // Barely tinted — content shows through
+                                    // ════ L1: Deep Glass Base ════
+                                    // Dark: black-tinted for depth (not pure black — keeps blur alive)
+                                    // Light: white-tinted for clarity
                                     drawRoundRect(
-                                        color = Color.White.copy(alpha = if (isDarkMode) 0.10f else 0.35f),
+                                        color = if (isDarkMode) Color.Black.copy(alpha = 0.4f)
+                                                else Color.White.copy(alpha = 0.35f),
                                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(cr)
                                     )
 
-                                    // ── L2: Environmental Light (top-left) ──
-                                    // Simulates directional ambient light
-                                    drawRoundRect(
-                                        brush = Brush.radialGradient(
-                                            colors = listOf(
-                                                Color.White.copy(alpha = if (isDarkMode) 0.08f else 0.22f),
-                                                Color.Transparent
-                                            ),
-                                            center = androidx.compose.ui.geometry.Offset(w * 0.25f, 0f),
-                                            radius = w * 0.55f
-                                        ),
-                                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(cr)
-                                    )
-
-                                    // ── L3: Specular Band ──
-                                    // Bright concentrated reflection where light hits the curved glass
+                                    // ════ L2: Diffused Specular ════
+                                    // Very faint top glow — ambient light, NOT a harsh white beam
                                     drawRoundRect(
                                         brush = Brush.verticalGradient(
                                             colors = listOf(
-                                                Color.White.copy(alpha = if (isDarkMode) 0.25f else 0.50f),
-                                                Color.White.copy(alpha = if (isDarkMode) 0.04f else 0.08f),
+                                                Color.White.copy(alpha = if (isDarkMode) 0.08f else 0.15f),
                                                 Color.Transparent
                                             ),
                                             startY = 0f,
-                                            endY = h * 0.38f
+                                            endY = h * 0.30f
                                         ),
                                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(cr)
                                     )
 
-                                    // ── L4: Edge Refraction ──
+                                    // ════ L3: Edge Refraction ════
                                     // Light bends at curved glass boundaries
                                     drawRoundRect(
                                         brush = Brush.horizontalGradient(
                                             colors = listOf(
-                                                Color.White.copy(alpha = if (isDarkMode) 0.07f else 0.14f),
+                                                Color.White.copy(alpha = if (isDarkMode) 0.04f else 0.10f),
                                                 Color.Transparent,
                                                 Color.Transparent,
-                                                Color.White.copy(alpha = if (isDarkMode) 0.07f else 0.14f)
+                                                Color.White.copy(alpha = if (isDarkMode) 0.04f else 0.10f)
                                             )
                                         ),
                                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(cr)
                                     )
 
-                                    // ── L5: Internal Depth Shadow ──
-                                    // Glass physically thick — bottom is darker
+                                    // ════ L4: Bottom Depth Shadow ════
+                                    // Glass thickness — bottom absorbs more light
                                     drawRoundRect(
                                         brush = Brush.verticalGradient(
                                             colors = listOf(
                                                 Color.Transparent,
-                                                Color.Black.copy(alpha = if (isDarkMode) 0.15f else 0.08f)
+                                                Color.Black.copy(alpha = if (isDarkMode) 0.12f else 0.06f)
                                             ),
-                                            startY = h * 0.55f,
+                                            startY = h * 0.65f,
                                             endY = h
                                         ),
                                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(cr)
                                     )
 
-                                    // ── L6: Reflective Rim ──
-                                    // Thin glass boundary definition
-                                    drawRoundRect(
-                                        brush = Brush.sweepGradient(
-                                            colors = listOf(
-                                                Color.White.copy(alpha = if (isDarkMode) 0.06f else 0.18f),
-                                                Color.White.copy(alpha = if (isDarkMode) 0.14f else 0.35f),
-                                                Color.White.copy(alpha = if (isDarkMode) 0.06f else 0.18f),
-                                                Color.White.copy(alpha = if (isDarkMode) 0.10f else 0.25f),
-                                                Color.White.copy(alpha = if (isDarkMode) 0.06f else 0.18f)
-                                            )
-                                        ),
-                                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(cr),
-                                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 0.8f)
-                                    )
+                                    // ════ L5: Directional Rim Light ════
+                                    // Top: bright edge (light source from above)
+                                    // Sides/bottom: dark or transparent (shadow absorption)
+                                    // Simulates physical light hitting a curved glass surface
+                                    val rimStrokeW = 0.5f
+                                    val crOffset = cr
 
-                                    // ── L7: Top Razor Highlight ──
-                                    // Brightest edge — catches direct light
+                                    // Top edge — the brightest catch
                                     drawLine(
-                                        color = Color.White.copy(alpha = if (isDarkMode) 0.28f else 0.70f),
-                                        start = androidx.compose.ui.geometry.Offset(cr * 0.8f, 0.5f),
-                                        end = androidx.compose.ui.geometry.Offset(w - cr * 0.8f, 0.5f),
-                                        strokeWidth = 1.0f
+                                        color = Color.White.copy(alpha = if (isDarkMode) 0.30f else 0.50f),
+                                        start = Offset(crOffset * 0.6f, 0.5f),
+                                        end = Offset(size.width - crOffset * 0.6f, 0.5f),
+                                        strokeWidth = rimStrokeW
                                     )
-
-                                    // ── L8: Bottom Subtle Edge ──
-                                    // Thin dark line defines glass thickness
+                                    // Left edge — dimmer, ambient
                                     drawLine(
-                                        color = Color.Black.copy(alpha = if (isDarkMode) 0.12f else 0.05f),
-                                        start = androidx.compose.ui.geometry.Offset(cr * 0.8f, h - 0.5f),
-                                        end = androidx.compose.ui.geometry.Offset(w - cr * 0.8f, h - 0.5f),
-                                        strokeWidth = 0.5f
+                                        color = Color.White.copy(alpha = if (isDarkMode) 0.06f else 0.12f),
+                                        start = Offset(0.5f, crOffset),
+                                        end = Offset(0.5f, h - crOffset),
+                                        strokeWidth = rimStrokeW
+                                    )
+                                    // Right edge — dimmer, ambient
+                                    drawLine(
+                                        color = Color.White.copy(alpha = if (isDarkMode) 0.06f else 0.12f),
+                                        start = Offset(size.width - 0.5f, crOffset),
+                                        end = Offset(size.width - 0.5f, h - crOffset),
+                                        strokeWidth = rimStrokeW
+                                    )
+                                    // Bottom edge — near invisible, shadow zone
+                                    drawLine(
+                                        color = Color.Black.copy(alpha = if (isDarkMode) 0.15f else 0.06f),
+                                        start = Offset(crOffset * 0.6f, h - 0.5f),
+                                        end = Offset(size.width - crOffset * 0.6f, h - 0.5f),
+                                        strokeWidth = rimStrokeW
                                     )
                                 }
                                 .padding(horizontal = 4.dp, vertical = 5.dp)
                         ) {
                             // ── Convex Glass Lens Indicator ──
-                            // Transparent optical glass — defined by highlights, not fill
+                            // A piece of black crystal floating in deep space
+                            // Transparent, lightweight, with physical thickness
                             if (animIndicatorW > 0.dp) {
                                 Box(
                                     modifier = Modifier
@@ -422,115 +422,97 @@ fun MainScreen(
                                         .drawBehind {
                                             val bcr = size.height / 2f
                                             val bh = size.height
-                                            val bw = size.width
 
-                                            // L1: Near-invisible glass body
-                                            // The lens shape is defined by light, not fill
+                                            // ════ L1: Glass Body ════
+                                            // Translucent base — light passes through
+                                            // alpha=0.10 ensures NO dark fill, only a whisper of white
                                             drawRoundRect(
-                                                color = Color.White.copy(alpha = if (isDarkMode) 0.04f else 0.10f),
+                                                color = Color.White.copy(alpha = 0.10f),
                                                 cornerRadius = androidx.compose.ui.geometry.CornerRadius(bcr)
                                             )
 
-                                            // L2: Central convex glow
-                                            // Simulates light focused through a curved lens
-                                            drawRoundRect(
-                                                brush = Brush.radialGradient(
-                                                    colors = listOf(
-                                                        Color.White.copy(alpha = if (isDarkMode) 0.20f else 0.38f),
-                                                        Color.White.copy(alpha = if (isDarkMode) 0.04f else 0.08f),
-                                                        Color.Transparent
-                                                    ),
-                                                    center = androidx.compose.ui.geometry.Offset(bw * 0.5f, bh * 0.38f),
-                                                    radius = bw * 0.42f
-                                                ),
-                                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(bcr)
-                                            )
-
-                                            // L3: Top specular arc
-                                            // Bright crescent where light hits the convex dome
+                                            // ════ L2: Top Diffused Highlight ════
+                                            // 15dp soft vertical gradient — light sweeps across the curved surface
+                                            // NOT a sharp line, but a gentle wash of ambient light
                                             drawRoundRect(
                                                 brush = Brush.verticalGradient(
                                                     colors = listOf(
-                                                        Color.White.copy(alpha = if (isDarkMode) 0.40f else 0.68f),
-                                                        Color.White.copy(alpha = if (isDarkMode) 0.10f else 0.18f),
+                                                        Color.White.copy(alpha = 0.20f),
                                                         Color.Transparent
                                                     ),
                                                     startY = 0f,
-                                                    endY = bh * 0.38f
+                                                    endY = 15.dp.toPx()
                                                 ),
                                                 cornerRadius = androidx.compose.ui.geometry.CornerRadius(bcr)
                                             )
 
-                                            // L4: Left edge refraction band
-                                            drawRoundRect(
-                                                brush = Brush.horizontalGradient(
-                                                    colors = listOf(
-                                                        Color.White.copy(alpha = if (isDarkMode) 0.18f else 0.32f),
-                                                        Color.White.copy(alpha = if (isDarkMode) 0.02f else 0.04f),
-                                                        Color.Transparent,
-                                                        Color.Transparent
-                                                    ),
-                                                    endX = bw * 0.35f
-                                                ),
-                                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(bcr)
-                                            )
-
-                                            // L5: Right edge refraction band
-                                            drawRoundRect(
-                                                brush = Brush.horizontalGradient(
-                                                    colors = listOf(
-                                                        Color.Transparent,
-                                                        Color.Transparent,
-                                                        Color.White.copy(alpha = if (isDarkMode) 0.02f else 0.04f),
-                                                        Color.White.copy(alpha = if (isDarkMode) 0.18f else 0.32f)
-                                                    ),
-                                                    startX = bw * 0.65f
-                                                ),
-                                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(bcr)
-                                            )
-
-                                            // L6: Bottom depth shadow (glass thickness)
+                                            // ════ L3: Inner Shadow ════
+                                            // Subtle darkening at bottom simulates glass physical thickness
+                                            // Black(alpha=0.05) — barely visible, just enough for depth
                                             drawRoundRect(
                                                 brush = Brush.verticalGradient(
                                                     colors = listOf(
                                                         Color.Transparent,
-                                                        Color.Black.copy(alpha = if (isDarkMode) 0.12f else 0.06f)
+                                                        Color.Black.copy(alpha = 0.05f)
                                                     ),
-                                                    startY = bh * 0.55f,
+                                                    startY = bh * 0.65f,
                                                     endY = bh
                                                 ),
                                                 cornerRadius = androidx.compose.ui.geometry.CornerRadius(bcr)
                                             )
 
-                                            // L7: Bright inner edge — glass boundary catches light
-                                            drawRoundRect(
-                                                brush = Brush.sweepGradient(
+                                            // ════ L4: Asymmetric Rim Light ════
+                                            // Top + sides: White glow (ambient light from above)
+                                            // Bottom: Black shadow (ground reflection absorption)
+                                            // This creates physical thickness — like a mercury droplet
+                                            val rimStrokeW = 0.5f
+                                            // Top arc
+                                            drawArc(
+                                                brush = Brush.verticalGradient(
                                                     colors = listOf(
-                                                        Color.White.copy(alpha = if (isDarkMode) 0.08f else 0.20f),
-                                                        Color.White.copy(alpha = if (isDarkMode) 0.22f else 0.45f),
-                                                        Color.White.copy(alpha = if (isDarkMode) 0.08f else 0.20f),
-                                                        Color.White.copy(alpha = if (isDarkMode) 0.15f else 0.32f),
-                                                        Color.White.copy(alpha = if (isDarkMode) 0.08f else 0.20f)
-                                                    )
+                                                        Color.White.copy(alpha = 0.20f),
+                                                        Color.Transparent
+                                                    ),
+                                                    startY = 0f,
+                                                    endY = bh * 0.5f
                                                 ),
-                                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(bcr),
-                                                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 0.8f)
+                                                startAngle = 180f,
+                                                sweepAngle = 180f,
+                                                useCenter = false,
+                                                topLeft = androidx.compose.ui.geometry.Offset.Zero,
+                                                size = Size(bh, bh),
+                                                style = androidx.compose.ui.graphics.drawscope.Stroke(width = rimStrokeW)
                                             )
-
-                                            // L8: Top razor highlight
+                                            // Right side
                                             drawLine(
-                                                color = Color.White.copy(alpha = if (isDarkMode) 0.45f else 0.85f),
-                                                start = androidx.compose.ui.geometry.Offset(bcr * 0.6f, 0.5f),
-                                                end = androidx.compose.ui.geometry.Offset(bw - bcr * 0.6f, 0.5f),
-                                                strokeWidth = 1.0f
+                                                color = Color.White.copy(alpha = 0.15f),
+                                                start = androidx.compose.ui.geometry.Offset(size.width - bh / 2f, 0f),
+                                                end = androidx.compose.ui.geometry.Offset(size.width - bh / 2f, bh),
+                                                strokeWidth = rimStrokeW
                                             )
-
-                                            // L9: Second highlight band (convex double-reflection)
+                                            // Bottom arc
+                                            drawArc(
+                                                brush = Brush.verticalGradient(
+                                                    colors = listOf(
+                                                        Color.Transparent,
+                                                        Color.Black.copy(alpha = 0.40f)
+                                                    ),
+                                                    startY = bh * 0.5f,
+                                                    endY = bh
+                                                ),
+                                                startAngle = 0f,
+                                                sweepAngle = 180f,
+                                                useCenter = false,
+                                                topLeft = androidx.compose.ui.geometry.Offset(size.width - bh, 0f),
+                                                size = Size(bh, bh),
+                                                style = androidx.compose.ui.graphics.drawscope.Stroke(width = rimStrokeW)
+                                            )
+                                            // Left side
                                             drawLine(
-                                                color = Color.White.copy(alpha = if (isDarkMode) 0.12f else 0.25f),
-                                                start = androidx.compose.ui.geometry.Offset(bcr * 0.8f, 3.0f),
-                                                end = androidx.compose.ui.geometry.Offset(bw - bcr * 0.8f, 3.0f),
-                                                strokeWidth = 0.6f
+                                                color = Color.White.copy(alpha = 0.15f),
+                                                start = androidx.compose.ui.geometry.Offset(bh / 2f, 0f),
+                                                end = androidx.compose.ui.geometry.Offset(bh / 2f, bh),
+                                                strokeWidth = rimStrokeW
                                             )
                                         }
                                 )
@@ -582,7 +564,35 @@ fun MainScreen(
                                         Icon(
                                             imageVector = item.icon,
                                             contentDescription = item.label,
-                                            modifier = Modifier.size(21.dp).scale(iconScale),
+                                            modifier = Modifier
+                                                .size(21.dp)
+                                                .scale(iconScale)
+                                                .then(
+                                                    if (selected) Modifier
+                                                        .graphicsLayer {
+                                                            // Subtle shadow for depth — "inner glow" effect
+                                                            shadowElevation = 2f
+                                                            ambientShadowColor = Color.Black.copy(alpha = 0.05f)
+                                                            spotShadowColor = Color.Black.copy(alpha = 0.03f)
+                                                        }
+                                                        .drawBehind {
+                                                            // Light seeping through glass from behind
+                                                            drawCircle(
+                                                                brush = Brush.radialGradient(
+                                                                    colors = listOf(
+                                                                        Color.White.copy(alpha = 0.20f),
+                                                                        Color.Transparent
+                                                                    )
+                                                                ),
+                                                                radius = size.maxDimension * 0.7f
+                                                            )
+                                                        }
+                                                    else Modifier
+                                                        .graphicsLayer {
+                                                            // Frosted glass: slightly transparent, like a dim glow behind glass
+                                                            alpha = 0.9f
+                                                        }
+                                                ),
                                             tint = iconColor
                                         )
                                         Spacer(modifier = Modifier.height(1.dp))
@@ -802,9 +812,6 @@ fun MainScreen(
                             },
                             onNavigateToMonthDetail = { year, month ->
                                 navController.navigate("renqing_month_detail/$year/$month")
-                            },
-                            onNavigateToAddEvent = {
-                                navController.navigate("add_renqing_event")
                             },
                             onNavigateToTagStats = { year ->
                                 navController.navigate("renqing_tag_stats/$year")

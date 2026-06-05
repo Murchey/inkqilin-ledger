@@ -96,8 +96,9 @@ fun SettingsScreen(
 
     if (showExportStartPicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = exportStartDate)
-        DatePickerDialog(
+        AppleDatePickerDialog(
             onDismissRequest = { showExportStartPicker = false },
+            state = datePickerState,
             confirmButton = {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { exportStartDate = it }
@@ -105,13 +106,14 @@ fun SettingsScreen(
                 }) { Text("确定") }
             },
             dismissButton = { TextButton(onClick = { showExportStartPicker = false }) { Text("取消") } }
-        ) { DatePicker(state = datePickerState) }
+        )
     }
 
     if (showExportEndPicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = exportEndDate)
-        DatePickerDialog(
+        AppleDatePickerDialog(
             onDismissRequest = { showExportEndPicker = false },
+            state = datePickerState,
             confirmButton = {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { exportEndDate = it }
@@ -119,13 +121,14 @@ fun SettingsScreen(
                 }) { Text("确定") }
             },
             dismissButton = { TextButton(onClick = { showExportEndPicker = false }) { Text("取消") } }
-        ) { DatePicker(state = datePickerState) }
+        )
     }
 
     if (showRenQingExportStartPicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = renQingExportStartDate)
-        DatePickerDialog(
+        AppleDatePickerDialog(
             onDismissRequest = { showRenQingExportStartPicker = false },
+            state = datePickerState,
             confirmButton = {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { renQingExportStartDate = it }
@@ -133,13 +136,14 @@ fun SettingsScreen(
                 }) { Text("确定") }
             },
             dismissButton = { TextButton(onClick = { showRenQingExportStartPicker = false }) { Text("取消") } }
-        ) { DatePicker(state = datePickerState) }
+        )
     }
 
     if (showRenQingExportEndPicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = renQingExportEndDate)
-        DatePickerDialog(
+        AppleDatePickerDialog(
             onDismissRequest = { showRenQingExportEndPicker = false },
+            state = datePickerState,
             confirmButton = {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { renQingExportEndDate = it }
@@ -147,7 +151,7 @@ fun SettingsScreen(
                 }) { Text("确定") }
             },
             dismissButton = { TextButton(onClick = { showRenQingExportEndPicker = false }) { Text("取消") } }
-        ) { DatePicker(state = datePickerState) }
+        )
     }
 
     val exportLauncher = rememberLauncherForActivityResult(
@@ -873,6 +877,8 @@ fun SettingsScreen(
                 )
             }
         }
+        val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(6.dp)
+        Spacer(modifier = Modifier.height(navBarBottomPadding + 76.dp))
     }
 }
 
@@ -1135,10 +1141,10 @@ private fun CurrencyEditDialog(
     val isEdit = asset != null
     val isDark = MaterialTheme.colorScheme.background.let { it.red * 0.299f + it.green * 0.587f + it.blue * 0.114f } < 0.5f
 
-    AlertDialog(
+    AppleAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (isEdit) "编辑币种" else "添加币种") },
-        text = {
+        title = if (isEdit) "编辑币种" else "添加币种",
+        content = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -1225,8 +1231,9 @@ private fun CurrencyEditDialog(
                 }
             }
         },
-        confirmButton = {
-            Button(onClick = {
+        buttons = listOf(
+            AppleDialogButton("取消", AppleDialogButtonStyle.CANCEL, onDismiss),
+            AppleDialogButton(if (isEdit) "保存" else "添加", AppleDialogButtonStyle.DEFAULT) {
                 if (code.isNotBlank() && symbol.isNotBlank() && name.isNotBlank()) {
                     onConfirm(
                         (asset ?: CurrencyAsset(code = code, symbol = symbol, name = name, cardColor = cardColor, cardColorLight = cardColorLight)).copy(
@@ -1238,11 +1245,8 @@ private fun CurrencyEditDialog(
                         )
                     )
                 }
-            }) { Text(if (isEdit) "保存" else "添加") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
-        }
+            }
+        )
     )
 }
 

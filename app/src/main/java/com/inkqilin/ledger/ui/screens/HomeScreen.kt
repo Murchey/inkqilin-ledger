@@ -29,6 +29,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import com.inkqilin.ledger.data.CurrencyAsset
 import com.inkqilin.ledger.data.Transaction
 import com.inkqilin.ledger.data.TransactionType
@@ -101,29 +104,23 @@ fun HomeScreen(
 
     if (showMonthPicker) {
         var pickerYear by remember { mutableIntStateOf(selectedYearMonth.first) }
-        AlertDialog(
+        AppleAlertDialog(
             onDismissRequest = { showMonthPicker = false },
-            title = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = { pickerYear-- }) {
-                        Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "上一年")
-                    }
-                    Text(
-                        text = "${pickerYear}年",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    IconButton(onClick = { pickerYear++ }) {
-                        Icon(Icons.Default.KeyboardArrowRight, contentDescription = "下一年")
-                    }
-                }
-            },
-            text = {
+            title = "${pickerYear}年",
+            content = {
                 Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = { pickerYear-- }) {
+                            Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "上一年")
+                        }
+                        IconButton(onClick = { pickerYear++ }) {
+                            Icon(Icons.Default.KeyboardArrowRight, contentDescription = "下一年")
+                        }
+                    }
                     val months = listOf("1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月")
                     val currentYM = Calendar.getInstance().let { it.get(Calendar.YEAR) to it.get(Calendar.MONTH) }
                     for (row in 0..3) {
@@ -161,10 +158,9 @@ fun HomeScreen(
                     }
                 }
             },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showMonthPicker = false }) { Text("取消") }
-            }
+            buttons = listOf(
+                AppleDialogButton("取消", AppleDialogButtonStyle.CANCEL) { showMonthPicker = false }
+            )
         )
     }
 
@@ -172,27 +168,17 @@ fun HomeScreen(
     var transactionToEdit by remember { mutableStateOf<Transaction?>(null) }
 
     if (transactionToDelete != null) {
-        AlertDialog(
+        AppleAlertDialog(
             onDismissRequest = { transactionToDelete = null },
-            title = { Text("确认删除") },
-            text = { Text("确定要删除这条账单吗？此操作不可撤销。") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        transactionToDelete?.let { viewModel.deleteTransaction(it) }
-                        transactionToDelete = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = expenseColor),
-                    elevation = appButtonElevation()
-                ) {
-                    Text("删除", color = Color.White)
+            title = "确认删除",
+            message = "确定要删除这条账单吗？此操作不可撤销。",
+            buttons = listOf(
+                AppleDialogButton("取消", AppleDialogButtonStyle.CANCEL) { transactionToDelete = null },
+                AppleDialogButton("删除", AppleDialogButtonStyle.DESTRUCTIVE) {
+                    transactionToDelete?.let { viewModel.deleteTransaction(it) }
+                    transactionToDelete = null
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { transactionToDelete = null }) {
-                    Text("取消")
-                }
-            }
+            )
         )
     }
 
@@ -243,12 +229,13 @@ fun HomeScreen(
     Scaffold(
         containerColor = Color.Transparent,
     ) { scaffoldPadding ->
+        val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(6.dp)
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .padding(scaffoldPadding),
-            contentPadding = PaddingValues(bottom = 88.dp)
+            contentPadding = PaddingValues(bottom = navBarBottomPadding + 76.dp)
         ) {
             item {
                 if (isDataLoading) {
@@ -1654,8 +1641,9 @@ fun EditTransactionDialog(
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = date)
-        DatePickerDialog(
+        AppleDatePickerDialog(
             onDismissRequest = { showDatePicker = false },
+            state = datePickerState,
             confirmButton = {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { date = it }
@@ -1665,15 +1653,13 @@ fun EditTransactionDialog(
             dismissButton = {
                 TextButton(onClick = { showDatePicker = false }) { Text("取消") }
             }
-        ) {
-            DatePicker(state = datePickerState)
-        }
+        )
     }
 
-    AlertDialog(
+    AppleAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("编辑账单") },
-        text = {
+        title = "编辑账单",
+        content = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -1758,25 +1744,21 @@ fun EditTransactionDialog(
                 }
             }
         },
-        confirmButton = {
-            Button(
-                onClick = {
-                    val amountDouble = amount.toDoubleOrNull() ?: 0.0
-                    if (amountDouble > 0 && category.isNotEmpty()) {
-                        onConfirm(transaction.copy(
-                            amount = amountDouble,
-                            note = note,
-                            type = type,
-                            category = category,
-                            date = date
-                        ))
-                    }
+        buttons = listOf(
+            AppleDialogButton("取消", AppleDialogButtonStyle.CANCEL, onDismiss),
+            AppleDialogButton("确认修改", AppleDialogButtonStyle.DEFAULT) {
+                val amountDouble = amount.toDoubleOrNull() ?: 0.0
+                if (amountDouble > 0 && category.isNotEmpty()) {
+                    onConfirm(transaction.copy(
+                        amount = amountDouble,
+                        note = note,
+                        type = type,
+                        category = category,
+                        date = date
+                    ))
                 }
-            ) { Text("确认修改") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
-        }
+            }
+        )
     )
 }
 

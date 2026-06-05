@@ -153,16 +153,14 @@ private fun CategoryItem(
     }
 
     if (showDeleteDialog) {
-        AlertDialog(
+        AppleAlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("确认删除") },
-            text = { Text("确定要删除「${category.name}」类别吗？") },
-            confirmButton = {
-                TextButton(onClick = { onDelete(category); showDeleteDialog = false }) {
-                    Text("删除", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text("取消") } }
+            title = "确认删除",
+            message = "确定要删除「${category.name}」类别吗？",
+            buttons = listOf(
+                AppleDialogButton("取消", AppleDialogButtonStyle.CANCEL) { showDeleteDialog = false },
+                AppleDialogButton("删除", AppleDialogButtonStyle.DESTRUCTIVE) { onDelete(category); showDeleteDialog = false }
+            )
         )
     }
 
@@ -221,16 +219,14 @@ private fun RenQingTagItem(
     }
 
     if (showDeleteDialog) {
-        AlertDialog(
+        AppleAlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("确认删除") },
-            text = { Text("确定要删除「${tag.name}」标签吗？") },
-            confirmButton = {
-                TextButton(onClick = { onDelete(tag); showDeleteDialog = false }) {
-                    Text("删除", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text("取消") } }
+            title = "确认删除",
+            message = "确定要删除「${tag.name}」标签吗？",
+            buttons = listOf(
+                AppleDialogButton("取消", AppleDialogButtonStyle.CANCEL) { showDeleteDialog = false },
+                AppleDialogButton("删除", AppleDialogButtonStyle.DESTRUCTIVE) { onDelete(tag); showDeleteDialog = false }
+            )
         )
     }
 
@@ -302,10 +298,10 @@ fun CategoryEditDialog(
     )
     val colorOptions = listOf("#715CFF", "#E91E63", "#F44336", "#FF9800", "#FFC107", "#4CAF50", "#00BCD4", "#2196F3", "#9C27B0", "#607D8B", "#795548", "#FF5722")
 
-    AlertDialog(
+    AppleAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (isEdit) "编辑类别" else "添加类别") },
-        text = {
+        title = if (isEdit) "编辑类别" else "添加类别",
+        content = {
             Column {
                 OutlinedTextField(
                     value = name,
@@ -363,25 +359,22 @@ fun CategoryEditDialog(
                 }
             }
         },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    if (name.isNotBlank() && icon.isNotBlank()) {
-                        onConfirm(
-                            Category(
-                                id = category?.id ?: 0,
-                                name = name.trim(),
-                                icon = icon.trim(),
-                                type = type,
-                                color = color
-                            )
+        buttons = listOf(
+            AppleDialogButton("取消", AppleDialogButtonStyle.CANCEL) { onDismiss() },
+            AppleDialogButton(if (isEdit) "确定" else "添加", AppleDialogButtonStyle.DEFAULT) {
+                if (name.isNotBlank() && icon.isNotBlank()) {
+                    onConfirm(
+                        Category(
+                            id = category?.id ?: 0,
+                            name = name.trim(),
+                            icon = icon.trim(),
+                            type = type,
+                            color = color
                         )
-                    }
-                },
-                enabled = name.isNotBlank() && icon.isNotBlank()
-            ) { Text(if (isEdit) "保存" else "添加") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+                    )
+                }
+            }
+        )
     )
 }
 
@@ -446,10 +439,10 @@ private fun RenQingTagEditDialog(
     )
     val colorOptions = listOf("#715CFF", "#E91E63", "#F44336", "#FF9800", "#FFC107", "#4CAF50", "#00BCD4", "#2196F3", "#9C27B0", "#607D8B", "#795548", "#FF5722")
 
-    AlertDialog(
+    AppleAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (isEdit) "编辑标签" else "添加标签") },
-        text = {
+        title = if (isEdit) "编辑标签" else "添加标签",
+        content = {
             Column {
                 OutlinedTextField(
                     value = name,
@@ -495,23 +488,20 @@ private fun RenQingTagEditDialog(
                 }
             }
         },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    if (name.isNotBlank()) {
-                        onConfirm(
-                            RenQingTag(
-                                id = tag?.id ?: 0,
-                                name = name.trim(),
-                                icon = icon.trim(),
-                                color = color
-                            )
+        buttons = listOf(
+            AppleDialogButton("取消", AppleDialogButtonStyle.CANCEL) { onDismiss() },
+            AppleDialogButton(if (isEdit) "确定" else "添加", AppleDialogButtonStyle.DEFAULT) {
+                if (name.isNotBlank()) {
+                    onConfirm(
+                        RenQingTag(
+                            id = tag?.id ?: 0,
+                            name = name.trim(),
+                            icon = icon.trim(),
+                            color = color
                         )
-                    }
-                },
-                enabled = name.isNotBlank()
-            ) { Text(if (isEdit) "保存" else "添加") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+                    )
+                }
+            }
+        )
     )
 }

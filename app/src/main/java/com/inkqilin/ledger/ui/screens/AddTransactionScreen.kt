@@ -70,8 +70,9 @@ fun AddTransactionScreen(
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = date)
-        DatePickerDialog(
+        AppleDatePickerDialog(
             onDismissRequest = { showDatePicker = false },
+            state = datePickerState,
             confirmButton = {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { date = it }
@@ -81,7 +82,7 @@ fun AddTransactionScreen(
             dismissButton = {
                 TextButton(onClick = { showDatePicker = false }) { Text("取消") }
             }
-        ) { DatePicker(state = datePickerState) }
+        )
     }
 
     if (showAddCategoryDialog) {
@@ -394,8 +395,8 @@ fun AddTransactionScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .height(52.dp)
+                    .padding(horizontal = 24.dp)
+                    .height(50.dp)
                     .pressScale(saveInteractionSource), // iOS-style interactive feedback
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(

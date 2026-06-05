@@ -39,6 +39,7 @@ import com.inkqilin.ledger.data.AlbumPhoto
 import com.inkqilin.ledger.data.Transaction
 import com.inkqilin.ledger.data.TransactionType
 import com.inkqilin.ledger.ui.TransactionViewModel
+    import com.inkqilin.ledger.ui.theme.appButtonElevation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -134,10 +135,13 @@ fun OcrBatchRecognitionScreen(
                     
                     Spacer(modifier = Modifier.height(16.dp))
                     
-                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
                         OutlinedButton(
                             onClick = { selectedImages = emptyList() },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f).height(50.dp)
                         ) {
                             Text("重置")
                         }
@@ -157,8 +161,9 @@ fun OcrBatchRecognitionScreen(
                                     }
                                 }
                             },
-                            modifier = Modifier.weight(1f),
-                            enabled = !isRecognizing
+                            modifier = Modifier.weight(1f).height(50.dp),
+                            enabled = !isRecognizing,
+                            elevation = appButtonElevation()
                         ) {
                             if (isRecognizing) {
                                 CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
@@ -214,7 +219,8 @@ fun OcrBatchRecognitionScreen(
                             onBack()
                         }
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().height(50.dp).padding(horizontal = 24.dp),
+                    elevation = appButtonElevation()
                 ) {
                     Text("确认并导入")
                 }
@@ -223,10 +229,10 @@ fun OcrBatchRecognitionScreen(
     }
 
     if (showAlbumPicker) {
-        AlertDialog(
+        AppleAlertDialog(
             onDismissRequest = { showAlbumPicker = false; albumSelectedIds = emptySet() },
-            title = { Text("选择记账相册照片") },
-            text = {
+            title = "选择记账相册照片",
+            content = {
                 Column {
                     Text(
                         "已选择 ${albumSelectedIds.size} 张",
@@ -257,22 +263,17 @@ fun OcrBatchRecognitionScreen(
                     }
                 }
             },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val uris = albumPhotos
-                            .filter { albumSelectedIds.contains(it.id) }
-                            .map { Uri.parse(it.uri) }
-                        selectedImages = uris
-                        showAlbumPicker = false
-                        albumSelectedIds = emptySet()
-                    },
-                    enabled = albumSelectedIds.isNotEmpty()
-                ) { Text("确定") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAlbumPicker = false; albumSelectedIds = emptySet() }) { Text("取消") }
-            }
+            buttons = listOf(
+                AppleDialogButton("取消", AppleDialogButtonStyle.CANCEL) { showAlbumPicker = false; albumSelectedIds = emptySet() },
+                AppleDialogButton("确定", AppleDialogButtonStyle.DEFAULT) {
+                    val uris = albumPhotos
+                        .filter { albumSelectedIds.contains(it.id) }
+                        .map { Uri.parse(it.uri) }
+                    selectedImages = uris
+                    showAlbumPicker = false
+                    albumSelectedIds = emptySet()
+                }
+            )
         )
     }
 }
@@ -431,10 +432,10 @@ fun RecognizedItemCard(
         var editType by remember { mutableStateOf(item.type) }
         val categories = listOf("餐饮", "交通", "购物", "娱乐", "居住", "医疗", "教育", "人情", "投资", "收入", "其他")
 
-        AlertDialog(
+        AppleAlertDialog(
             onDismissRequest = { showEditDialog = false },
-            title = { Text("编辑账单") },
-            text = {
+            title = "编辑账单",
+            content = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = editAmount,
@@ -474,8 +475,9 @@ fun RecognizedItemCard(
                     )
                 }
             },
-            confirmButton = {
-                TextButton(onClick = {
+            buttons = listOf(
+                AppleDialogButton("取消", AppleDialogButtonStyle.CANCEL) { showEditDialog = false },
+                AppleDialogButton("保存", AppleDialogButtonStyle.DEFAULT) {
                     val amount = editAmount.toDoubleOrNull() ?: item.amount
                     onEdit(item.copy(
                         amount = amount,
@@ -484,11 +486,8 @@ fun RecognizedItemCard(
                         type = editType
                     ))
                     showEditDialog = false
-                }) { Text("保存") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showEditDialog = false }) { Text("取消") }
-            }
+                }
+            )
         )
     }
 }

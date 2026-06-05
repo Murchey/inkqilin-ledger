@@ -146,26 +146,17 @@ fun AssetManagementScreen(
     }
 
     assetToDelete?.let { asset ->
-        AlertDialog(
+        AppleAlertDialog(
             onDismissRequest = { assetToDelete = null },
-            title = { Text("删除资产") },
-            text = { Text("确定要删除「${asset.name}」吗？") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.deleteUserAsset(asset)
-                        assetToDelete = null
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text("删除", color = Color.White)
+            title = "删除资产",
+            message = "确定要删除「${asset.name}」吗？",
+            buttons = listOf(
+                AppleDialogButton("取消", AppleDialogButtonStyle.CANCEL) { assetToDelete = null },
+                AppleDialogButton("删除", AppleDialogButtonStyle.DESTRUCTIVE) {
+                    viewModel.deleteUserAsset(asset)
+                    assetToDelete = null
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { assetToDelete = null }) { Text("取消") }
-            }
+            )
         )
     }
 }
@@ -267,10 +258,10 @@ private fun AssetEditDialog(
     var note by remember { mutableStateOf(initialAsset?.note ?: "") }
     var typeExpanded by remember { mutableStateOf(false) }
 
-    AlertDialog(
+    AppleAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
+        title = title,
+        content = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = name,
@@ -339,23 +330,16 @@ private fun AssetEditDialog(
                 )
             }
         },
-        confirmButton = {
-            Button(
-                onClick = {
-                    val value = valueText.toDoubleOrNull() ?: 0.0
-                    val price = priceText.toDoubleOrNull() ?: 0.0
-                    if (name.isNotBlank()) {
-                        onConfirm(name, selectedType, value, price, note)
-                    }
-                },
-                enabled = name.isNotBlank() && valueText.toDoubleOrNull() != null
-            ) {
-                Text("确定")
+        buttons = listOf(
+            AppleDialogButton("取消", AppleDialogButtonStyle.CANCEL) { onDismiss() },
+            AppleDialogButton("确定", AppleDialogButtonStyle.DEFAULT) {
+                val value = valueText.toDoubleOrNull() ?: 0.0
+                val price = priceText.toDoubleOrNull() ?: 0.0
+                if (name.isNotBlank()) {
+                    onConfirm(name, selectedType, value, price, note)
+                }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
-        }
+        )
     )
 }
 

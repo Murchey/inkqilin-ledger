@@ -122,19 +122,14 @@ private fun KeywordCategoryItem(
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     if (showDeleteConfirm) {
-        AlertDialog(
+        AppleAlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("确认删除") },
-            text = { Text("确定要删除关键词「${keywordCategory.keyword}」吗？") },
-            confirmButton = {
-                TextButton(onClick = {
-                    onDelete()
-                    showDeleteConfirm = false
-                }) { Text("删除", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) { Text("取消") }
-            }
+            title = "确认删除",
+            message = "确定要删除关键词「${keywordCategory.keyword}」吗？",
+            buttons = listOf(
+                AppleDialogButton("取消", AppleDialogButtonStyle.CANCEL) { showDeleteConfirm = false },
+                AppleDialogButton("删除", AppleDialogButtonStyle.DESTRUCTIVE) { onDelete(); showDeleteConfirm = false }
+            )
         )
     }
 
@@ -191,10 +186,10 @@ private fun KeywordCategoryEditDialog(
     var categoryName by remember { mutableStateOf(keywordCategory?.categoryName ?: "") }
     var expanded by remember { mutableStateOf(false) }
 
-    AlertDialog(
+    AppleAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (keywordCategory == null) "添加关键词" else "编辑关键词") },
-        text = {
+        title = if (keywordCategory == null) "添加关键词" else "编辑关键词",
+        content = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 OutlinedTextField(
                     value = keyword,
@@ -238,14 +233,11 @@ private fun KeywordCategoryEditDialog(
                 }
             }
         },
-        confirmButton = {
-            TextButton(
-                onClick = { onConfirm(keyword.trim(), categoryName.trim()) },
-                enabled = keyword.isNotBlank() && categoryName.isNotBlank()
-            ) { Text("确定") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
-        }
+        buttons = listOf(
+            AppleDialogButton("取消", AppleDialogButtonStyle.CANCEL) { onDismiss() },
+            AppleDialogButton("确定", AppleDialogButtonStyle.DEFAULT) {
+                onConfirm(keyword.trim(), categoryName.trim())
+            }
+        )
     )
 }

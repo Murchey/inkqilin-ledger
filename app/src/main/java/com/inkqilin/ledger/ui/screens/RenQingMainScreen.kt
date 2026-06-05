@@ -5,6 +5,9 @@ package com.inkqilin.ledger.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -41,7 +44,6 @@ fun RenQingMainScreen(
     viewModel: RenQingViewModel,
     onNavigateToContactDetail: (Long) -> Unit = {},
     onNavigateToMonthDetail: (Int, Int) -> Unit = { _, _ -> },
-    onNavigateToAddEvent: () -> Unit = {},
     onNavigateToTagStats: (Int) -> Unit = {},
     onNavigateToContactAnalysis: (Int) -> Unit = {}
 ) {
@@ -83,20 +85,7 @@ fun RenQingMainScreen(
     }
 
     Scaffold(
-        containerColor = Color.Transparent,
-        floatingActionButton = {
-            if (selectedTab != 2) {
-                FloatingActionButton(
-                    onClick = onNavigateToAddEvent,
-                    shape = RoundedCornerShape(24.dp),
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp, pressedElevation = 0.dp)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "添加事件")
-                }
-            }
-        }
+        containerColor = Color.Transparent
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -192,10 +181,10 @@ private fun FilterDialog(
     var direction by remember { mutableStateOf(filterDirection) }
     var tagId by remember { mutableStateOf(filterTagId) }
 
-    AlertDialog(
+    AppleAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("筛选") },
-        text = {
+        title = "筛选",
+        content = {
             Column {
                 Text("按方向", style = MaterialTheme.typography.titleSmall)
                 Spacer(modifier = Modifier.height(8.dp))
@@ -234,8 +223,10 @@ private fun FilterDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onApply(direction, tagId) }) { Text("确定") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+        buttons = listOf(
+            AppleDialogButton("取消", AppleDialogButtonStyle.CANCEL) { onDismiss() },
+            AppleDialogButton("确认", AppleDialogButtonStyle.DEFAULT) { onApply(direction, tagId) }
+        )
     )
 }
 
@@ -247,7 +238,8 @@ private fun RenQingEventsList(events: List<RenQingEvent>, tags: List<RenQingTag>
         }
     } else {
         val grouped = events.groupBy { SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date(it.date)) }
-        LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 16.dp)) {
+        val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(6.dp)
+        LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 16.dp), contentPadding = PaddingValues(bottom = navBarBottomPadding + 76.dp)) {
             grouped.forEach { (month, monthEvents) ->
                 item {
                     Text(
@@ -401,10 +393,10 @@ private fun AddRenQingEventForm(
     }
 
     if (showNewTagDialog) {
-        AlertDialog(
+        AppleAlertDialog(
             onDismissRequest = { showNewTagDialog = false },
-            title = { Text("快速添加标签") },
-            text = {
+            title = "快速添加标签",
+            content = {
                 Column {
                     OutlinedTextField(
                         value = newTagName,
@@ -421,8 +413,9 @@ private fun AddRenQingEventForm(
                     )
                 }
             },
-            confirmButton = {
-                TextButton(onClick = {
+            buttons = listOf(
+                AppleDialogButton("取消", AppleDialogButtonStyle.CANCEL) { showNewTagDialog = false },
+                AppleDialogButton("添加", AppleDialogButtonStyle.DEFAULT) {
                     if (newTagName.isNotBlank()) {
                         val newTag = RenQingTag(name = newTagName.trim(), icon = newTagIcon)
                         selectedTag = newTag
@@ -430,9 +423,8 @@ private fun AddRenQingEventForm(
                         newTagIcon = "\uD83C\uDF81"
                         showNewTagDialog = false
                     }
-                }) { Text("确定") }
-            },
-            dismissButton = { TextButton(onClick = { showNewTagDialog = false }) { Text("取消") } }
+                }
+            )
         )
     }
 
@@ -551,8 +543,9 @@ private fun AddRenQingEventForm(
         }
         if (showDatePicker) {
             val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDate)
-            DatePickerDialog(
+            AppleDatePickerDialog(
                 onDismissRequest = { showDatePicker = false },
+                state = datePickerState,
                 confirmButton = {
                     TextButton(onClick = {
                         datePickerState.selectedDateMillis?.let { selectedDate = it }
@@ -560,7 +553,7 @@ private fun AddRenQingEventForm(
                     }) { Text("确定") }
                 },
                 dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("取消") } }
-            ) { DatePicker(state = datePickerState) }
+            )
         }
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -619,6 +612,7 @@ private fun AddRenQingEventForm(
                 Text(if (isEdit) "保存" else "添加")
             }
         }
+        Spacer(modifier = Modifier.height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(6.dp) + 76.dp))
     }
 }
 
@@ -645,10 +639,10 @@ private fun EditRenQingEventDialog(
     var selectedDate by remember { mutableLongStateOf(event.date) }
     var contactExpanded by remember { mutableStateOf(false) }
 
-    AlertDialog(
+    AppleAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("编辑事件") },
-        text = {
+        title = "编辑事件",
+        content = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 ExposedDropdownMenuBox(
                     expanded = contactExpanded,
@@ -742,8 +736,9 @@ private fun EditRenQingEventDialog(
                 }
                 if (showDatePicker) {
                     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDate)
-                    DatePickerDialog(
+                    AppleDatePickerDialog(
                         onDismissRequest = { showDatePicker = false },
+                        state = datePickerState,
                         confirmButton = {
                             TextButton(onClick = {
                                 datePickerState.selectedDateMillis?.let { selectedDate = it }
@@ -751,7 +746,7 @@ private fun EditRenQingEventDialog(
                             }) { Text("确定") }
                         },
                         dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("取消") } }
-                    ) { DatePicker(state = datePickerState) }
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -764,31 +759,28 @@ private fun EditRenQingEventDialog(
                 )
             }
         },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val amt = amount.toDoubleOrNull() ?: return@TextButton
-                    val cid = selectedContact?.id ?: 0
-                    val cname = selectedContact?.name ?: ""
-                    val updated = event.copy(
-                        contactId = cid,
-                        contactName = cname,
-                        eventType = eventType,
-                        tagId = selectedTag.id,
-                        tagName = selectedTag.name,
-                        direction = direction,
-                        amount = amt,
-                        giftDescription = giftDesc,
-                        date = selectedDate,
-                        location = location,
-                        note = note
-                    )
-                    onConfirm(updated, false)
-                },
-                enabled = amount.toDoubleOrNull() != null
-            ) { Text("保存") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+        buttons = listOf(
+            AppleDialogButton("取消", AppleDialogButtonStyle.CANCEL) { onDismiss() },
+            AppleDialogButton("保存", AppleDialogButtonStyle.DEFAULT) {
+                val amt = amount.toDoubleOrNull() ?: return@AppleDialogButton
+                val cid = selectedContact?.id ?: 0
+                val cname = selectedContact?.name ?: ""
+                val updated = event.copy(
+                    contactId = cid,
+                    contactName = cname,
+                    eventType = eventType,
+                    tagId = selectedTag.id,
+                    tagName = selectedTag.name,
+                    direction = direction,
+                    amount = amt,
+                    giftDescription = giftDesc,
+                    date = selectedDate,
+                    location = location,
+                    note = note
+                )
+                onConfirm(updated, false)
+            }
+        )
     )
 }
 
@@ -821,7 +813,8 @@ private fun RenQingContactsList(
                 Text("暂无联系人", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
-            LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 16.dp)) {
+            val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(6.dp)
+            LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 16.dp), contentPadding = PaddingValues(bottom = navBarBottomPadding + 76.dp)) {
                 items(contacts, key = { it.id }) { contact ->
                     ContactCard(contact, viewModel, onNavigateToContactDetail)
                     Spacer(modifier = Modifier.height(8.dp))
@@ -898,10 +891,10 @@ private fun AddRenQingContactDialog(
     var birthday by remember { mutableLongStateOf(editContact?.birthday ?: 0L) }
     var note by remember { mutableStateOf(editContact?.note ?: "") }
 
-    AlertDialog(
+    AppleAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (editContact != null) "编辑联系人" else "添加联系人") },
-        text = {
+        title = if (editContact != null) "编辑联系人" else "添加联系人",
+        content = {
             Column {
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("姓名") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 Spacer(modifier = Modifier.height(12.dp))
@@ -918,17 +911,14 @@ private fun AddRenQingContactDialog(
                 OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("备注（可选）") }, modifier = Modifier.fillMaxWidth(), maxLines = 3)
             }
         },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    if (name.isNotBlank()) {
-                        onConfirm(RenQingContact(id = editContact?.id ?: 0, name = name.trim(), relationship = relationship, phone = phone.trim(), birthday = if (birthday > 0) birthday else null, note = note.trim()))
-                    }
-                },
-                enabled = name.isNotBlank()
-            ) { Text(if (editContact != null) "保存" else "添加") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+        buttons = listOf(
+            AppleDialogButton("取消", AppleDialogButtonStyle.CANCEL) { onDismiss() },
+            AppleDialogButton(if (editContact != null) "保存" else "添加", AppleDialogButtonStyle.DEFAULT) {
+                if (name.isNotBlank()) {
+                    onConfirm(RenQingContact(id = editContact?.id ?: 0, name = name.trim(), relationship = relationship, phone = phone.trim(), birthday = if (birthday > 0) birthday else null, note = note.trim()))
+                }
+            }
+        )
     )
 }
 
@@ -1083,6 +1073,7 @@ fun RenQingStatsScreen(
                 Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+        Spacer(modifier = Modifier.height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(6.dp) + 76.dp))
     }
 }
 
@@ -1404,17 +1395,17 @@ fun ContactManagementScreen(viewModel: RenQingViewModel) {
     }
 
     showDeleteConfirm?.let { contact ->
-        AlertDialog(
+        AppleAlertDialog(
             onDismissRequest = { showDeleteConfirm = null },
-            title = { Text("删除联系人") },
-            text = { Text("确定要删除联系人「${contact.name}」吗？该联系人相关的人情记录不会被删除。") },
-            confirmButton = {
-                TextButton(onClick = {
+            title = "删除联系人",
+            message = "确定要删除联系人「${contact.name}」吗？该联系人相关的人情记录不会被删除。",
+            buttons = listOf(
+                AppleDialogButton("取消", AppleDialogButtonStyle.CANCEL) { showDeleteConfirm = null },
+                AppleDialogButton("删除", AppleDialogButtonStyle.DESTRUCTIVE) {
                     viewModel.deleteContact(contact)
                     showDeleteConfirm = null
-                }) { Text("删除", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = { TextButton(onClick = { showDeleteConfirm = null }) { Text("取消") } }
+                }
+            )
         )
     }
 
