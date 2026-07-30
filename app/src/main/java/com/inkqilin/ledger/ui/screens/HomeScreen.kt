@@ -209,7 +209,7 @@ fun HomeScreen(
         value = withContext(Dispatchers.Default) {
             val periodSummary = buildPeriodSummary(allTransactions, 2, selectedYearMonth)
             val recentDays = buildRecentExpenseTrend(allTransactions)
-            val groupedTransactions = buildDayTransactionGroups(allTransactions)
+            val groupedTransactions = buildDayTransactionGroups(allTransactions, selectedYearMonth)
             val currencySummaries = buildCurrencySummaries(periodSummary.transactions)
             
             HomeData(
@@ -1574,8 +1574,18 @@ private fun buildRecentExpenseTrend(allTransactions: List<Transaction>): List<Pa
     return groups
 }
 
-private fun buildDayTransactionGroups(allTransactions: List<Transaction>): List<DayTransactionGroup> {
+private fun buildDayTransactionGroups(allTransactions: List<Transaction>, selectedYearMonth: Pair<Int, Int>): List<DayTransactionGroup> {
+    val monthStart = Calendar.getInstance().apply {
+        set(selectedYearMonth.first, selectedYearMonth.second, 1, 0, 0, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+    val monthEnd = Calendar.getInstance().apply {
+        set(selectedYearMonth.first, selectedYearMonth.second + 1, 1, 0, 0, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
     return allTransactions
+        .filter { it.date in monthStart until monthEnd }
         .groupBy { transaction ->
             Calendar.getInstance().apply {
                 timeInMillis = transaction.date

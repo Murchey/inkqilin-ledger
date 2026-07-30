@@ -133,6 +133,7 @@ fun MainScreen(
         currentRoute == "keyword_category_management" -> "关键词管理"
         currentRoute == "ai_config" -> "AI API 配置"
         currentRoute == "ocr_batch_recognition" -> "OCR 批量识别"
+        currentRoute == "asset_management" -> "资产管理"
         else -> "墨麒麟记账"
     }
 
@@ -142,6 +143,10 @@ fun MainScreen(
 
     // FAB menu state (rendered in bottom bar, shared across pages)
     var showFabMenu by remember { mutableStateOf(false) }
+    
+    // 子页面可覆盖的 TopAppBar 状态
+    var customTopBarTitle by remember { mutableStateOf<String?>(null) }
+    var customBackAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     var albumFabTrigger by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val ocrEnabled by viewModel.ocrEnabled.collectAsState()
@@ -168,7 +173,7 @@ fun MainScreen(
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                     title = {
                         AnimatedContent(
-                            targetState = topBarTitle,
+                            targetState = customTopBarTitle ?: topBarTitle,
                             transitionSpec = {
                                 if (enableAnimations) {
                                     (fadeIn(animationSpec = MotionSprings.appearance()) +
@@ -203,7 +208,7 @@ fun MainScreen(
                                 ExitTransition.None
                             }
                         ) {
-                            IconButton(onClick = { navController.popBackStack() }) {
+                            IconButton(onClick = { (customBackAction ?: { navController.popBackStack() })() }) {
                                 Icon(Icons.Default.ArrowBack, contentDescription = "返回")
                             }
                         }
@@ -601,8 +606,19 @@ fun MainScreen(
             }
             composable("asset_management") {
                 AssetManagementScreen(
-                    viewModel = viewModel
+                    viewModel = viewModel,
+                    onBack = { navController.popBackStack() },
+                    onUpdateTopBar = { title, backAction ->
+                        customTopBarTitle = title
+                        customBackAction = backAction
+                    }
                 )
+                DisposableEffect(Unit) {
+                    onDispose {
+                        customTopBarTitle = null
+                        customBackAction = null
+                    }
+                }
             }
             composable("ocr_batch_recognition") {
                 OcrBatchRecognitionScreen(

@@ -50,6 +50,7 @@ class MainActivity : ComponentActivity() {
             database.albumPhotoDao(),
             database.keywordCategoryDao(),
             database.userAssetDao(),
+            database.assetFlowDao(),
             themeManager
         )
     }

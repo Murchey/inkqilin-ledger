@@ -104,6 +104,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
     
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showEndDatePicker by remember { mutableStateOf(false) }
+    var showPieChart by remember { mutableStateOf(false) }
 
     if (showStartDatePicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = startDate)
@@ -665,7 +666,6 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
 
         if (barChartData.isNotEmpty()) {
             item {
-                var showPieChart by remember { mutableStateOf(false) }
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Title + toggle buttons

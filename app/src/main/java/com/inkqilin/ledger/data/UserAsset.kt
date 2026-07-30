@@ -3,15 +3,15 @@ package com.inkqilin.ledger.data
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-enum class UserAssetType(val label: String, val icon: String) {
-    REAL_ESTATE("房产", "Home"),
-    STOCK("股票", "TrendingUp"),
-    FUND("基金", "ShowChart"),
-    BOND("债券", "AccountBalance"),
-    DEPOSIT("存款", "Savings"),
-    INSURANCE("保险", "Security"),
-    CRYPTO("数字货币", "CurrencyBitcoin"),
-    OTHER("其他", "Category")
+enum class UserAssetType(val label: String) {
+    REAL_ESTATE("房产"),
+    VEHICLE("车辆"),
+    DEPOSIT("存款"),
+    INSURANCE("保险"),
+    JEWELRY("珠宝首饰"),
+    COLLECTION("收藏品"),
+    DIGITAL("数字资产"),
+    OTHER("其他")
 }
 
 @Entity(tableName = "user_assets")
@@ -21,8 +21,7 @@ data class UserAsset(
     val name: String,
     val type: UserAssetType,
     val currentValue: Double,
-    val purchasePrice: Double = 0.0,
     val note: String = "",
-    val purchaseDate: Long = System.currentTimeMillis(),
+    val createdAt: Long = System.currentTimeMillis(),
     val lastUpdated: Long = System.currentTimeMillis()
 )

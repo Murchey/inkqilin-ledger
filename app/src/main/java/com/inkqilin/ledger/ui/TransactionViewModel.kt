@@ -30,6 +30,7 @@ class TransactionViewModel(
     private val albumPhotoDao: AlbumPhotoDao,
     private val keywordCategoryDao: KeywordCategoryDao,
     private val userAssetDao: UserAssetDao,
+    private val assetFlowDao: AssetFlowDao,
     private val themeManager: ThemeManager
 ) : ViewModel() {
     val allTransactions: Flow<List<Transaction>> = transactionDao.getAllTransactions()
@@ -469,6 +470,25 @@ class TransactionViewModel(
         viewModelScope.launch { userAssetDao.deleteAsset(asset) }
     }
 
+    // --- AssetFlow ---
+    val allAssetFlows: StateFlow<List<AssetFlow>> = assetFlowDao.getAllFlows()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun getAssetFlows(assetId: Long): Flow<List<AssetFlow>> =
+        assetFlowDao.getFlowsByAssetId(assetId)
+
+    fun addAssetFlow(flow: AssetFlow) {
+        viewModelScope.launch { assetFlowDao.insertFlow(flow) }
+    }
+
+    fun updateAssetFlow(flow: AssetFlow) {
+        viewModelScope.launch { assetFlowDao.updateFlow(flow) }
+    }
+
+    fun deleteAssetFlow(flow: AssetFlow) {
+        viewModelScope.launch { assetFlowDao.deleteFlow(flow) }
+    }
+
     data class CleanupResult(val deletedCount: Int, val freedBytes: Long)
 
     suspend fun cleanupOrphanedAlbumFiles(context: Context): CleanupResult {
@@ -619,12 +639,13 @@ class TransactionViewModelFactory(
     private val albumPhotoDao: AlbumPhotoDao,
     private val keywordCategoryDao: KeywordCategoryDao,
     private val userAssetDao: UserAssetDao,
+    private val assetFlowDao: AssetFlowDao,
     private val themeManager: ThemeManager
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(TransactionViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return TransactionViewModel(transactionDao, categoryDao, currencyAssetDao, albumPhotoDao, keywordCategoryDao, userAssetDao, themeManager) as T
+            return TransactionViewModel(transactionDao, categoryDao, currencyAssetDao, albumPhotoDao, keywordCategoryDao, userAssetDao, assetFlowDao, themeManager) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

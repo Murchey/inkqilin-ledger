@@ -37,6 +37,17 @@ object NotificationParser {
         "津贴", "凑单", "仅需", "新人专享", "会员专享"
     )
 
+    // 非交易指示词：余额预警、系统提醒、营销券类通知 —— 绝不应识别为交易
+    // 注意：不要放太宽泛的词（如"您有"），否则会误过滤真实交易通知
+    private val NON_TRANSACTION_INDICATORS = setOf(
+        "余额已低于", "预警阈值", // 余额预警
+        "消费券", "优惠券", "已到账红包", // 营销券/红包
+        "账单日", "还款日", "即将到期", // 账单提醒
+        "安全提醒", "账户提醒", "登录提醒", // 安全通知
+        "验证码", "校验码", "动态码", // 验证码
+        "待领取", "待使用" // 待领取/待使用（非已完成交易）
+    )
+
     // 强交易信号：如果文本包含这些，大概率是真实交易（即使有广告词也信任）
     private val STRONG_TRADE_SIGNALS = setOf(
         "成功支付", "付款成功", "支付成功", "交易成功",
@@ -73,6 +84,12 @@ object NotificationParser {
     private fun parseAlipay(text: String): ParsedNotification? {
         Log.d("NotificationParser", "Alipay fullText: $text")
 
+        // 第 0 层：非交易通知预过滤（余额预警、消费券等）
+        if (shouldSkip(text)) {
+            Log.d("NotificationParser", "Alipay: non-transaction/ad content filtered")
+            return null
+        }
+
         // 第 1 层：碰一下/碰一碰 专用匹配（强制支出）
         parseTapToPay(text)?.let { return it }
 
@@ -98,6 +115,11 @@ object NotificationParser {
     private fun parseWeChat(text: String): ParsedNotification? {
         Log.d("NotificationParser", "WeChat fullText: $text")
 
+        if (shouldSkip(text)) {
+            Log.d("NotificationParser", "WeChat: non-transaction/ad content filtered")
+            return null
+        }
+
         // 第 1 层：收入匹配
         parseIncome(text)?.let { return it }
 
@@ -116,6 +138,11 @@ object NotificationParser {
     // ──────────────────────────────────────────────
     private fun parseUnionPay(text: String): ParsedNotification? {
         Log.d("NotificationParser", "UnionPay fullText: $text")
+
+        if (shouldSkip(text)) {
+            Log.d("NotificationParser", "UnionPay: non-transaction/ad content filtered")
+            return null
+        }
 
         // 云闪付收入关键词
         val unionPayIncomeKeywords = setOf(
@@ -192,6 +219,11 @@ object NotificationParser {
     private fun parseGeneric(text: String): ParsedNotification? {
         Log.d("NotificationParser", "Generic fullText: $text")
 
+        if (shouldSkip(text)) {
+            Log.d("NotificationParser", "Generic: non-transaction/ad content filtered")
+            return null
+        }
+
         parseIncome(text)?.let {
             return it.copy(rawSource = "系统通知")
         }
@@ -238,14 +270,21 @@ object NotificationParser {
      *   内容: "￥3.00 付款成功"
      *   标题: "付款成功￥3.00"
      *   内容: "你已成功付款3.00元"
+     *   格式: "付款¥28.50给瑞幸咖啡，支付成功"
      */
     private fun parsePaymentSuccess(text: String): ParsedNotification? {
-        if (!text.containsAny("付款成功", "支付成功", "成功付款", "成功支付", "已付款", "已支付")) return null
+        if (!text.containsAny("付款成功", "支付成功", "成功付款", "成功支付",
+                "已付款", "已支付")) return null
 
-        // 尝试多种金额格式
+        // 尝试多种金额格式，按优先级排列
         val amountPatterns = listOf(
+            // 1. 直接「付款¥X」模式 —— "付款¥28.50给瑞幸咖啡"
+            Regex("""付款[¥￥](\d+(?:\.\d{1,2})?)"""),
+            // 2. 通用 ¥/￥ 金额
             AMOUNT_REGEX, // ¥15.00 或 ￥15.00
+            // 3. 「元」结尾格式
             Regex("""(\d+(?:\.\d{1,2})?)\s*元"""), // 15.00元
+            // 4. 付款/支付 + 数字
             Regex("""付款[^\d]*(\d+(?:\.\d{1,2})?)"""), // 付款3.00
             Regex("""支付[^\d]*(\d+(?:\.\d{1,2})?)"""), // 支付3.00
         )
@@ -309,8 +348,13 @@ object NotificationParser {
         val hasExpenseKeyword = EXPENSE_KEYWORDS.any { text.contains(it) }
         if (!hasExpenseKeyword) return null
 
-        val match = AMOUNT_REGEX.find(text) ?: return null
-        val amount = match.groupValues[1].toDoubleOrNull() ?: return null
+        // 优先匹配「付款¥X」直接格式，再尝试通用 ¥/￥ 格式
+        val amount = listOf(
+            Regex("""付款[¥￥](\d+(?:\.\d{1,2})?)"""),
+            AMOUNT_REGEX
+        ).firstNotNullOfOrNull { pattern ->
+            pattern.find(text)?.groupValues?.get(1)?.toDoubleOrNull()?.takeIf { it > 0 }
+        } ?: return null
 
         // ⚠️ 广告检测：如果文本是广告性质，跳过
         if (isAdvertisement(text)) {
@@ -329,15 +373,17 @@ object NotificationParser {
     }
 
     /**
-     * 兜底逻辑 — 加入广告检测
+     * 兜底逻辑 — 必须同时满足：有金额 + 有弱交易信号（收入/支出关键词），否则丢弃
      */
     private fun parseFallback(text: String): ParsedNotification? {
         val match = AMOUNT_REGEX.find(text) ?: return null
         val amount = match.groupValues[1].toDoubleOrNull() ?: return null
 
-        // ⚠️ 广告检测：兜底层必须严格拦截
-        if (isAdvertisement(text)) {
-            Log.d("NotificationParser", "Fallback skipped: ad content detected")
+        // 必须同时命中交易关键词，否则拒绝兜底匹配
+        val hasTradeKeyword = INCOME_KEYWORDS.any { text.contains(it) } ||
+                EXPENSE_KEYWORDS.any { text.contains(it) }
+        if (!hasTradeKeyword) {
+            Log.d("NotificationParser", "Fallback skipped: no trade keyword, amount=$amount")
             return null
         }
 
@@ -401,6 +447,19 @@ object NotificationParser {
     }
 
     /**
+     * 非交易通知检测：余额预警、系统提醒、营销券类
+     * 这些通知即使包含金额也不是真实交易
+     */
+    private fun isNonTransaction(text: String): Boolean {
+        // 如果有强交易信号，信任为真实交易（"支付成功"权重高于"余额"）
+        if (STRONG_TRADE_SIGNALS.any { text.contains(it) }) {
+            return false
+        }
+        // 如果没有强交易信号，检查非交易指示词
+        return NON_TRANSACTION_INDICATORS.any { text.contains(it) }
+    }
+
+    /**
      * 广告检测：判断文本是否是营销/促销通知
      *
      * 规则：
@@ -414,5 +473,12 @@ object NotificationParser {
         }
         // 检查广告关键词
         return AD_KEYWORDS.any { text.contains(it) }
+    }
+
+    /**
+     * 检查是否应完全跳过（非交易通知 + 广告）
+     */
+    private fun shouldSkip(text: String): Boolean {
+        return isNonTransaction(text) || isAdvertisement(text)
     }
 }

@@ -72,6 +72,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import com.inkqilin.ledger.data.AlbumPhoto
 import com.inkqilin.ledger.ui.TransactionViewModel
 import kotlinx.coroutines.launch
@@ -136,6 +137,30 @@ fun AlbumScreen(
 
     var isDragging by remember { mutableStateOf(false) }
     var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
+    var cameraXFailed by remember { mutableStateOf(false) }
+    var tempSystemCameraUri by remember { mutableStateOf<Uri?>(null) }
+
+    val systemCameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success) {
+            tempSystemCameraUri?.let { uri ->
+                try {
+                    val bitmap = BitmapFactory.decodeStream(
+                        context.contentResolver.openInputStream(uri)
+                    )
+                    if (bitmap != null) {
+                        saveToSystemGallery(context, bitmap)
+                        polaroidBitmap = bitmap
+                        capturedUri = uri
+                        showFlash = true
+                    }
+                } catch (_: Exception) {
+                    Toast.makeText(context, "拍照失败", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
 
     LaunchedEffect(isDragging, expansionProgress.value) {
         viewModel.setAlbumInteracting(isDragging || expansionProgress.value > 0.01f)
@@ -188,6 +213,27 @@ fun AlbumScreen(
                         }
                     }
                 )
+            } else if (expansionProgress.value > 0.6f && cameraXFailed) {
+                // CameraX 不可用时使用系统相机
+                val imageDir = File(context.filesDir, "album_photos")
+                if (!imageDir.exists()) imageDir.mkdirs()
+                val photoFile = File(imageDir, "IMG_${System.currentTimeMillis()}.jpg")
+                val contentUri = FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    photoFile
+                )
+                tempSystemCameraUri = Uri.fromFile(photoFile)
+                scope.launch {
+                    expansionProgress.animateTo(
+                        0f,
+                        spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = Spring.StiffnessHigh
+                        )
+                    )
+                }
+                systemCameraLauncher.launch(contentUri)
             } else {
                 expansionProgress.animateTo(
                     0f,
@@ -278,7 +324,8 @@ fun AlbumScreen(
                     hasPermission = hasCameraPermission.value,
                     showFlash = showFlash,
                     isPrinting = isPrinting,
-                    onImageCaptureReady = { imageCapture = it }
+                    onImageCaptureReady = { imageCapture = it },
+                    onCameraInitFailed = { cameraXFailed = true }
                 )
             }
 
@@ -458,7 +505,8 @@ private fun DynamicIslandCapsule(
     hasPermission: Boolean,
     showFlash: Boolean,
     isPrinting: Boolean,
-    onImageCaptureReady: (ImageCapture) -> Unit
+    onImageCaptureReady: (ImageCapture) -> Unit,
+    onCameraInitFailed: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -487,32 +535,14 @@ private fun DynamicIslandCapsule(
     val shadowElevation = 4.dp + 12.dp * (if (isPrinting) 0f else expansionProgress.value)
 
     val shouldBindCamera = expansionProgress.value > 0.15f
+    var cameraInitFailed by remember { mutableStateOf(false) }
 
-    val cameraProviderFuture = remember {
-        ProcessCameraProvider.getInstance(context)
-    }
-
-    LaunchedEffect(shouldBindCamera) {
-        if (shouldBindCamera && hasPermission) {
+    // 摄像头解绑清理
+    DisposableEffect(lifecycleOwner) {
+        onDispose {
             try {
-                val cameraProvider = cameraProviderFuture.get()
-                val preview = Preview.Builder().build()
-                val capture = ImageCapture.Builder()
-                    .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-                    .build()
-                onImageCaptureReady(capture)
-                cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(
-                    lifecycleOwner,
-                    CameraSelector.DEFAULT_BACK_CAMERA,
-                    preview,
-                    capture
-                )
-            } catch (_: Exception) {}
-        } else if (!shouldBindCamera) {
-            try {
-                val cameraProvider = cameraProviderFuture.get()
-                cameraProvider.unbindAll()
+                val provider = ProcessCameraProvider.getInstance(context).get()
+                provider.unbindAll()
             } catch (_: Exception) {}
         }
     }
@@ -532,13 +562,13 @@ private fun DynamicIslandCapsule(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            if (shouldBindCamera && hasPermission) {
+            if (shouldBindCamera && hasPermission && !cameraInitFailed) {
                 val cameraPreviewView = remember { mutableStateOf<PreviewView?>(null) }
 
                 LaunchedEffect(cameraPreviewView.value) {
                     val pv = cameraPreviewView.value ?: return@LaunchedEffect
                     try {
-                        val cameraProvider = cameraProviderFuture.get()
+                        val cameraProvider = ProcessCameraProvider.getInstance(context).get()
                         val preview = Preview.Builder().build().also {
                             it.setSurfaceProvider(pv.surfaceProvider)
                         }
@@ -553,7 +583,10 @@ private fun DynamicIslandCapsule(
                             preview,
                             capture
                         )
-                    } catch (_: Exception) {}
+                    } catch (_: Exception) {
+                        cameraInitFailed = true
+                        onCameraInitFailed()
+                    }
                 }
 
                 Box(

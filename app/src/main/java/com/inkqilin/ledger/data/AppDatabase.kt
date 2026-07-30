@@ -8,8 +8,8 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [Transaction::class, Category::class, RenQingContact::class, RenQingEvent::class, RenQingTag::class, CurrencyAsset::class, AlbumPhoto::class, KeywordCategory::class, UserAsset::class],
-    version = 10,
+    entities = [Transaction::class, Category::class, RenQingContact::class, RenQingEvent::class, RenQingTag::class, CurrencyAsset::class, AlbumPhoto::class, KeywordCategory::class, UserAsset::class, AssetFlow::class],
+    version = 11,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -22,6 +22,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun albumPhotoDao(): AlbumPhotoDao
     abstract fun keywordCategoryDao(): KeywordCategoryDao
     abstract fun userAssetDao(): UserAssetDao
+    abstract fun assetFlowDao(): AssetFlowDao
 
     companion object {
         @Volatile
@@ -144,6 +145,54 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 1. 创建 asset_flows 表
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `asset_flows` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `assetId` INTEGER NOT NULL,
+                        `assetName` TEXT NOT NULL,
+                        `flowType` TEXT NOT NULL,
+                        `amount` REAL NOT NULL,
+                        `newValue` REAL NOT NULL,
+                        `note` TEXT NOT NULL DEFAULT '',
+                        `date` INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
+
+                // 2. 重建 user_assets 表：移除 purchasePrice/purchaseDate，添加 createdAt
+                // 旧枚举: REAL_ESTATE=0, STOCK=1, FUND=2, BOND=3, DEPOSIT=4, INSURANCE=5, CRYPTO=6, OTHER=7
+                // 新枚举: REAL_ESTATE=0, VEHICLE=1, DEPOSIT=2, INSURANCE=3, JEWELRY=4, COLLECTION=5, DIGITAL=6, OTHER=7
+                db.execSQL("""
+                    CREATE TABLE `user_assets_new` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `type` TEXT NOT NULL,
+                        `currentValue` REAL NOT NULL DEFAULT 0,
+                        `note` TEXT NOT NULL DEFAULT '',
+                        `createdAt` INTEGER NOT NULL DEFAULT 0,
+                        `lastUpdated` INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    INSERT INTO `user_assets_new` (`id`, `name`, `type`, `currentValue`, `note`, `createdAt`, `lastUpdated`)
+                    SELECT `id`, `name`,
+                        CASE CAST(`type` AS INTEGER)
+                            WHEN 0 THEN 0
+                            WHEN 4 THEN 2
+                            WHEN 5 THEN 3
+                            WHEN 7 THEN 7
+                            ELSE 7
+                        END,
+                        `currentValue`, `note`, `purchaseDate`, `lastUpdated`
+                    FROM `user_assets`
+                """.trimIndent())
+                db.execSQL("DROP TABLE `user_assets`")
+                db.execSQL("ALTER TABLE `user_assets_new` RENAME TO `user_assets`")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -151,7 +200,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "ledger_database"
                 )
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
                     .fallbackToDestructiveMigrationOnDowngrade()
                     .build()
                 INSTANCE = instance
