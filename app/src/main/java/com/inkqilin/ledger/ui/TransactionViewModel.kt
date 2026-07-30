@@ -3,6 +3,7 @@ package com.inkqilin.ledger.ui
 import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -443,7 +444,21 @@ class TransactionViewModel(
 
     fun deleteAlbumPhoto(photo: AlbumPhoto) {
         viewModelScope.launch {
+            // 先删除数据库记录
             albumPhotoDao.deletePhoto(photo)
+            // 同步删除磁盘文件
+            try {
+                val path = Uri.parse(photo.uri).path
+                if (path != null) {
+                    val file = File(path)
+                    if (file.exists()) {
+                        file.delete()
+                        Log.d("TransactionVM", "Deleted photo file: $path")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("TransactionVM", "Failed to delete photo file: ${photo.uri}", e)
+            }
         }
     }
 
@@ -487,32 +502,6 @@ class TransactionViewModel(
 
     fun deleteAssetFlow(flow: AssetFlow) {
         viewModelScope.launch { assetFlowDao.deleteFlow(flow) }
-    }
-
-    data class CleanupResult(val deletedCount: Int, val freedBytes: Long)
-
-    suspend fun cleanupOrphanedAlbumFiles(context: Context): CleanupResult {
-        return kotlinx.coroutines.withContext(Dispatchers.IO) {
-            val imageDir = File(context.filesDir, "album_photos")
-            if (!imageDir.exists()) return@withContext CleanupResult(0, 0)
-
-            val dbUris = albumPhotoDao.getAllPhotosOnce().map { photo ->
-                Uri.parse(photo.uri).path
-            }.toSet()
-
-            var deletedCount = 0
-            var freedBytes = 0L
-
-            imageDir.listFiles()?.forEach { file ->
-                val filePath = file.absolutePath
-                if (filePath !in dbUris) {
-                    freedBytes += file.length()
-                    if (file.delete()) deletedCount++
-                }
-            }
-
-            CleanupResult(deletedCount, freedBytes)
-        }
     }
 
     fun setAiApiKey(apiKey: String) {
