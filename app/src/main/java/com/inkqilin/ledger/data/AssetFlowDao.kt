@@ -19,4 +19,7 @@ interface AssetFlowDao {
 
     @Delete
     suspend fun deleteFlow(flow: AssetFlow)
+
+    @Query("SELECT * FROM asset_flows WHERE assetId = :assetId ORDER BY date DESC LIMIT 1")
+    suspend fun getLatestFlowByAssetId(assetId: Long): AssetFlow?
 }

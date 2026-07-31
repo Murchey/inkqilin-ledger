@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [Transaction::class, Category::class, RenQingContact::class, RenQingEvent::class, RenQingTag::class, CurrencyAsset::class, AlbumPhoto::class, KeywordCategory::class, UserAsset::class, AssetFlow::class],
-    version = 11,
+    version = 13,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -193,6 +193,57 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 资产类型枚举变更：
+                // 旧: REAL_ESTATE, VEHICLE, DEPOSIT, INSURANCE, JEWELRY, COLLECTION, DIGITAL, OTHER
+                // 新: REAL_ESTATE, VEHICLE, STOCK, FUND, INSURANCE, DEPOSIT, DIGITAL, OTHER
+                // Room 对 TEXT 列使用枚举名存储，必须输出枚举名而非数字序号
+                // 同时兼容旧值可能已是数字字符串的情况
+                db.execSQL("""
+                    UPDATE `user_assets` SET `type` = CASE
+                        WHEN `type` = 'REAL_ESTATE' THEN 'REAL_ESTATE'
+                        WHEN `type` = 'VEHICLE' THEN 'VEHICLE'
+                        WHEN `type` = 'DEPOSIT' THEN 'DEPOSIT'
+                        WHEN `type` = 'INSURANCE' THEN 'INSURANCE'
+                        WHEN `type` = 'JEWELRY' THEN 'OTHER'
+                        WHEN `type` = 'COLLECTION' THEN 'OTHER'
+                        WHEN `type` = 'DIGITAL' THEN 'DIGITAL'
+                        WHEN `type` = 'OTHER' THEN 'OTHER'
+                        WHEN `type` = '0' THEN 'REAL_ESTATE'
+                        WHEN `type` = '1' THEN 'VEHICLE'
+                        WHEN `type` = '2' THEN 'DEPOSIT'
+                        WHEN `type` = '3' THEN 'INSURANCE'
+                        WHEN `type` = '4' THEN 'OTHER'
+                        WHEN `type` = '5' THEN 'OTHER'
+                        WHEN `type` = '6' THEN 'DIGITAL'
+                        WHEN `type` = '7' THEN 'OTHER'
+                        ELSE 'OTHER'
+                    END
+                """.trimIndent())
+            }
+        }
+
+        private val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 修复 v12 中可能因错误迁移产生的数字字符串枚举值
+                // 如果值已经是合法枚举名（如 'REAL_ESTATE'），CASE 不会命中并保持原值
+                db.execSQL("""
+                    UPDATE `user_assets` SET `type` = CASE
+                        WHEN `type` = '0' THEN 'REAL_ESTATE'
+                        WHEN `type` = '1' THEN 'VEHICLE'
+                        WHEN `type` = '2' THEN 'STOCK'
+                        WHEN `type` = '3' THEN 'FUND'
+                        WHEN `type` = '4' THEN 'INSURANCE'
+                        WHEN `type` = '5' THEN 'DEPOSIT'
+                        WHEN `type` = '6' THEN 'DIGITAL'
+                        WHEN `type` = '7' THEN 'OTHER'
+                        ELSE `type`
+                    END
+                """.trimIndent())
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -200,7 +251,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "ledger_database"
                 )
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
                     .fallbackToDestructiveMigrationOnDowngrade()
                     .build()
                 INSTANCE = instance

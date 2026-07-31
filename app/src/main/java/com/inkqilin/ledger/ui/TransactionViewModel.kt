@@ -493,15 +493,43 @@ class TransactionViewModel(
         assetFlowDao.getFlowsByAssetId(assetId)
 
     fun addAssetFlow(flow: AssetFlow) {
-        viewModelScope.launch { assetFlowDao.insertFlow(flow) }
+        viewModelScope.launch {
+            assetFlowDao.insertFlow(flow)
+            // 同步更新资产的当前估值
+            userAssetDao.getAssetById(flow.assetId)?.let { asset ->
+                userAssetDao.updateAsset(asset.copy(
+                    currentValue = flow.newValue,
+                    lastUpdated = System.currentTimeMillis()
+                ))
+            }
+        }
     }
 
     fun updateAssetFlow(flow: AssetFlow) {
-        viewModelScope.launch { assetFlowDao.updateFlow(flow) }
+        viewModelScope.launch {
+            assetFlowDao.updateFlow(flow)
+            // 同步更新资产的当前估值
+            userAssetDao.getAssetById(flow.assetId)?.let { asset ->
+                userAssetDao.updateAsset(asset.copy(
+                    currentValue = flow.newValue,
+                    lastUpdated = System.currentTimeMillis()
+                ))
+            }
+        }
     }
 
     fun deleteAssetFlow(flow: AssetFlow) {
-        viewModelScope.launch { assetFlowDao.deleteFlow(flow) }
+        viewModelScope.launch {
+            assetFlowDao.deleteFlow(flow)
+            // 删除后，找到该资产最新的流转记录，以其 newValue 更新资产估值
+            val latestFlow = assetFlowDao.getLatestFlowByAssetId(flow.assetId)
+            userAssetDao.getAssetById(flow.assetId)?.let { asset ->
+                userAssetDao.updateAsset(asset.copy(
+                    currentValue = latestFlow?.newValue ?: asset.currentValue,
+                    lastUpdated = System.currentTimeMillis()
+                ))
+            }
+        }
     }
 
     fun setAiApiKey(apiKey: String) {

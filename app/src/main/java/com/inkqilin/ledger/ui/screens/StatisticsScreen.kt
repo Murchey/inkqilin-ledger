@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -91,20 +92,20 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
     val allUserAssets by viewModel.allUserAssets.collectAsState()
     val userAssetTotalValue by viewModel.userAssetTotalValue.collectAsState()
 
-    var selectedType by remember { mutableStateOf(TransactionType.EXPENSE) }
-    var selectedPeriod by remember { mutableStateOf(TimePeriod.MONTH) }
-    var selectedCurrencyCode by remember { mutableStateOf<String?>(null) }
+    var selectedType by rememberSaveable { mutableStateOf(TransactionType.EXPENSE) }
+    var selectedPeriod by rememberSaveable { mutableStateOf(TimePeriod.MONTH) }
+    var selectedCurrencyCode by rememberSaveable { mutableStateOf<String?>(null) }
     
     var categoryToEdit by remember { mutableStateOf<Category?>(null) }
     
-    var startDate by remember { mutableLongStateOf(
+    var startDate by rememberSaveable { mutableStateOf(
         Calendar.getInstance().apply { set(Calendar.DAY_OF_MONTH, 1); set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0) }.timeInMillis
     ) }
-    var endDate by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var endDate by rememberSaveable { mutableStateOf(System.currentTimeMillis()) }
     
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showEndDatePicker by remember { mutableStateOf(false) }
-    var showPieChart by remember { mutableStateOf(false) }
+    var showPieChart by rememberSaveable { mutableStateOf(false) }
 
     if (showStartDatePicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = startDate)

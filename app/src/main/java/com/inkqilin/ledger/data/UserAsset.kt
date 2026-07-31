@@ -4,13 +4,13 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 enum class UserAssetType(val label: String) {
-    REAL_ESTATE("房产"),
-    VEHICLE("车辆"),
-    DEPOSIT("存款"),
+    REAL_ESTATE("房屋"),
+    VEHICLE("载具"),
+    STOCK("股票"),
+    FUND("基金"),
     INSURANCE("保险"),
-    JEWELRY("珠宝首饰"),
-    COLLECTION("收藏品"),
-    DIGITAL("数字资产"),
+    DEPOSIT("存款"),
+    DIGITAL("数字货币"),
     OTHER("其他")
 }
 

@@ -188,6 +188,7 @@ fun AssetManagementScreen(
             onClick = { showAddDialog = true },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
+                .navigationBarsPadding()
                 .padding(16.dp),
             containerColor = MaterialTheme.colorScheme.primary
         ) {
@@ -557,6 +558,7 @@ private fun AssetFlowScreen(
             onClick = { showAddFlowDialog = true },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
+                .navigationBarsPadding()
                 .padding(16.dp),
             containerColor = MaterialTheme.colorScheme.primary
         ) {
@@ -567,6 +569,8 @@ private fun AssetFlowScreen(
     if (showAddFlowDialog || editingFlow != null) {
         AssetFlowEditDialog(
             flow = editingFlow,
+            assetId = asset.id,
+            assetName = asset.name,
             currentValue = asset.currentValue,
             onDismiss = {
                 showAddFlowDialog = false
@@ -720,6 +724,8 @@ private fun FlowItem(
 @Composable
 private fun AssetFlowEditDialog(
     flow: AssetFlow?,
+    assetId: Long,
+    assetName: String,
     currentValue: Double,
     onDismiss: () -> Unit,
     onSave: (AssetFlow) -> Unit
@@ -849,8 +855,8 @@ private fun AssetFlowEditDialog(
                     }
                     onSave(
                         AssetFlow(
-                            assetId = flow?.assetId ?: 0,
-                            assetName = flow?.assetName ?: "",
+                            assetId = assetId,
+                            assetName = assetName,
                             flowType = selectedType,
                             amount = finalAmount,
                             newValue = newValue,
@@ -877,10 +883,10 @@ private fun AssetFlowEditDialog(
 private fun iconForAssetType(type: UserAssetType): ImageVector = when (type) {
     UserAssetType.REAL_ESTATE -> Icons.Default.Home
     UserAssetType.VEHICLE -> Icons.Default.Star
-    UserAssetType.DEPOSIT -> Icons.Default.Lock
+    UserAssetType.STOCK -> Icons.Default.Star
+    UserAssetType.FUND -> Icons.Default.Star
     UserAssetType.INSURANCE -> Icons.Default.Lock
-    UserAssetType.JEWELRY -> Icons.Default.Star
-    UserAssetType.COLLECTION -> Icons.Default.Star
+    UserAssetType.DEPOSIT -> Icons.Default.Lock
     UserAssetType.DIGITAL -> Icons.Default.Star
     UserAssetType.OTHER -> Icons.Default.MoreVert
 }
