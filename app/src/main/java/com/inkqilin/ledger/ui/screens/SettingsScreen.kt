@@ -641,6 +641,12 @@ fun SettingsScreen(
         }
 
         val checkUpdateEnabled by viewModel.checkUpdateEnabled.collectAsState()
+        val updateProxyUrl by viewModel.updateProxyUrl.collectAsState()
+        val proxyOptions = com.inkqilin.ledger.util.PROXY_SOURCES + "自定义"
+        var showProxyDropdown by remember { mutableStateOf(false) }
+        var showCustomProxyInput by remember { mutableStateOf(false) }
+        var customProxyUrl by remember { mutableStateOf("") }
+
         Text(text = "更新检测", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
         Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
@@ -651,7 +657,76 @@ fun SettingsScreen(
                         Switch(checked = checkUpdateEnabled, onCheckedChange = { viewModel.setCheckUpdateEnabled(it) })
                     }
                 )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                // 代理源选择
+                Box {
+                    ListItem(
+                        headlineContent = { Text("使用代理源") },
+                        supportingContent = {
+                            val displayText = if (updateProxyUrl in com.inkqilin.ledger.util.PROXY_SOURCES) {
+                                val idx = com.inkqilin.ledger.util.PROXY_SOURCES.indexOf(updateProxyUrl)
+                                "代理 ${idx + 1}: ${com.inkqilin.ledger.util.PROXY_SOURCES[idx]}"
+                            } else {
+                                "自定义: $updateProxyUrl"
+                            }
+                            Text(displayText, maxLines = 1, fontSize = 12.sp)
+                        },
+                        modifier = Modifier.clickable { showProxyDropdown = true }
+                    )
+                    DropdownMenu(
+                        expanded = showProxyDropdown,
+                        onDismissRequest = { showProxyDropdown = false },
+                        modifier = Modifier.fillMaxWidth(0.85f)
+                    ) {
+                        proxyOptions.forEachIndexed { index, label ->
+                            DropdownMenuItem(
+                                text = { Text(label, maxLines = 1, fontSize = 13.sp) },
+                                onClick = {
+                                    if (label == "自定义") {
+                                        showCustomProxyInput = true
+                                    } else {
+                                        viewModel.setUpdateProxyUrl(label)
+                                    }
+                                    showProxyDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
             }
+        }
+
+        // 自定义代理源输入对话框
+        if (showCustomProxyInput) {
+            AlertDialog(
+                onDismissRequest = { showCustomProxyInput = false },
+                title = { Text("自定义代理源") },
+                text = {
+                    Column {
+                        Text("请输入代理源 URL 前缀", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = customProxyUrl,
+                            onValueChange = { customProxyUrl = it },
+                            placeholder = { Text("https://example.com/") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        val url = customProxyUrl.trim()
+                        if (url.isNotBlank()) {
+                            viewModel.setUpdateProxyUrl(url)
+                        }
+                        showCustomProxyInput = false
+                    }) { Text("保存") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showCustomProxyInput = false }) { Text("取消") }
+                }
+            )
         }
 
         Text(text = "实验室功能", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))

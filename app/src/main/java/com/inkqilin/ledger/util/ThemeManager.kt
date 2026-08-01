@@ -39,6 +39,7 @@ class ThemeManager(private val context: Context) {
     private val MULTI_CURRENCY_ENABLED_KEY = booleanPreferencesKey("multi_currency_enabled")
     private val MONTHLY_BUDGET_KEY = doublePreferencesKey("monthly_budget")
     private val CHECK_UPDATE_ENABLED_KEY = booleanPreferencesKey("check_update_enabled")
+    private val UPDATE_PROXY_URL_KEY = stringPreferencesKey("update_proxy_url")
     private val CUSTOM_PRIMARY_COLOR_KEY = stringPreferencesKey("custom_primary_color")
     private val AUTO_RECORD_ENABLED_KEY = booleanPreferencesKey("auto_record_enabled")
     private val OCR_ENABLED_KEY = booleanPreferencesKey("ocr_enabled")
@@ -87,6 +88,11 @@ class ThemeManager(private val context: Context) {
 
     val checkUpdateEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[CHECK_UPDATE_ENABLED_KEY] ?: true
+    }
+
+    /** 代理源 URL 前缀，默认使用 gh-proxy.org */
+    val updateProxyUrl: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[UPDATE_PROXY_URL_KEY] ?: PROXY_SOURCES.first()
     }
 
     val customPrimaryColor: Flow<String?> = context.dataStore.data.map { preferences ->
@@ -212,6 +218,12 @@ class ThemeManager(private val context: Context) {
     suspend fun setCheckUpdateEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[CHECK_UPDATE_ENABLED_KEY] = enabled
+        }
+    }
+
+    suspend fun setUpdateProxyUrl(url: String) {
+        context.dataStore.edit { preferences ->
+            preferences[UPDATE_PROXY_URL_KEY] = url
         }
     }
 

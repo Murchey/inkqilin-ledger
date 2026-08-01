@@ -240,6 +240,11 @@ class TransactionViewModel(
         viewModelScope, SharingStarted.WhileSubscribed(5000), true
     )
 
+    val updateProxyUrl: StateFlow<String> = themeManager.updateProxyUrl.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000),
+        com.inkqilin.ledger.util.PROXY_SOURCES.first()
+    )
+
     val customPrimaryColorHex: StateFlow<String?> = themeManager.customPrimaryColor.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), null
     )
@@ -270,6 +275,10 @@ class TransactionViewModel(
 
     fun setCheckUpdateEnabled(enabled: Boolean) {
         viewModelScope.launch { themeManager.setCheckUpdateEnabled(enabled) }
+    }
+
+    fun setUpdateProxyUrl(url: String) {
+        viewModelScope.launch { themeManager.setUpdateProxyUrl(url) }
     }
 
     fun setCustomPrimaryColor(colorHex: String?) {

@@ -122,8 +122,9 @@ class MainActivity : ComponentActivity() {
 
                     updateInfo?.let { info ->
                         var selectedSourceIndex by remember { mutableStateOf(0) }
-                        val sources = listOf("Gitee 镜像 (国内推荐)", "GitHub 仓库")
-                        val sourceEnums = listOf(DownloadSource.GITEE, DownloadSource.GITHUB)
+                        val sources = listOf("Gitee 镜像 (国内推荐)", "GitHub 仓库", "GitHub 源 (代理)")
+                        val sourceEnums = listOf(DownloadSource.GITEE, DownloadSource.GITHUB, DownloadSource.PROXY)
+                        val proxyUrl by viewModel.updateProxyUrl.collectAsState()
                         var expanded by remember { mutableStateOf(false) }
 
                         val isDownloading = downloadState is DownloadUiState.Downloading
@@ -275,8 +276,10 @@ class MainActivity : ComponentActivity() {
                                     else -> {
                                         Button(onClick = {
                                             downloadState = DownloadUiState.Downloading()
+                                            val source = sourceEnums[selectedSourceIndex]
+                                            val effectiveProxy = if (source == DownloadSource.PROXY) proxyUrl else null
                                             scope.launch {
-                                                AppUpdateDownloader.download(context, info.versionName, sourceEnums[selectedSourceIndex]).collect { progress ->
+                                                AppUpdateDownloader.download(context, info.versionName, source, effectiveProxy).collect { progress ->
                                                     when (progress) {
                                                         is DownloadProgress.Progress ->
                                                             downloadState = DownloadUiState.Downloading(progress.fraction)

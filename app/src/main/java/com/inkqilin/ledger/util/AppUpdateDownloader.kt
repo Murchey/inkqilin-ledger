@@ -23,10 +23,21 @@ sealed class DownloadProgress {
 }
 
 /** 下载源类型 */
-enum class DownloadSource(val baseUrl: String) {
-    GITEE("https://gitee.com/Murchey/inkqinlin-ledger/releases/download"),
-    GITHUB("https://github.com/Murchey/inkqilin-ledger/releases/download");
+enum class DownloadSource {
+    GITEE,
+    GITHUB,
+    PROXY
 }
+
+/** 内置代理源选项 */
+val PROXY_SOURCES = listOf(
+    "https://gh-proxy.org/",
+    "https://v4.gh-proxy.org/",
+    "https://cdn.gh-proxy.org/"
+)
+
+private const val GITHUB_RELEASE_BASE = "https://github.com/Murchey/inkqilin-ledger/releases/download"
+private const val GITEE_RELEASE_BASE = "https://gitee.com/Murchey/inkqinlin-ledger/releases/download"
 
 /**
  * 内嵌 APK 下载 / 安装 / 清理工具。
@@ -44,10 +55,18 @@ object AppUpdateDownloader {
         .build()
 
     /** 构建下载链接 */
-    fun buildDownloadUrl(versionName: String, source: DownloadSource): String {
+    fun buildDownloadUrl(versionName: String, source: DownloadSource, proxyPrefix: String? = null): String {
         val tag = "V$versionName"
         val fileName = "$APK_FILE_PREFIX$versionName.apk"
-        return "${source.baseUrl}/$tag/$fileName"
+        val base = when (source) {
+            DownloadSource.GITEE -> GITEE_RELEASE_BASE
+            DownloadSource.GITHUB -> GITHUB_RELEASE_BASE
+            DownloadSource.PROXY -> {
+                val prefix = proxyPrefix ?: PROXY_SOURCES.first()
+                "$prefix$GITHUB_RELEASE_BASE"
+            }
+        }
+        return "$base/$tag/$fileName"
     }
 
     /** 获取 APK 保存的 File */
@@ -73,9 +92,10 @@ object AppUpdateDownloader {
     fun download(
         context: Context,
         versionName: String,
-        source: DownloadSource
+        source: DownloadSource,
+        proxyPrefix: String? = null
     ): Flow<DownloadProgress> = callbackFlow {
-        val url = buildDownloadUrl(versionName, source)
+        val url = buildDownloadUrl(versionName, source, proxyPrefix)
         val file = apkFile(context, versionName)
 
         // 如果已有完整文件且大小 >0，跳过下载
