@@ -23,7 +23,6 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -79,7 +78,7 @@ fun MainScreen(
             add(baseItems[0])
             add(baseItems[1])
             if (albumEnabled) {
-                add(BottomNavItem("album", Icons.Default.PhotoLibrary, "相册"))
+                add(BottomNavItem("album", Icons.Default.Email, "相册"))
             }
             if (renQingEnabled) {
                 add(BottomNavItem("renqing", Icons.Default.Favorite, "人情"))
