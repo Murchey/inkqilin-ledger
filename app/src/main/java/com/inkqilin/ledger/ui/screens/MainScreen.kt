@@ -79,7 +79,7 @@ fun MainScreen(
             add(baseItems[0])
             add(baseItems[1])
             if (albumEnabled) {
-                add(BottomNavItem("album", Icons.Default.Star, "相册"))
+                add(BottomNavItem("album", Icons.Default.PhotoLibrary, "相册"))
             }
             if (renQingEnabled) {
                 add(BottomNavItem("renqing", Icons.Default.Favorite, "人情"))

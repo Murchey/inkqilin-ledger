@@ -3,6 +3,8 @@ package com.inkqilin.ledger.util
 import android.content.Context
 import android.net.Uri
 import com.inkqilin.ledger.data.TransactionType
+import org.apache.poi.ss.usermodel.Cell
+import org.apache.poi.ss.usermodel.DateUtil
 import org.apache.poi.ss.usermodel.WorkbookFactory
 import java.nio.charset.Charset
 import java.text.SimpleDateFormat
@@ -130,7 +132,8 @@ object BillImporter {
                 ) continue
 
                 // 微信账单格式: 交易时间 | 交易类型 | 交易对方 | 商品 | 收/支 | 金额(元) | 支付方式 | 当前状态 | 交易单号 | 商户单号 | 备注
-                val dateStr = firstCell
+                val date = parseWechatDateCell(row.getCell(0))
+                if (date == null) continue
                 val productDesc = row.getCell(3)?.toString()?.trim() ?: ""
                 val typeStr = row.getCell(4)?.toString()?.trim() ?: ""
                 val amountStr = row.getCell(5)?.toString()?.trim()?.replace("¥", "")?.replace("￥", "")?.replace(",", "") ?: ""
@@ -144,7 +147,6 @@ object BillImporter {
                 val amount = amountStr.toDoubleOrNull() ?: continue
                 if (amount <= 0) continue
 
-                val date = parseDate(dateStr, wechatDateFmts)
                 val wechatType = row.getCell(1)?.toString()?.trim() ?: ""
                 val category = wechatCategoryMap[wechatType] ?: "其他"
                 val note = productDesc.ifBlank { "$wechatType - ${row.getCell(2)?.toString()?.trim() ?: ""}" }
@@ -181,7 +183,7 @@ object BillImporter {
                 val category = row.getCell(2)?.toString()?.trim() ?: "其他"
                 val amountStr = row.getCell(3)?.toString()?.trim()
                     ?.replace("¥", "")?.replace("￥", "")?.replace(",", "") ?: ""
-                val currency = row.getCell(4)?.toString()?.trim() ?: "CNY"
+                // col 4 = 币种 (暂不使用)
                 val note = row.getCell(5)?.toString()?.trim() ?: ""
 
                 val type = when (typeStr) {
@@ -207,6 +209,24 @@ object BillImporter {
             try { return fmt.parse(dateStr.trim()) ?: Date() } catch (_: Exception) {}
         }
         return Date()
+    }
+
+    /** 解析微信账单的日期单元格：优先用 Excel 日期值，回退到字符串解析 */
+    private fun parseWechatDateCell(cell: Cell?): Date? {
+        if (cell == null) return null
+        return try {
+            // Excel 日期序列号
+            if (DateUtil.isCellDateFormatted(cell)) {
+                cell.dateCellValue
+            } else {
+                // 回退：字符串格式
+                val str = cell.toString().trim()
+                if (str.isBlank()) null
+                else parseDate(str, wechatDateFmts)
+            }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     /** 简单的 CSV 行解析，处理引号包裹的字段 */
