@@ -58,6 +58,7 @@ class ThemeManager(private val context: Context) {
     private val AI_SCORE_EXPLANATION_KEY = stringPreferencesKey("ai_score_explanation")
     private val AI_ALERTS_JSON_KEY = stringPreferencesKey("ai_alerts_json")
     private val AI_ANALYSIS_FAILED_KEY = booleanPreferencesKey("ai_analysis_failed")
+    private val HOME_CARD_COLOR_KEY = stringPreferencesKey("home_card_color")
 
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { preferences ->
         val mode = preferences[THEME_KEY] ?: ThemeMode.AUTO.name
@@ -166,6 +167,10 @@ class ThemeManager(private val context: Context) {
 
     val aiAnalysisFailed: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[AI_ANALYSIS_FAILED_KEY] ?: false
+    }
+
+    val homeCardColor: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[HOME_CARD_COLOR_KEY]
     }
 
     suspend fun setThemeMode(mode: ThemeMode) {
@@ -330,6 +335,16 @@ class ThemeManager(private val context: Context) {
             preferences.remove(AI_ALERTS_JSON_KEY)
             preferences.remove(AI_LAST_ANALYSIS_DATE_KEY)
             preferences.remove(AI_ANALYSIS_FAILED_KEY)
+        }
+    }
+
+    suspend fun setHomeCardColor(colorHex: String?) {
+        context.dataStore.edit { preferences ->
+            if (colorHex == null) {
+                preferences.remove(HOME_CARD_COLOR_KEY)
+            } else {
+                preferences[HOME_CARD_COLOR_KEY] = colorHex
+            }
         }
     }
 }

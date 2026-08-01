@@ -213,12 +213,13 @@ fun CategoryEditDialog(
                     fontWeight = FontWeight.Medium,
                     color = if (isDark) Color.White.copy(alpha = 0.65f) else Color(0xFF6E6E73)
                 )
-                val colors = listOf("#715CFF", "#51B4FF", "#4CAF50", "#F44336", "#FF9800", "#9C27B0", "#E91E63", "#00BCD4")
+                val presetColors = listOf("#715CFF", "#51B4FF", "#4CAF50", "#F44336", "#FF9800", "#9C27B0", "#E91E63")
+                var showCategoryColorPicker by remember { mutableStateOf(false) }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    colors.forEach { colorHex ->
+                    presetColors.forEach { colorHex ->
                         Box(
                             modifier = Modifier
                                 .size(32.dp)
@@ -236,6 +237,37 @@ fun CategoryEditDialog(
                             }
                         }
                     }
+                    // Custom color button
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(
+                                Brush.sweepGradient(
+                                    listOf(Color.Red, Color.Yellow, Color.Green, Color.Cyan, Color.Blue, Color.Magenta, Color.Red)
+                                )
+                            )
+                            .clickable { showCategoryColorPicker = true },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "自定义颜色",
+                            tint = Color.White,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+
+                if (showCategoryColorPicker) {
+                    ColorPickerDialog(
+                        initialColor = color,
+                        onColorSelected = {
+                            color = it
+                            showCategoryColorPicker = false
+                        },
+                        onDismiss = { showCategoryColorPicker = false }
+                    )
                 }
             }
         },

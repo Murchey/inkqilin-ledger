@@ -162,8 +162,8 @@ fun AlbumScreen(
         }
     }
 
-    LaunchedEffect(isDragging, expansionProgress.value) {
-        viewModel.setAlbumInteracting(isDragging || expansionProgress.value > 0.01f)
+    LaunchedEffect(isDragging, expansionProgress.value, selectedPhoto) {
+        viewModel.setAlbumInteracting(selectedPhoto != null || isDragging || expansionProgress.value > 0.01f)
     }
 
     LaunchedEffect(isDragging) {
@@ -277,8 +277,8 @@ fun AlbumScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .pointerInput(isActive) {
-                if (!isActive) return@pointerInput
+            .pointerInput(isActive, selectedPhoto) {
+                if (!isActive || selectedPhoto != null) return@pointerInput
                 awaitPointerEventScope {
                     while (true) {
                         val down = awaitFirstDown(requireUnconsumed = false)
@@ -311,13 +311,14 @@ fun AlbumScreen(
             }
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 4.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                DynamicIslandCapsule(
+            if (selectedPhoto == null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    DynamicIslandCapsule(
                     modifier = Modifier,
                     expansionProgress = expansionProgress,
                     isDragging = isDragging,
@@ -327,6 +328,7 @@ fun AlbumScreen(
                     onImageCaptureReady = { imageCapture = it },
                     onCameraInitFailed = { cameraXFailed = true }
                 )
+            }
             }
 
             if (isSelectionMode) {
@@ -911,12 +913,16 @@ private fun PhotoViewerScreen(
             .fillMaxSize()
             .background(Color.Black)
     ) {
+        val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
         if (bitmap != null) {
             Image(
                 bitmap = bitmap.asImageBitmap(),
                 contentDescription = null,
                 modifier = Modifier
                     .fillMaxSize()
+                    .padding(top = topInset + 48.dp, bottom = bottomInset + 48.dp)
                     .transformable(state = transformState, lockRotationOnZoomPan = true)
                     .graphicsLayer {
                         scaleX = scale
@@ -928,6 +934,7 @@ private fun PhotoViewerScreen(
             )
         }
 
+        // Top bar
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -974,6 +981,7 @@ private fun PhotoViewerScreen(
             }
         }
 
+        // Bottom info
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -983,7 +991,7 @@ private fun PhotoViewerScreen(
                         colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f))
                     )
                 )
-                .navigationBarsPadding()
+                .padding(bottom = bottomInset + 8.dp)
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
             if (currentPhoto.note.isNotEmpty()) {

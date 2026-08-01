@@ -41,6 +41,7 @@ import androidx.navigation.navArgument
 import com.inkqilin.ledger.ui.RenQingViewModel
 import com.inkqilin.ledger.ui.TransactionViewModel
 import com.inkqilin.ledger.ui.motion.*
+import com.inkqilin.ledger.util.DEFAULT_PRIMARY_COLOR_HEX
 import kotlinx.coroutines.launch
 
 data class BottomNavItem(
@@ -60,6 +61,7 @@ fun MainScreen(
     val renQingEnabled by renQingViewModel.renQingEnabled.collectAsState()
     val albumEnabled by viewModel.albumEnabled.collectAsState()
     val isAlbumInteracting by viewModel.isAlbumInteracting.collectAsState()
+    val customPrimaryColorHex by viewModel.customPrimaryColorHex.collectAsState()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     val scope = rememberCoroutineScope()
@@ -94,7 +96,7 @@ fun MainScreen(
         }
     }
 
-    val showBottomBar = currentRoute == "main"
+    val showBottomBar = currentRoute == "main" && !isAlbumInteracting
     val currentPageRoute = if (pagerState.currentPage < bottomItems.size) {
         bottomItems[pagerState.currentPage].route
     } else {
@@ -426,7 +428,10 @@ fun MainScreen(
                     // ── Apple Music Style FAB ──
                     if (showFab) {
                         val fabInteractionSource = remember { MutableInteractionSource() }
-                        val fabGreen = if (isDarkMode) Color(0xFF30D158) else Color(0xFF34C759)
+                        val fabColor = remember(customPrimaryColorHex) {
+                            val hex = customPrimaryColorHex ?: DEFAULT_PRIMARY_COLOR_HEX
+                            try { Color(android.graphics.Color.parseColor(hex)) } catch (_: Exception) { Color(0xFF34C759) }
+                        }
 
                         Box(
                             modifier = Modifier
@@ -439,7 +444,7 @@ fun MainScreen(
                                     spotShadowColor = Color.Black.copy(alpha = if (isDarkMode) 0.10f else 0.03f)
                                 }
                                 .clip(RoundedCornerShape(fabRadius))
-                                .background(fabGreen)
+                                .background(fabColor)
                                 .clickable(
                                     interactionSource = fabInteractionSource,
                                     indication = null
@@ -586,6 +591,9 @@ fun MainScreen(
                             },
                             onNavigateToOCRConfig = {
                                 navController.navigate("ocr_config")
+                            },
+                            onNavigateToBillImport = {
+                                navController.navigate("bill_import")
                             }
                         )
                     }
@@ -622,6 +630,12 @@ fun MainScreen(
             }
             composable("ocr_batch_recognition") {
                 OcrBatchRecognitionScreen(
+                    viewModel = viewModel,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable("bill_import") {
+                BillImportScreen(
                     viewModel = viewModel,
                     onBack = { navController.popBackStack() }
                 )

@@ -87,6 +87,7 @@ fun HomeScreen(
     val expenseColor = Color(expenseColorHex.toColorInt())
     val incomeColorHex by viewModel.incomeColor.collectAsState()
     val incomeColor = Color(incomeColorHex.toColorInt())
+    val homeCardColorHex by viewModel.homeCardColor.collectAsState()
 
     var selectedYearMonth by remember {
         mutableStateOf(Calendar.getInstance().let { it.get(Calendar.YEAR) to it.get(Calendar.MONTH) })
@@ -256,7 +257,8 @@ fun HomeScreen(
                         displayCalendar = displayCalendar,
                         defaultAsset = allAssets.firstOrNull { it.isDefault },
                         onMonthClick = { showMonthPicker = true },
-                        enableAnimations = enableCardAnimations
+                        enableAnimations = enableCardAnimations,
+                        customColorHex = homeCardColorHex
                     )
                 }
             }
@@ -464,11 +466,14 @@ private fun SingleCurrencyOverviewCard(
     displayCalendar: Calendar,
     defaultAsset: CurrencyAsset?,
     onMonthClick: () -> Unit,
-    enableAnimations: Boolean
+    enableAnimations: Boolean,
+    customColorHex: String? = null
 ) {
     val symbol = defaultAsset?.symbol ?: "¥"
     val balance = periodIncome - periodExpense
-    val assetAccent = if (defaultAsset != null) resolveCardColor(defaultAsset, true) else Color(0xFF6C63FF)
+    val assetAccent = if (customColorHex != null) {
+        try { Color(android.graphics.Color.parseColor(customColorHex)) } catch (_: Exception) { Color(0xFF6C63FF) }
+    } else if (defaultAsset != null) resolveCardColor(defaultAsset, true) else Color(0xFF6C63FF)
     val cardColor by animateColorAsState(
         targetValue = assetAccent,
         animationSpec = if (enableAnimations) MotionSprings.interactive() else snap(),

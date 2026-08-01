@@ -244,6 +244,10 @@ class TransactionViewModel(
         viewModelScope, SharingStarted.WhileSubscribed(5000), null
     )
 
+    val homeCardColor: StateFlow<String?> = themeManager.homeCardColor.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), null
+    )
+
     val autoRecordEnabled: StateFlow<Boolean> = themeManager.autoRecordEnabled.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), false
     )
@@ -270,6 +274,10 @@ class TransactionViewModel(
 
     fun setCustomPrimaryColor(colorHex: String?) {
         viewModelScope.launch { themeManager.setCustomPrimaryColor(colorHex) }
+    }
+
+    fun setHomeCardColor(colorHex: String?) {
+        viewModelScope.launch { themeManager.setHomeCardColor(colorHex) }
     }
 
     fun setRenQingEnabled(enabled: Boolean) {
