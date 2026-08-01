@@ -12,7 +12,8 @@ import java.util.concurrent.TimeUnit
 data class UpdateInfo(
     val versionName: String,
     val releaseNotes: String,
-    val downloadUrl: String
+    val downloadUrl: String,
+    val tagName: String
 )
 
 object AppUpdateChecker {
@@ -47,7 +48,8 @@ object AppUpdateChecker {
                 UpdateInfo(
                     versionName = latestVersion,
                     releaseNotes = releaseNotes,
-                    downloadUrl = htmlUrl
+                    downloadUrl = htmlUrl,
+                    tagName = tagName
                 )
             } else {
                 null
