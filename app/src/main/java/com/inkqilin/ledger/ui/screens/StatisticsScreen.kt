@@ -22,14 +22,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -49,6 +54,7 @@ import com.inkqilin.ledger.util.AppMode
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 
 enum class TimePeriod(val label: String) {
     WEEK("本周"), MONTH("本月"), YEAR("本年"), CUSTOM("自定义")
@@ -73,6 +79,77 @@ private fun Modifier.frostedGlass(
         shape = shape
     )
 
+private val FilterListIcon: ImageVector by lazy {
+    ImageVector.Builder(
+        name = "FilterList",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f
+    ).apply {
+        path(fill = SolidColor(Color.Black), pathFillType = PathFillType.EvenOdd) {
+            moveTo(3f, 6f)
+            lineTo(3f, 8f)
+            lineTo(21f, 8f)
+            lineTo(21f, 6f)
+            close()
+            moveTo(7f, 11f)
+            lineTo(7f, 13f)
+            lineTo(17f, 13f)
+            lineTo(17f, 11f)
+            close()
+            moveTo(11f, 16f)
+            lineTo(11f, 18f)
+            lineTo(13f, 18f)
+            lineTo(13f, 16f)
+            close()
+        }
+    }.build()
+}
+
+@Composable
+private fun BouncyTabItem(
+    label: String,
+    isSelected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    val scale = remember { Animatable(1f) }
+    Box(
+        modifier = modifier
+            .scale(scale.value)
+            .clip(RoundedCornerShape(12.dp))
+            .background(
+                if (isSelected) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.surfaceVariant
+            )
+            .clickable {
+                scope.launch {
+                    scale.snapTo(0.90f)
+                    scale.animateTo(
+                        1f,
+                        spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMedium
+                        )
+                    )
+                }
+                onClick()
+            }
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            color = if (isSelected) MaterialTheme.colorScheme.onPrimary
+            else MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+            fontSize = 13.sp
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavController) {
@@ -94,6 +171,10 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
 
     var selectedType by rememberSaveable { mutableStateOf(TransactionType.EXPENSE) }
     var selectedPeriod by rememberSaveable { mutableStateOf(TimePeriod.MONTH) }
+    // 子筛选：年→月(1-12)、月→周(1-5)、周→上周/本周
+    var selectedSubFilter by rememberSaveable { mutableStateOf<Int?>(null) }
+    var selectedWeekOffset by rememberSaveable { mutableStateOf<Int?>(null) } // 0=本周, -1=上周
+    var showSubFilterBar by rememberSaveable { mutableStateOf(false) }
     var selectedCurrencyCode by rememberSaveable { mutableStateOf<String?>(null) }
     
     var categoryToEdit by remember { mutableStateOf<Category?>(null) }
@@ -150,6 +231,66 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
         }
     }
 
+    // 切换时间段时重置子筛选
+    LaunchedEffect(selectedPeriod) {
+        selectedSubFilter = null
+        selectedWeekOffset = null
+    }
+
+    // ── 子筛选数据 ──
+    val subFiltered = remember(filteredByPeriod, selectedPeriod, selectedSubFilter, selectedWeekOffset) {
+        val now = Calendar.getInstance()
+        when {
+            // 本年 → 选择某月
+            selectedPeriod == TimePeriod.YEAR && selectedSubFilter != null -> {
+                val month = selectedSubFilter!!
+                val start = Calendar.getInstance().apply {
+                    set(Calendar.MONTH, month - 1); set(Calendar.DAY_OF_MONTH, 1)
+                    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                }.timeInMillis
+                val end = Calendar.getInstance().apply {
+                    set(Calendar.MONTH, month); set(Calendar.DAY_OF_MONTH, 1)
+                    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                }.timeInMillis
+                filteredByPeriod.filter { it.date in start until end }
+            }
+            // 本月 → 选择某周
+            selectedPeriod == TimePeriod.MONTH && selectedSubFilter != null -> {
+                val weekNum = selectedSubFilter!! // 1-based
+                val monthStart = Calendar.getInstance().apply {
+                    set(Calendar.DAY_OF_MONTH, 1)
+                    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                }
+                val weekStart = Calendar.getInstance().apply {
+                    time = monthStart.time
+                    add(Calendar.DAY_OF_MONTH, (weekNum - 1) * 7)
+                }
+                val daysInMonth = now.getActualMaximum(Calendar.DAY_OF_MONTH)
+                val weekEnd = Calendar.getInstance().apply {
+                    time = monthStart.time
+                    add(Calendar.DAY_OF_MONTH, minOf(weekNum * 7, daysInMonth))
+                }
+                filteredByPeriod.filter { it.date in weekStart.timeInMillis until weekEnd.timeInMillis }
+            }
+            // 本周 → 上周/本周
+            selectedPeriod == TimePeriod.WEEK && selectedWeekOffset != null -> {
+                val offset = selectedWeekOffset!! // -1=上周, 0=本周
+                val weekStart = Calendar.getInstance().apply {
+                    set(Calendar.DAY_OF_WEEK, firstDayOfWeek)
+                    add(Calendar.DAY_OF_YEAR, offset * 7)
+                    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                }.timeInMillis
+                val weekEnd = weekStart + 7 * 86400000L
+                filteredByPeriod.filter { it.date in weekStart until weekEnd }
+            }
+            else -> filteredByPeriod
+        }
+    }
+
     val effectiveCurrencyCode = if (multiCurrencyEnabled) {
         selectedCurrencyCode ?: defaultAsset?.code
     } else {
@@ -163,9 +304,9 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
     }
 
     val filteredByCurrency = if (effectiveCurrencyCode != null) {
-        filteredByPeriod.filter { it.currency == effectiveCurrencyCode }
+        subFiltered.filter { it.currency == effectiveCurrencyCode }
     } else {
-        filteredByPeriod
+        subFiltered
     }
 
     val filteredTransactions = filteredByCurrency.filter { it.type == selectedType }
@@ -228,13 +369,57 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
     val previousTotal = previousPeriodTransactions.sumOf { it.amount }
     val changePercent = if (previousTotal > 0) ((totalAmount - previousTotal) / previousTotal * 100) else if (totalAmount > 0) 100.0 else 0.0
 
-    val barChartData = remember(filteredByPeriod, selectedPeriod, selectedType, selectedCurrencyCode, multiCurrencyEnabled) {
+    val barChartData = remember(subFiltered, selectedPeriod, selectedType, selectedCurrencyCode, multiCurrencyEnabled, selectedSubFilter, selectedWeekOffset) {
         val currencyFilter: (Transaction) -> Boolean = { t ->
             effectiveCurrencyCode == null || t.currency == effectiveCurrencyCode
         }
         val groups = mutableListOf<Pair<String, Double>>()
-        when (selectedPeriod) {
-            TimePeriod.WEEK -> {
+        val isSubFiltered = selectedSubFilter != null || selectedWeekOffset != null
+
+        when {
+            // 本年 + 子筛选某月 → 该月每日
+            isSubFiltered && selectedPeriod == TimePeriod.YEAR -> {
+                val month = selectedSubFilter!!
+                val cal = Calendar.getInstance()
+                cal.set(Calendar.MONTH, month - 1)
+                val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
+                for (day in 1..daysInMonth) {
+                    val c = Calendar.getInstance().apply {
+                        set(Calendar.MONTH, month - 1)
+                        set(Calendar.DAY_OF_MONTH, day)
+                        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                        set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                    }
+                    val start = c.timeInMillis
+                    val end = start + 86400000L
+                    val sum = subFiltered.filter { it.type == selectedType && currencyFilter(it) && it.date in start until end }.sumOf { it.amount }
+                    groups.add("$day" to sum)
+                }
+            }
+            // 本月 + 子筛选某周 / 本周 + 子筛选 → 该周每日
+            isSubFiltered && (selectedPeriod == TimePeriod.MONTH || selectedPeriod == TimePeriod.WEEK) -> {
+                val dayNames = listOf("日", "一", "二", "三", "四", "五", "六")
+                // 取 subFiltered 中最早的交易日期所在周的周一
+                val firstDate = subFiltered.map { it.date }.minOrNull() ?: System.currentTimeMillis()
+                val weekStart = Calendar.getInstance().apply {
+                    timeInMillis = firstDate
+                    set(Calendar.DAY_OF_WEEK, firstDayOfWeek)
+                    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                }
+                val startMs = weekStart.timeInMillis
+                for (i in 0..6) {
+                    val start = startMs + i * 86400000L
+                    val end = start + 86400000L
+                    val sum = subFiltered.filter { it.type == selectedType && currencyFilter(it) && it.date in start until end }.sumOf { it.amount }
+                    val dayOfWeek = Calendar.getInstance().apply { timeInMillis = start }.get(Calendar.DAY_OF_WEEK)
+                    val dayIdx = if (dayOfWeek == Calendar.SUNDAY) 0 else dayOfWeek - Calendar.SUNDAY
+                    groups.add(dayNames[dayIdx] to sum)
+                }
+            }
+            // 无子筛选时使用原有的完整数据
+            !isSubFiltered -> when (selectedPeriod) {
+                TimePeriod.WEEK -> {
                 val dayNames = listOf("日", "一", "二", "三", "四", "五", "六")
                 val c = Calendar.getInstance().apply {
                     set(Calendar.DAY_OF_WEEK, firstDayOfWeek)
@@ -293,6 +478,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                 }
             }
         }
+        }
         groups
     }
 
@@ -305,32 +491,175 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(start = 20.dp, end = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                TimePeriod.entries.forEach { period ->
+                    val selected = selectedPeriod == period
+                    BouncyTabItem(
+                        label = period.label,
+                        isSelected = selected,
+                        modifier = Modifier.weight(1f),
+                        onClick = { selectedPeriod = period }
+                    )
+                }
+            }
+                IconButton(
+                    onClick = {
+                        showSubFilterBar = !showSubFilterBar
+                        if (!showSubFilterBar) {
+                            selectedSubFilter = null
+                            selectedWeekOffset = null
+                        }
+                    }
+                ) {
+                    Icon(
+                        FilterListIcon,
+                        contentDescription = "筛选",
+                        tint = if (showSubFilterBar) MaterialTheme.colorScheme.primary
+                               else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        // ── 子筛选 Bar ──
+        item {
+            AnimatedVisibility(
+                visible = selectedPeriod != TimePeriod.CUSTOM && showSubFilterBar,
+                enter = expandVertically(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessLow
+                    )
+                ) + fadeIn(animationSpec = spring()),
+                exit = shrinkVertically(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessMedium
+                    )
+                ) + fadeOut()
+            ) {
+                Column {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    val subOptions = when (selectedPeriod) {
+                        TimePeriod.YEAR -> (1..12).map { "${it}月" }
+                        TimePeriod.MONTH -> {
+                            val daysInMonth = Calendar.getInstance().getActualMaximum(Calendar.DAY_OF_MONTH)
+                            (1..((daysInMonth + 6) / 7)).map { "第${it}周" }
+                        }
+                        TimePeriod.WEEK -> listOf("上周", "本周")
+                        TimePeriod.CUSTOM -> emptyList()
+                    }
+                    if (subOptions.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .horizontalScroll(rememberScrollState())
+                                .padding(4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            subOptions.forEachIndexed { index, label ->
+                                val isSelected = when (selectedPeriod) {
+                                    TimePeriod.YEAR -> selectedSubFilter == index + 1
+                                    TimePeriod.MONTH -> selectedSubFilter == index + 1
+                                    TimePeriod.WEEK -> selectedWeekOffset == (index - 1)
+                                    else -> false
+                                }
+                                BouncyTabItem(
+                                    label = label,
+                                    isSelected = isSelected,
+                                    onClick = {
+                                        when (selectedPeriod) {
+                                            TimePeriod.YEAR -> {
+                                                selectedSubFilter = if (isSelected) null else index + 1
+                                            }
+                                            TimePeriod.MONTH -> {
+                                                selectedSubFilter = if (isSelected) null else index + 1
+                                            }
+                                            TimePeriod.WEEK -> {
+                                                selectedWeekOffset = if (isSelected) null else (index - 1)
+                                            }
+                                            else -> {}
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (selectedPeriod == TimePeriod.CUSTOM) {
+            item {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                    AssistChip(
+                        onClick = { showStartDatePicker = true },
+                        label = { Text(sdf.format(Date(startDate))) },
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text("至", style = MaterialTheme.typography.bodySmall)
+                    AssistChip(
+                        onClick = { showEndDatePicker = true },
+                        label = { Text(sdf.format(Date(endDate))) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
                     .padding(horizontal = 20.dp)
                     .clip(RoundedCornerShape(14.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
                     .padding(4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                TimePeriod.entries.forEach { period ->
-                    val selected = selectedPeriod == period
+                listOf(TransactionType.EXPENSE to "支出", TransactionType.INCOME to "收入").forEach { (type, label) ->
+                    val selected = selectedType == type
+                    val accentColor = if (type == TransactionType.EXPENSE) expenseColor else incomeColor
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(12.dp))
                             .background(
-                                if (selected) MaterialTheme.colorScheme.primary
+                                if (selected) accentColor
                                 else MaterialTheme.colorScheme.surfaceVariant
                             )
-                            .clickable { selectedPeriod = period }
+                            .clickable { selectedType = type }
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = period.label,
-                            color = if (selected) MaterialTheme.colorScheme.onPrimary
+                            text = label,
+                            color = if (selected) Color.White
                             else MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                            fontSize = 13.sp
+                            fontSize = 14.sp
                         )
                     }
                 }
@@ -410,70 +739,6 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                                 }
                             }
                         }
-                    }
-                }
-            }
-        }
-
-        if (selectedPeriod == TimePeriod.CUSTOM) {
-            item {
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                    AssistChip(
-                        onClick = { showStartDatePicker = true },
-                        label = { Text(sdf.format(Date(startDate))) },
-                        modifier = Modifier.weight(1f)
-                    )
-                    Text("至", style = MaterialTheme.typography.bodySmall)
-                    AssistChip(
-                        onClick = { showEndDatePicker = true },
-                        label = { Text(sdf.format(Date(endDate))) },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-        }
-
-        item {
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .padding(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                listOf(TransactionType.EXPENSE to "支出", TransactionType.INCOME to "收入").forEach { (type, label) ->
-                    val selected = selectedType == type
-                    val accentColor = if (type == TransactionType.EXPENSE) expenseColor else incomeColor
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(
-                                if (selected) accentColor
-                                else MaterialTheme.colorScheme.surfaceVariant
-                            )
-                            .clickable { selectedType = type }
-                            .padding(vertical = 10.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = label,
-                            color = if (selected) Color.White
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                            fontSize = 14.sp
-                        )
                     }
                 }
             }
@@ -829,9 +1094,9 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                     )
                 } else {
                     FinancialScoreCard(
-                        income = filteredByPeriod.filter { it.type == TransactionType.INCOME }.sumOf { it.amount },
-                        expense = filteredByPeriod.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount },
-                        transactions = filteredByPeriod,
+                        income = subFiltered.filter { it.type == TransactionType.INCOME }.sumOf { it.amount },
+                        expense = subFiltered.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount },
+                        transactions = subFiltered,
                         monthlyBudget = monthlyBudget
                     )
                 }
