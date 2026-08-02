@@ -174,8 +174,14 @@ object AppUpdateDownloader {
     /** 清理 updates 目录下所有历史 APK */
     fun cleanOldApks(context: Context) {
         try {
-            val dir = File(context.getExternalFilesDir(null), "updates")
-            dir.listFiles()?.forEach { it.delete() }
+            val dir = context.getExternalFilesDir(null)?.let { File(it, "updates") }
+            dir?.listFiles()?.forEach {
+                val deleted = it.delete()
+                if (!deleted) {
+                    // 删除失败时标记为退出时删除
+                    it.deleteOnExit()
+                }
+            }
         } catch (_: Exception) {}
     }
 }

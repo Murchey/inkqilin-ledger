@@ -113,6 +113,8 @@ class MainActivity : ComponentActivity() {
                     LaunchedEffect(checkUpdateEnabled) {
                         if (checkUpdateEnabled) {
                             delay(1200)
+                            // 检查前先清理历史 APK
+                            AppUpdateDownloader.cleanOldApks(context)
                             val result = AppUpdateChecker.checkForUpdate(context)
                             if (result != null) {
                                 updateInfo = result
