@@ -378,7 +378,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
 
         when {
             // 本年 + 子筛选某月 → 该月每日
-            isSubFiltered && selectedPeriod == TimePeriod.YEAR -> {
+            selectedSubFilter != null && selectedPeriod == TimePeriod.YEAR -> {
                 val month = selectedSubFilter!!
                 val cal = Calendar.getInstance()
                 cal.set(Calendar.MONTH, month - 1)
