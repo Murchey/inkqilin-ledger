@@ -17,7 +17,33 @@ object BillImporter {
         val amount: Double,
         val category: String,
         val note: String,
-        val type: TransactionType
+        val type: TransactionType,
+        val uuid: String? = null
+    )
+
+    data class ParsedAssetData(
+        val assetName: String,
+        val assetType: String,
+        val currentValue: Double,
+        val createdAt: Long,
+        val lastUpdated: Long,
+        val note: String
+    )
+
+    data class ParsedFlowData(
+        val assetName: String,
+        val flowType: String,
+        val amount: Double,
+        val newValue: Double,
+        val date: Long,
+        val note: String,
+        val uuid: String? = null
+    )
+
+    data class FullImportData(
+        val bills: List<ParsedBill>,
+        val assets: List<ParsedAssetData>,
+        val flows: List<ParsedFlowData>
     )
 
     /** 支付宝 CSV 交易分类 → 本 App 分类映射 */
@@ -110,6 +136,97 @@ object BillImporter {
         return results
     }
 
+    /** 解析本APP完整导出（含账单 + 资产 + 流转） */
+    fun parseAppFull(context: Context, uri: Uri): FullImportData {
+        val bills = mutableListOf<ParsedBill>()
+        val assets = mutableListOf<ParsedAssetData>()
+        val flows = mutableListOf<ParsedFlowData>()
+
+        context.contentResolver.openInputStream(uri)?.use { stream ->
+            val workbook = try {
+                WorkbookFactory.create(stream)
+            } catch (_: Exception) {
+                return FullImportData(bills, assets, flows)
+            }
+
+            // Sheet1: 账单
+            workbook.getSheetAt(0)?.let { sheet ->
+                for (rowIndex in 1 until sheet.physicalNumberOfRows) {
+                    val row = sheet.getRow(rowIndex) ?: continue
+                    val firstCell = row.getCell(0)?.toString()?.trim() ?: ""
+                    if (firstCell.isBlank() || firstCell.startsWith("说明") || firstCell.startsWith("导出") || firstCell.startsWith("共")) continue
+
+                    val typeStr = row.getCell(1)?.toString()?.trim() ?: ""
+                    val category = row.getCell(2)?.toString()?.trim() ?: "其他"
+                    val amountStr = row.getCell(3)?.toString()?.trim()
+                        ?.replace("¥", "")?.replace("￥", "")?.replace(",", "") ?: ""
+                    val note = row.getCell(5)?.toString()?.trim() ?: ""
+                    val uuid = row.getCell(6)?.toString()?.trim()?.takeIf { it.isNotBlank() }
+
+                    val type = when (typeStr) {
+                        "收入" -> TransactionType.INCOME
+                        "支出" -> TransactionType.EXPENSE
+                        else -> continue
+                    }
+                    val amount = amountStr.toDoubleOrNull() ?: continue
+                    if (amount <= 0) continue
+                    val date = parseDate(firstCell, listOf(appDateFmt))
+                    bills.add(ParsedBill(date, amount, category.ifBlank { "其他" }, note, type, uuid))
+                }
+            }
+
+            // Sheet2: 资产与流转
+            if (workbook.numberOfSheets > 1) {
+                workbook.getSheetAt(1)?.let { sheet ->
+                    var inFlowSection = false
+                    for (rowIndex in 1 until sheet.physicalNumberOfRows) {
+                        val row = sheet.getRow(rowIndex) ?: continue
+                        val firstCell = row.getCell(0)?.toString()?.trim() ?: ""
+                        if (firstCell.isBlank() || firstCell.startsWith("说明")) continue
+
+                        // 检测分隔行
+                        if (firstCell.contains("资产流转记录") || firstCell.startsWith("─────")) {
+                            inFlowSection = true
+                            continue
+                        }
+                        // 跳过表头行
+                        if (firstCell == "资产名称") continue
+
+                        if (!inFlowSection) {
+                            // 资产部分
+                            val assetName = firstCell
+                            val assetType = row.getCell(1)?.toString()?.trim() ?: "其他"
+                            val currentValue = row.getCell(2)?.toString()?.trim()
+                                ?.replace("¥", "")?.replace("￥", "")?.replace(",", "")
+                                ?.toDoubleOrNull() ?: continue
+                            val createdAt = row.getCell(3)?.toString()?.trim()?.let { parseDate(it, listOf(appDateFmt)) }?.time ?: System.currentTimeMillis()
+                            val lastUpdated = row.getCell(4)?.toString()?.trim()?.let { parseDate(it, listOf(appDateFmt)) }?.time ?: System.currentTimeMillis()
+                            val note = row.getCell(5)?.toString()?.trim() ?: ""
+                            assets.add(ParsedAssetData(assetName, assetType, currentValue, createdAt, lastUpdated, note))
+                        } else {
+                            // 流转部分
+                            val assetName = firstCell
+                            val flowTypeStr = row.getCell(1)?.toString()?.trim() ?: continue
+                            val amount = row.getCell(2)?.toString()?.trim()
+                                ?.replace("¥", "")?.replace("￥", "")?.replace(",", "")
+                                ?.toDoubleOrNull() ?: continue
+                            val newValue = row.getCell(3)?.toString()?.trim()
+                                ?.replace("¥", "")?.replace("￥", "")?.replace(",", "")
+                                ?.toDoubleOrNull() ?: continue
+                            val flowDate = row.getCell(4)?.toString()?.trim()?.let { parseDate(it, listOf(appDateFmt)) }?.time ?: System.currentTimeMillis()
+                            val note = row.getCell(5)?.toString()?.trim() ?: ""
+                            val uuid = row.getCell(6)?.toString()?.trim()?.takeIf { it.isNotBlank() }
+                            flows.add(ParsedFlowData(assetName, flowTypeStr, amount, newValue, flowDate, note, uuid))
+                        }
+                    }
+                }
+            }
+
+            workbook.close()
+        }
+        return FullImportData(bills, assets, flows)
+    }
+
     fun parseWechatXlsx(context: Context, uri: Uri): List<ParsedBill> {
         val results = mutableListOf<ParsedBill>()
         context.contentResolver.openInputStream(uri)?.use { stream ->
@@ -177,7 +294,7 @@ object BillImporter {
                     firstCell.startsWith("导出") || firstCell.startsWith("共")
                 ) continue
 
-                // 导出格式: 日期 | 类型 | 分类 | 金额 | 币种 | 备注
+                // 导出格式: 日期 | 类型 | 分类 | 金额 | 币种 | 备注 | UUID(可选)
                 val dateStr = firstCell
                 val typeStr = row.getCell(1)?.toString()?.trim() ?: ""
                 val category = row.getCell(2)?.toString()?.trim() ?: "其他"
@@ -185,6 +302,7 @@ object BillImporter {
                     ?.replace("¥", "")?.replace("￥", "")?.replace(",", "") ?: ""
                 // col 4 = 币种 (暂不使用)
                 val note = row.getCell(5)?.toString()?.trim() ?: ""
+                val uuid = row.getCell(6)?.toString()?.trim()?.takeIf { it.isNotBlank() }
 
                 val type = when (typeStr) {
                     "收入" -> TransactionType.INCOME
@@ -197,7 +315,7 @@ object BillImporter {
 
                 val date = parseDate(dateStr, listOf(appDateFmt))
 
-                results.add(ParsedBill(date, amount, category.ifBlank { "其他" }, note, type))
+                results.add(ParsedBill(date, amount, category.ifBlank { "其他" }, note, type, uuid))
             }
             workbook.close()
         }

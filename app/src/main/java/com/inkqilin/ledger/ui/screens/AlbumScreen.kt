@@ -545,7 +545,7 @@ private fun DynamicIslandCapsule(
             try {
                 val provider = ProcessCameraProvider.getInstance(context).get()
                 provider.unbindAll()
-            } catch (_: Exception) {}
+            } catch (_: Throwable) {}
         }
     }
 
@@ -585,7 +585,7 @@ private fun DynamicIslandCapsule(
                             preview,
                             capture
                         )
-                    } catch (_: Exception) {
+                    } catch (_: Throwable) {
                         cameraInitFailed = true
                         onCameraInitFailed()
                     }

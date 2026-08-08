@@ -40,4 +40,16 @@ interface TransactionDao {
 
     @Query("SELECT * FROM transactions WHERE currency = :currency ORDER BY date DESC")
     fun getTransactionsByCurrency(currency: String): Flow<List<Transaction>>
+
+    @Query("SELECT COUNT(*) FROM transactions WHERE uuid = :uuid AND uuid IS NOT NULL")
+    suspend fun countByUuid(uuid: String): Int
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertTransactionIgnore(transaction: Transaction): Long
+
+    @Query("SELECT * FROM transactions WHERE uuid IS NULL")
+    suspend fun getTransactionsWithoutUuid(): List<Transaction>
+
+    @Update
+    suspend fun updateTransactions(transactions: List<Transaction>)
 }

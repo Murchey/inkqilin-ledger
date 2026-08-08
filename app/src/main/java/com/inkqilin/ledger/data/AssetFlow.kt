@@ -19,5 +19,6 @@ data class AssetFlow(
     val amount: Double,
     val newValue: Double,
     val note: String = "",
-    val date: Long = System.currentTimeMillis()
+    val date: Long = System.currentTimeMillis(),
+    val uuid: String? = null
 )

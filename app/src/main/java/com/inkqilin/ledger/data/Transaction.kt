@@ -17,5 +17,6 @@ data class Transaction(
     val note: String,
     val date: Long,
     val type: TransactionType,
-    val currency: String = "CNY"
+    val currency: String = "CNY",
+    val uuid: String? = null
 )

@@ -105,6 +105,10 @@ class MainActivity : ComponentActivity() {
                         enableStartupAnimations = true
                         // 启动时清理历史 APK
                         AppUpdateDownloader.cleanOldApks(context)
+                        // 为存量交易自动生成 UUID（去重依赖）
+                        viewModel.backfillTransactionUuids()
+                        // 为存量流转自动生成 UUID
+                        viewModel.backfillAssetFlowUuids()
                     }
 
                     // ── 下载状态 ──

@@ -22,4 +22,16 @@ interface AssetFlowDao {
 
     @Query("SELECT * FROM asset_flows WHERE assetId = :assetId ORDER BY date DESC LIMIT 1")
     suspend fun getLatestFlowByAssetId(assetId: Long): AssetFlow?
+
+    @Query("SELECT COUNT(*) FROM asset_flows WHERE uuid = :uuid AND uuid IS NOT NULL")
+    suspend fun countByUuid(uuid: String): Int
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertFlowIgnore(flow: AssetFlow): Long
+
+    @Query("SELECT * FROM asset_flows WHERE uuid IS NULL")
+    suspend fun getFlowsWithoutUuid(): List<AssetFlow>
+
+    @Update
+    suspend fun updateFlows(flows: List<AssetFlow>)
 }

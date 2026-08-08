@@ -189,7 +189,36 @@ class TransactionViewModel(
 
     fun addTransaction(transaction: Transaction) {
         viewModelScope.launch {
-            transactionDao.insertTransaction(transaction)
+            val tx = if (transaction.uuid == null) transaction.copy(uuid = java.util.UUID.randomUUID().toString()) else transaction
+            transactionDao.insertTransaction(tx)
+        }
+    }
+
+    /** 为所有缺少 UUID 的存量交易自动生成并填充 UUID */
+    fun backfillTransactionUuids() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val nulls = transactionDao.getTransactionsWithoutUuid()
+            if (nulls.isNotEmpty()) {
+                val updated = nulls.map { it.copy(uuid = java.util.UUID.randomUUID().toString()) }
+                transactionDao.updateTransactions(updated)
+            }
+        }
+    }
+
+    /** 导入时使用：有UUID则跳过重复，无UUID则自动生成后插入。返回 true 表示实际插入 */
+    suspend fun importTransactionSkipDuplicates(transaction: Transaction): Boolean {
+        if (transaction.uuid != null) {
+            val count = transactionDao.countByUuid(transaction.uuid!!)
+            if (count == 0) {
+                transactionDao.insertTransactionIgnore(transaction)
+                return true
+            }
+            return false
+        } else {
+            // 无UUID的条目自动生成UUID后插入（保证后续再导入可去重）
+            val tx = transaction.copy(uuid = java.util.UUID.randomUUID().toString())
+            transactionDao.insertTransaction(tx)
+            return true
         }
     }
 
@@ -511,13 +540,53 @@ class TransactionViewModel(
 
     fun addAssetFlow(flow: AssetFlow) {
         viewModelScope.launch {
-            assetFlowDao.insertFlow(flow)
+            val f = if (flow.uuid == null) flow.copy(uuid = java.util.UUID.randomUUID().toString()) else flow
+            assetFlowDao.insertFlow(f)
             // 同步更新资产的当前估值
-            userAssetDao.getAssetById(flow.assetId)?.let { asset ->
+            userAssetDao.getAssetById(f.assetId)?.let { asset ->
                 userAssetDao.updateAsset(asset.copy(
-                    currentValue = flow.newValue,
+                    currentValue = f.newValue,
                     lastUpdated = System.currentTimeMillis()
                 ))
+            }
+        }
+    }
+
+    /** 导入流转时去重 */
+    suspend fun importAssetFlowSkipDuplicates(flow: AssetFlow): Boolean {
+        if (flow.uuid != null) {
+            val count = assetFlowDao.countByUuid(flow.uuid!!)
+            if (count == 0) {
+                assetFlowDao.insertFlowIgnore(flow)
+                userAssetDao.getAssetById(flow.assetId)?.let { asset ->
+                    userAssetDao.updateAsset(asset.copy(
+                        currentValue = flow.newValue,
+                        lastUpdated = System.currentTimeMillis()
+                    ))
+                }
+                return true
+            }
+            return false
+        } else {
+            val f = flow.copy(uuid = java.util.UUID.randomUUID().toString())
+            assetFlowDao.insertFlow(f)
+            userAssetDao.getAssetById(f.assetId)?.let { asset ->
+                userAssetDao.updateAsset(asset.copy(
+                    currentValue = f.newValue,
+                    lastUpdated = System.currentTimeMillis()
+                ))
+            }
+            return true
+        }
+    }
+
+    /** 为存量流转记录补齐 UUID */
+    fun backfillAssetFlowUuids() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val nulls = assetFlowDao.getFlowsWithoutUuid()
+            if (nulls.isNotEmpty()) {
+                val updated = nulls.map { it.copy(uuid = java.util.UUID.randomUUID().toString()) }
+                assetFlowDao.updateFlows(updated)
             }
         }
     }

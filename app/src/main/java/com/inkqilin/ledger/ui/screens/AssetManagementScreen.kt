@@ -38,6 +38,11 @@ import kotlin.math.abs
 private val amountFormat = DecimalFormat("#,###.##")
 private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
 
+private enum class AssetSortMode(val label: String) {
+    BY_VALUE("按总值排序"),
+    BY_CHANGE("按增值排序")
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AssetManagementScreen(
@@ -46,12 +51,42 @@ fun AssetManagementScreen(
     onUpdateTopBar: (String, (() -> Unit)?) -> Unit = { _, _ -> }
 ) {
     val allAssets by viewModel.allUserAssets.collectAsState()
+    val allFlows by viewModel.allAssetFlows.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     var editingAsset by remember { mutableStateOf<UserAsset?>(null) }
     var selectedAssetForFlow by remember { mutableStateOf<UserAsset?>(null) }
+    var sortMode by remember { mutableStateOf(AssetSortMode.BY_VALUE) }
+    var sortExpanded by remember { mutableStateOf(false) }
 
-    val grouped = remember(allAssets) {
-        allAssets.groupBy { it.type }
+    // 计算每个资产的累计增值
+    val assetAppreciation = remember(allFlows, allAssets) {
+        val map = mutableMapOf<Long, Double>()
+        allFlows.forEach { flow ->
+            val change = when (flow.flowType) {
+                AssetFlowType.INCREASE -> flow.amount
+                AssetFlowType.DECREASE -> -flow.amount
+                AssetFlowType.REVALUATION -> {
+                    val prevFlow = allFlows
+                        .filter { it.assetId == flow.assetId && it.date < flow.date }
+                        .maxByOrNull { it.date }
+                    val prevValue = prevFlow?.newValue
+                        ?: allAssets.find { it.id == flow.assetId }?.currentValue
+                        ?: 0.0
+                    flow.newValue - prevValue
+                }
+            }
+            map[flow.assetId] = (map[flow.assetId] ?: 0.0) + change
+        }
+        map
+    }
+
+    val grouped = remember(allAssets, sortMode, assetAppreciation) {
+        allAssets.groupBy { it.type }.mapValues { (_, assets) ->
+            when (sortMode) {
+                AssetSortMode.BY_VALUE -> assets.sortedByDescending { it.currentValue }
+                AssetSortMode.BY_CHANGE -> assets.sortedByDescending { abs(assetAppreciation[it.id] ?: 0.0) }
+            }
+        }
     }
 
     // 统一管理 TopAppBar 标题和返回行为
@@ -141,6 +176,47 @@ fun AssetManagementScreen(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
                             )
+                        }
+                    }
+                }
+
+                // 排序切换
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        Box {
+                            TextButton(onClick = { sortExpanded = true }) {
+                                Text(
+                                    sortMode.label,
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Icon(
+                                    Icons.Default.ArrowDropDown,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = sortExpanded,
+                                onDismissRequest = { sortExpanded = false }
+                            ) {
+                                AssetSortMode.entries.forEach { mode ->
+                                    DropdownMenuItem(
+                                        text = { Text(mode.label) },
+                                        onClick = {
+                                            sortMode = mode
+                                            sortExpanded = false
+                                        },
+                                        leadingIcon = if (mode == sortMode) {
+                                            { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                                        } else null
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -465,6 +541,10 @@ private fun AssetFlowScreen(
     var showAddFlowDialog by remember { mutableStateOf(false) }
     var editingFlow by remember { mutableStateOf<AssetFlow?>(null) }
 
+    // 从 ViewModel 观察最新的资产数据，确保流转操作后价值实时更新
+    val allAssets by viewModel.allUserAssets.collectAsState()
+    val currentAsset = allAssets.find { it.id == asset.id } ?: asset
+
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             // 资产信息卡片
@@ -485,20 +565,20 @@ private fun AssetFlowScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            asset.name,
+                            currentAsset.name,
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold
                             ),
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         Text(
-                            asset.type.label,
+                            currentAsset.type.label,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                         )
                     }
                     Text(
-                        "¥ ${amountFormat.format(asset.currentValue)}",
+                        "¥ ${amountFormat.format(currentAsset.currentValue)}",
                         style = MaterialTheme.typography.headlineSmall.copy(
                             fontWeight = FontWeight.Bold
                         ),
@@ -571,7 +651,7 @@ private fun AssetFlowScreen(
             flow = editingFlow,
             assetId = asset.id,
             assetName = asset.name,
-            currentValue = asset.currentValue,
+            currentValue = currentAsset.currentValue,
             onDismiss = {
                 showAddFlowDialog = false
                 editingFlow = null
@@ -734,6 +814,8 @@ private fun AssetFlowEditDialog(
     var amountStr by remember { mutableStateOf(if (flow != null) abs(flow.amount).toString() else "") }
     var note by remember { mutableStateOf(flow?.note ?: "") }
     var typeDropdownExpanded by remember { mutableStateOf(false) }
+    var flowDate by remember { mutableStateOf(flow?.date ?: System.currentTimeMillis()) }
+    var showDatePicker by remember { mutableStateOf(false) }
 
     val amount = amountStr.toDoubleOrNull() ?: 0.0
     // 计算新的总价值
@@ -804,6 +886,25 @@ private fun AssetFlowEditDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
+                // 日期选择
+                Box {
+                    OutlinedTextField(
+                        value = dateFormat.format(Date(flowDate)),
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("日期") },
+                        trailingIcon = {
+                            Icon(Icons.Default.DateRange, contentDescription = "选择日期")
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable { showDatePicker = true }
+                    )
+                }
+
                 // 预览新总价值
                 if (isValid) {
                     Card(
@@ -861,7 +962,7 @@ private fun AssetFlowEditDialog(
                             amount = finalAmount,
                             newValue = newValue,
                             note = note.trim(),
-                            date = flow?.date ?: System.currentTimeMillis()
+                            date = flowDate
                         )
                     )
                 },
@@ -876,6 +977,23 @@ private fun AssetFlowEditDialog(
             }
         }
     )
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = flowDate)
+        AppleDatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            state = datePickerState,
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { flowDate = it }
+                    showDatePicker = false
+                }) { Text("确定") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("取消") }
+            }
+        )
+    }
 }
 
 // ========== 工具 ==========

@@ -21,8 +21,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.inkqilin.ledger.data.AssetFlow
+import com.inkqilin.ledger.data.AssetFlowType
 import com.inkqilin.ledger.data.Transaction
 import com.inkqilin.ledger.data.TransactionType
+import com.inkqilin.ledger.data.UserAsset
+import com.inkqilin.ledger.data.UserAssetType
 import com.inkqilin.ledger.ui.TransactionViewModel
 import com.inkqilin.ledger.ui.theme.appButtonElevation
 import com.inkqilin.ledger.util.BillImporter
@@ -44,6 +48,8 @@ fun BillImportScreen(
     val dialogTextColor = if (isDark) Color.White else Color.Black
 
     var parsedBills by remember { mutableStateOf<List<BillImporter.ParsedBill>>(emptyList()) }
+    var parsedAssets by remember { mutableStateOf<List<BillImporter.ParsedAssetData>>(emptyList()) }
+    var parsedFlows by remember { mutableStateOf<List<BillImporter.ParsedFlowData>>(emptyList()) }
     var isParsing by remember { mutableStateOf(false) }
     var showFormatDialog by remember { mutableStateOf(true) }
     var selectedFormat by remember { mutableStateOf<String?>(null) }
@@ -59,18 +65,20 @@ fun BillImportScreen(
                 val result = try {
                     withContext(Dispatchers.IO) {
                         when (format) {
-                            "alipay" -> BillImporter.parseAlipayCsv(context, it)
-                            "wechat" -> BillImporter.parseWechatXlsx(context, it)
-                            else -> BillImporter.parseAppXlsx(context, it)
+                            "alipay" -> BillImporter.FullImportData(BillImporter.parseAlipayCsv(context, it), emptyList(), emptyList())
+                            "wechat" -> BillImporter.FullImportData(BillImporter.parseWechatXlsx(context, it), emptyList(), emptyList())
+                            else -> BillImporter.parseAppFull(context, it)
                         }
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("BillImport", "解析失败", e)
-                    emptyList()
+                    BillImporter.FullImportData(emptyList(), emptyList(), emptyList())
                 }
-                parsedBills = result
+                parsedBills = result.bills
+                parsedAssets = result.assets
+                parsedFlows = result.flows
                 isParsing = false
-                if (result.isEmpty()) {
+                if (result.bills.isEmpty()) {
                     Toast.makeText(context, "未能识别到有效账单记录，请检查文件格式", Toast.LENGTH_LONG).show()
                 }
             }
@@ -208,19 +216,76 @@ fun BillImportScreen(
                 Button(
                     onClick = {
                         scope.launch {
+                            var imported = 0
+                            var skipped = 0
                             parsedBills.forEach { bill ->
-                                viewModel.addTransaction(
+                                val inserted = viewModel.importTransactionSkipDuplicates(
                                     Transaction(
                                         amount = bill.amount,
                                         note = bill.note,
                                         category = bill.category,
                                         type = bill.type,
                                         date = bill.date.time,
-                                        currency = "CNY"
+                                        currency = "CNY",
+                                        uuid = bill.uuid
                                     )
                                 )
+                                if (inserted) imported++ else skipped++
                             }
-                            Toast.makeText(context, "已成功导入 ${parsedBills.size} 条账单", Toast.LENGTH_SHORT).show()
+
+                            // 导入资产
+                            var assetImported = 0
+                            parsedAssets.forEach { asset ->
+                                val existing = viewModel.allUserAssets.value.find {
+                                    it.name == asset.assetName && it.type.label == asset.assetType
+                                }
+                                if (existing == null) {
+                                    val assetType = UserAssetType.entries.find { it.label == asset.assetType } ?: UserAssetType.OTHER
+                                    viewModel.addUserAsset(
+                                        UserAsset(
+                                            name = asset.assetName,
+                                            type = assetType,
+                                            currentValue = asset.currentValue,
+                                            note = asset.note,
+                                            createdAt = asset.createdAt,
+                                            lastUpdated = asset.lastUpdated
+                                        )
+                                    )
+                                    assetImported++
+                                }
+                            }
+
+                            // 导入流转（带去重）
+                            var flowImported = 0
+                            var flowSkipped = 0
+                            parsedFlows.forEach { flow ->
+                                val matchedAsset = viewModel.allUserAssets.value.find { it.name == flow.assetName }
+                                if (matchedAsset != null) {
+                                    val flowType = AssetFlowType.entries.find { it.label == flow.flowType } ?: AssetFlowType.INCREASE
+                                    val inserted = viewModel.importAssetFlowSkipDuplicates(
+                                        AssetFlow(
+                                            assetId = matchedAsset.id,
+                                            assetName = flow.assetName,
+                                            flowType = flowType,
+                                            amount = flow.amount,
+                                            newValue = flow.newValue,
+                                            note = flow.note,
+                                            date = flow.date,
+                                            uuid = flow.uuid
+                                        )
+                                    )
+                                    if (inserted) flowImported++ else flowSkipped++
+                                }
+                            }
+
+                            val summary = buildString {
+                                append("已导入 $imported 条账单")
+                                if (skipped > 0) append("，跳过 $skipped 条重复")
+                                if (assetImported > 0) append("，${assetImported}项资产")
+                                if (flowImported > 0) append("，${flowImported}条流转")
+                                if (flowSkipped > 0) append("，跳过 $flowSkipped 条重复流转")
+                            }
+                            Toast.makeText(context, summary, Toast.LENGTH_SHORT).show()
                             onBack()
                         }
                     },

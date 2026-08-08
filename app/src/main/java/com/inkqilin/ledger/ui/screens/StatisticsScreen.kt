@@ -44,15 +44,19 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.inkqilin.ledger.data.AssetFlow
+import com.inkqilin.ledger.data.AssetFlowType
 import com.inkqilin.ledger.data.Category
 import com.inkqilin.ledger.data.Transaction
 import com.inkqilin.ledger.data.TransactionType
+import com.inkqilin.ledger.data.UserAssetType
 import com.inkqilin.ledger.ui.TransactionViewModel
 import com.inkqilin.ledger.ui.motion.*
 import com.inkqilin.ledger.ui.theme.*
 import com.inkqilin.ledger.util.AppMode
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
@@ -168,6 +172,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
     val aiAnalysisFailed by viewModel.aiAnalysisFailed.collectAsState()
     val allUserAssets by viewModel.allUserAssets.collectAsState()
     val userAssetTotalValue by viewModel.userAssetTotalValue.collectAsState()
+    val allAssetFlows by viewModel.allAssetFlows.collectAsState()
 
     var selectedType by rememberSaveable { mutableStateOf(TransactionType.EXPENSE) }
     var selectedPeriod by rememberSaveable { mutableStateOf(TimePeriod.MONTH) }
@@ -229,6 +234,77 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
         } else {
             filterByPeriod(transactions, selectedPeriod, Calendar.getInstance())
         }
+    }
+
+    // ── 计算当前时间段的起止毫秒 ──
+    val (periodStartMs, periodEndMs) = remember(selectedPeriod, startDate, endDate) {
+        when (selectedPeriod) {
+            TimePeriod.WEEK -> {
+                val c = Calendar.getInstance().apply {
+                    set(Calendar.DAY_OF_WEEK, firstDayOfWeek)
+                    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                }
+                c.timeInMillis to (c.timeInMillis + 7 * 86400000L - 1)
+            }
+            TimePeriod.MONTH -> {
+                val c = Calendar.getInstance().apply {
+                    set(Calendar.DAY_OF_MONTH, 1)
+                    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                }
+                val end = Calendar.getInstance().apply {
+                    add(Calendar.MONTH, 1)
+                    set(Calendar.DAY_OF_MONTH, 1)
+                    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                }.timeInMillis - 1
+                c.timeInMillis to end
+            }
+            TimePeriod.YEAR -> {
+                val c = Calendar.getInstance().apply {
+                    set(Calendar.MONTH, Calendar.JANUARY)
+                    set(Calendar.DAY_OF_MONTH, 1)
+                    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                }
+                val end = Calendar.getInstance().apply {
+                    set(Calendar.MONTH, Calendar.JANUARY)
+                    add(Calendar.YEAR, 1)
+                    set(Calendar.DAY_OF_MONTH, 1)
+                    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                }.timeInMillis - 1
+                c.timeInMillis to end
+            }
+            TimePeriod.CUSTOM -> startDate to (endDate + 86400000L - 1)
+        }
+    }
+
+    // ── 时间段内资产价值变动 ──
+    val (assetValueChange, assetChangePercent, assetPeriodEndValue) = remember(
+        allAssetFlows, allUserAssets, periodStartMs, periodEndMs, userAssetTotalValue
+    ) {
+        val periodFlows = allAssetFlows.filter { it.date in periodStartMs..periodEndMs }
+        val netChange = periodFlows.sumOf { flow ->
+            when (flow.flowType) {
+                AssetFlowType.INCREASE -> flow.amount
+                AssetFlowType.DECREASE -> -flow.amount
+                AssetFlowType.REVALUATION -> {
+                    val prevFlow = allAssetFlows
+                        .filter { it.assetId == flow.assetId && it.date < flow.date }
+                        .maxByOrNull { it.date }
+                    val prevValue = prevFlow?.newValue
+                        ?: allUserAssets.find { it.id == flow.assetId }?.currentValue
+                        ?: 0.0
+                    flow.newValue - prevValue
+                }
+            }
+        }
+        val endValue = userAssetTotalValue
+        val startValue = endValue - netChange
+        val percent = if (startValue != 0.0) (netChange / startValue * 100) else 0.0
+        Triple(netChange, percent, endValue)
     }
 
     // 切换时间段时重置子筛选
@@ -699,17 +775,72 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
+                        // 期间增值/贬值总和（大字显示）
+                        val changePrefix = if (assetValueChange >= 0) "+" else ""
+                        val changeColor = when {
+                            assetValueChange > 0 -> Color(0xFF4CAF50)
+                            assetValueChange < 0 -> Color(0xFFF44336)
+                            else -> MaterialTheme.colorScheme.onSurface
+                        }
                         Text(
-                            text = "¥${String.format("%,.2f", userAssetTotalValue)}",
-                            fontSize = 24.sp,
+                            text = "${changePrefix}¥${String.format("%,.2f", assetValueChange)}",
+                            fontSize = 22.sp,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                            color = changeColor
                         )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        // 左下：变动百分比 / 右下：期末总价值
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val percentPrefix = if (assetChangePercent >= 0) "+" else ""
+                            Text(
+                                text = "${percentPrefix}${String.format("%.1f", assetChangePercent)}%",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = changeColor.copy(alpha = 0.8f)
+                            )
+                            Text(
+                                text = "¥${String.format("%,.2f", assetPeriodEndValue)}",
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         Spacer(modifier = Modifier.height(12.dp))
+                        // 按各类型资产在时间段内的变动绝对值排序，只取前 3
+                        val typeChangeMap = remember(allAssetFlows, allUserAssets, periodStartMs, periodEndMs) {
+                            val periodFlows = allAssetFlows.filter { it.date in periodStartMs..periodEndMs }
+                            val assetTypeMap = allUserAssets.associate { it.id to it.type }
+                            mutableMapOf<UserAssetType, Double>().apply {
+                                periodFlows.forEach { flow ->
+                                    val aType = assetTypeMap[flow.assetId] ?: return@forEach
+                                    val change = when (flow.flowType) {
+                                        AssetFlowType.INCREASE -> flow.amount
+                                        AssetFlowType.DECREASE -> -flow.amount
+                                        AssetFlowType.REVALUATION -> {
+                                            val prevFlow = allAssetFlows
+                                                .filter { it.assetId == flow.assetId && it.date < flow.date }
+                                                .maxByOrNull { it.date }
+                                            val prevValue = prevFlow?.newValue
+                                                ?: allUserAssets.find { it.id == flow.assetId }?.currentValue
+                                                ?: 0.0
+                                            flow.newValue - prevValue
+                                        }
+                                    }
+                                    this[aType] = (this[aType] ?: 0.0) + change
+                                }
+                            }
+                        }
                         val grouped = allUserAssets.groupBy { it.type }
-                        grouped.entries.sortedByDescending { assets -> assets.value.sumOf { it.currentValue } }.forEach { (type, assets) ->
+                        grouped.entries
+                            .sortedByDescending { (type, _) -> abs(typeChangeMap[type] ?: 0.0) }
+                            .take(3)
+                            .forEach { (type, assets) ->
                             val typeTotal = assets.sumOf { it.currentValue }
+                            val typeChange = typeChangeMap[type] ?: 0.0
                             val percent = if (userAssetTotalValue > 0) typeTotal / userAssetTotalValue * 100 else 0.0
                             Row(
                                 modifier = Modifier
@@ -724,6 +855,16 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Row(verticalAlignment = Alignment.CenterVertically) {
+                                    // 期间变动
+                                    val prefix = if (typeChange >= 0) "+" else ""
+                                    Text(
+                                        text = "${prefix}¥${String.format("%,.0f", typeChange)}",
+                                        fontSize = 12.sp,
+                                        color = if (typeChange > 0) Color(0xFF4CAF50)
+                                                else if (typeChange < 0) Color(0xFFF44336)
+                                                else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
                                     Text(
                                         text = "¥${String.format("%,.0f", typeTotal)}",
                                         fontSize = 13.sp,
