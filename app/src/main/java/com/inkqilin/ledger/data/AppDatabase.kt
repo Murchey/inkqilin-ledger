@@ -8,8 +8,8 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [Transaction::class, Category::class, RenQingContact::class, RenQingEvent::class, RenQingTag::class, CurrencyAsset::class, AlbumPhoto::class, KeywordCategory::class, UserAsset::class, AssetFlow::class],
-    version = 16,
+    entities = [Transaction::class, Category::class, RenQingContact::class, RenQingEvent::class, RenQingTag::class, CurrencyAsset::class, AlbumPhoto::class, KeywordCategory::class, UserAsset::class, AssetFlow::class, CycleBill::class, RecycledCycleBill::class, NotificationLog::class],
+    version = 17,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -23,6 +23,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun keywordCategoryDao(): KeywordCategoryDao
     abstract fun userAssetDao(): UserAssetDao
     abstract fun assetFlowDao(): AssetFlowDao
+    abstract fun cycleBillDao(): CycleBillDao
+    abstract fun notificationLogDao(): NotificationLogDao
 
     companion object {
         @Volatile
@@ -262,6 +264,70 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_16_17 = object : Migration(16, 17) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 1. Add cycleBillId to transactions table
+                db.execSQL("ALTER TABLE transactions ADD COLUMN cycleBillId INTEGER DEFAULT NULL")
+
+                // 2. Create cycle_bills table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `cycle_bills` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `type` TEXT NOT NULL,
+                        `amount` REAL NOT NULL,
+                        `category` TEXT NOT NULL,
+                        `currency` TEXT NOT NULL DEFAULT 'CNY',
+                        `cycleType` TEXT NOT NULL,
+                        `startDate` INTEGER NOT NULL,
+                        `enabled` INTEGER NOT NULL DEFAULT 1,
+                        `reminderEnabled` INTEGER NOT NULL DEFAULT 1,
+                        `advanceMinutes` INTEGER NOT NULL DEFAULT 60,
+                        `generationMode` TEXT NOT NULL DEFAULT 'AUTO_BEFORE',
+                        `note` TEXT NOT NULL DEFAULT '',
+                        `colorHex` INTEGER DEFAULT NULL,
+                        `currentCycleStart` INTEGER NOT NULL DEFAULT 0,
+                        `currentCycleEnd` INTEGER NOT NULL DEFAULT 0,
+                        `lastGeneratedDate` INTEGER DEFAULT NULL,
+                        `nextTriggerDate` INTEGER NOT NULL DEFAULT 0,
+                        `overdue` INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
+
+                // 3. Create recycled_cycle_bills table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `recycled_cycle_bills` (
+                        `originalId` INTEGER NOT NULL,
+                        `recycleTime` INTEGER NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `type` TEXT NOT NULL,
+                        `amount` REAL NOT NULL,
+                        `category` TEXT NOT NULL,
+                        `currency` TEXT NOT NULL DEFAULT 'CNY',
+                        `cycleType` TEXT NOT NULL,
+                        `startDate` INTEGER NOT NULL,
+                        `enabled` INTEGER NOT NULL DEFAULT 1,
+                        `reminderEnabled` INTEGER NOT NULL DEFAULT 1,
+                        `advanceMinutes` INTEGER NOT NULL DEFAULT 60,
+                        `generationMode` TEXT NOT NULL DEFAULT 'AUTO_BEFORE',
+                        `note` TEXT NOT NULL DEFAULT '',
+                        `colorHex` INTEGER DEFAULT NULL,
+                        PRIMARY KEY(`originalId`)
+                    )
+                """.trimIndent())
+
+                // 4. Create notification_log table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `notification_log` (
+                        `cycleBillId` INTEGER NOT NULL,
+                        `logDate` TEXT NOT NULL,
+                        PRIMARY KEY(`cycleBillId`, `logDate`)
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_notification_log_cycleBillId_logDate` ON `notification_log` (`cycleBillId`, `logDate`)")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -269,7 +335,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "ledger_database"
                 )
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
                     .fallbackToDestructiveMigrationOnDowngrade()
                     .build()
                 INSTANCE = instance

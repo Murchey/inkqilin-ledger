@@ -4,7 +4,9 @@ package com.inkqilin.ledger.ui.screens
 
 import android.content.Context
 import android.content.Intent
+import android.Manifest
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -35,6 +37,7 @@ import com.inkqilin.ledger.ui.*
 import com.inkqilin.ledger.ui.motion.*
 import com.inkqilin.ledger.ui.theme.*
 import com.inkqilin.ledger.util.*
+import com.inkqilin.ledger.util.NotificationHelper
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -66,6 +69,29 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            NotificationHelper.showTestNotification(context)
+            Toast.makeText(context, "测试通知已发送", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "未授予通知权限", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun sendTestNotification() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                context, Manifest.permission.POST_NOTIFICATIONS
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            NotificationHelper.showTestNotification(context)
+            Toast.makeText(context, "测试通知已发送", Toast.LENGTH_SHORT).show()
+        }
+    }
     val themeMode by viewModel.themeMode.collectAsState()
     val incomeColorHex by viewModel.incomeColor.collectAsState()
     val expenseColorHex by viewModel.expenseColor.collectAsState()
@@ -729,9 +755,23 @@ fun SettingsScreen(
             )
         }
 
-        Text(text = "实验室功能", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
-        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
-            Column {
+        var labExpanded by remember { mutableStateOf(false) }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(text = "实验室功能", style = MaterialTheme.typography.titleMedium)
+            IconButton(onClick = { labExpanded = !labExpanded }) {
+                Icon(
+                    imageVector = if (labExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = if (labExpanded) "收起" else "展开"
+                )
+            }
+        }
+        if (labExpanded) {
+            Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+                Column {
                 ListItem(
                     headlineContent = { Text("自动记账") },
                     supportingContent = { Text("捕获支付宝/微信支付通知，自动记录账单。需要在手机的“自启动管理”和“电池优化”中把“墨麒麟记账”设为“不受限制”") },
@@ -767,6 +807,15 @@ fun SettingsScreen(
                 }
                 Spacer(modifier = Modifier.height(0.5.dp))
                 ListItem(
+                    headlineContent = { Text("测试系统通知") },
+                    supportingContent = { Text("发送一条测试通知，确认系统通知权限和声音正常") },
+                    leadingContent = { Icon(Icons.Default.Notifications, contentDescription = null) },
+                    trailingContent = {
+                        TextButton(onClick = { sendTestNotification() }) { Text("测试") }
+                    }
+                )
+                Spacer(modifier = Modifier.height(0.5.dp))
+                ListItem(
                     headlineContent = { Text("OCR账单识别") },
                     supportingContent = { Text("通过 AI 识别图片账单并批量导入") },
                     trailingContent = {
@@ -798,6 +847,8 @@ fun SettingsScreen(
                 )
             }
         }
+    }
+
 
         Text(text = "数据管理", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {

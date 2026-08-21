@@ -41,6 +41,13 @@ import com.inkqilin.ledger.ui.RenQingViewModel
 import com.inkqilin.ledger.ui.TransactionViewModel
 import com.inkqilin.ledger.ui.motion.*
 import com.inkqilin.ledger.util.DEFAULT_PRIMARY_COLOR_HEX
+import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
+import com.inkqilin.ledger.data.AppDatabase
+import com.inkqilin.ledger.data.CycleType
+import com.inkqilin.ledger.data.Transaction
+import com.inkqilin.ledger.data.TransactionType
+import com.inkqilin.ledger.util.NotificationHelper
 import kotlinx.coroutines.launch
 
 data class BottomNavItem(
@@ -135,6 +142,12 @@ fun MainScreen(
         currentRoute == "ai_config" -> "AI API 配置"
         currentRoute == "ocr_batch_recognition" -> "OCR 批量识别"
         currentRoute == "asset_management" -> "资产管理"
+        currentRoute?.startsWith("cycle_bill_edit") == true -> {
+            val billId = navBackStackEntry?.arguments?.getLong("billId") ?: 0L
+            if (billId > 0L) "编辑周期账单" else "新建周期账单"
+        }
+        currentRoute == "cycle_bill_list" -> "周期账单"
+        currentRoute == "recycle_bin" -> "回收站"
         else -> "墨麒麟记账"
     }
 
@@ -658,6 +671,84 @@ fun MainScreen(
             composable("currency_management") {
                 CurrencyManagementScreen(viewModel = viewModel)
             }
+            composable("cycle_bill_list") {
+                val ctx = androidx.compose.ui.platform.LocalContext.current
+                CycleBillScreen(
+                    onBack = { navController.popBackStack() },
+                    onNavigateAddBill = { navController.navigate("cycle_bill_edit/0") },
+                    onNavigateEditBill = { billId -> navController.navigate("cycle_bill_edit/$billId") },
+                    onNavigateRecycleBin = { navController.navigate("recycle_bin") },
+                    onCreateTransaction = { bill ->
+                        val txDate = System.currentTimeMillis()
+                        val cycleDuration = when(bill.cycleType) {
+                            CycleType.DAILY -> 86400000L
+                            CycleType.WEEKLY -> 7 * 86400000L
+                            CycleType.MONTHLY -> 30 * 86400000L
+                            CycleType.YEARLY -> 365 * 86400000L
+                        }
+                        val updatedBill = bill.copy(
+                            lastGeneratedDate = txDate,
+                            currentCycleStart = txDate,
+                            currentCycleEnd = txDate + cycleDuration,
+                            nextTriggerDate = txDate + cycleDuration,
+                            overdue = false
+                        )
+                        scope.launch {
+                            val appDb = AppDatabase.getDatabase(ctx)
+                            appDb.transactionDao().insertTransaction(
+                                Transaction(
+                                    amount = bill.amount,
+                                    category = bill.category,
+                                    note = "",
+                                    date = txDate,
+                                    type = bill.type,
+                                    currency = bill.currency,
+                                    uuid = null,
+                                    cycleBillId = bill.id
+                                )
+                            )
+                            appDb.cycleBillDao().updateCycleBill(updatedBill)
+                            if (bill.reminderEnabled && bill.advanceMinutes > 0) {
+                                NotificationHelper.scheduleCycleBillReminder(
+                                    ctx,
+                                    bill.id, bill.name, bill.amount,
+                                    if (bill.type == TransactionType.EXPENSE) "支出" else "收入",
+                                    updatedBill.nextTriggerDate - bill.advanceMinutes * 60_000L,
+                                    bill.advanceMinutes
+                                )
+                            }
+                            Toast.makeText(ctx, "已生成 ${bill.name} ¥${String.format("%.2f", bill.amount)}", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    onUpdateTopBar = { title, backAction ->
+                        customTopBarTitle = title
+                        customBackAction = backAction
+                    }
+                )
+            }
+            composable("cycle_bill_edit/{billId}", arguments = listOf(
+                androidx.navigation.navArgument("billId") { type = NavType.LongType }
+            )) { backStackEntry ->
+                val billId = backStackEntry.arguments?.getLong("billId") ?: 0L
+                CycleBillEditScreen(
+                    onBack = { navController.popBackStack() },
+                    onSave = { navController.popBackStack() },
+                    editBillId = if (billId > 0) billId else null,
+                    onUpdateTopBar = { title, backAction ->
+                        customTopBarTitle = title
+                        customBackAction = backAction
+                    }
+                )
+            }
+            composable("recycle_bin") {
+                RecycleBinScreen(
+                    onBack = { navController.popBackStack() },
+                    onUpdateTopBar = { title, backAction ->
+                        customTopBarTitle = title
+                        customBackAction = backAction
+                    }
+                )
+            }
             composable("keyword_category_management") {
                 KeywordCategoryManagementScreen(
                     viewModel = viewModel,
@@ -804,6 +895,28 @@ fun MainScreen(
                         Column {
                             Text("资产管理", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                             Text("管理多币种资产和账户", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Surface(
+                    onClick = {
+                        showFabMenu = false
+                        navController.navigate("cycle_bill_list")
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text("周期账单", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                            Text("管理周期性账单和提醒", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }

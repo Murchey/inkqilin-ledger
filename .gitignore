@@ -34,3 +34,6 @@ google-services.json
 
 # Private dev docs
 developDocs/PRIVATEFILES/
+
+# Local binary artifact
+/InkQilin-ledger
