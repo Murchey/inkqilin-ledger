@@ -680,17 +680,12 @@ fun MainScreen(
                     onNavigateRecycleBin = { navController.navigate("recycle_bin") },
                     onCreateTransaction = { bill ->
                         val txDate = System.currentTimeMillis()
-                        val cycleDuration = when(bill.cycleType) {
-                            CycleType.DAILY -> 86400000L
-                            CycleType.WEEKLY -> 7 * 86400000L
-                            CycleType.MONTHLY -> 30 * 86400000L
-                            CycleType.YEARLY -> 365 * 86400000L
-                        }
+                        val nextCycleEnd = cycleBoundary(txDate, bill.cycleType)
                         val updatedBill = bill.copy(
                             lastGeneratedDate = txDate,
                             currentCycleStart = txDate,
-                            currentCycleEnd = txDate + cycleDuration,
-                            nextTriggerDate = txDate + cycleDuration,
+                            currentCycleEnd = nextCycleEnd,
+                            nextTriggerDate = nextCycleEnd,
                             overdue = false
                         )
                         scope.launch {

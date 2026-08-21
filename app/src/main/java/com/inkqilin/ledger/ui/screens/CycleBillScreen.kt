@@ -51,18 +51,6 @@ fun calculateProgress(bill: CycleBill, now: Long): Float {
     return ((clamped - bill.currentCycleStart).toDouble() / (bill.currentCycleEnd - bill.currentCycleStart)).toFloat().coerceIn(0f, 1f)
 }
 
-fun countMonths(startDate: Long, endDate: Long): Int {
-    val c1 = Calendar.getInstance().apply { timeInMillis = endDate }
-    val c2 = Calendar.getInstance().apply { timeInMillis = startDate }
-    return (c1.get(Calendar.YEAR) - c2.get(Calendar.YEAR)) * 12 + (c1.get(Calendar.MONTH) - c2.get(Calendar.MONTH))
-}
-
-fun getMonthDays(monthsFromStart: Int): Int {
-    val cal = Calendar.getInstance()
-    cal.set(Calendar.MONTH, monthsFromStart % 12)
-    return cal.getActualMaximum(Calendar.DAY_OF_MONTH)
-}
-
 fun formatDate(dateMillis: Long): String {
     val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
     return sdf.format(Date(dateMillis))
@@ -72,55 +60,31 @@ fun formatTime(hour: Int, minute: Int): String {
     return String.format(Locale.CHINA, "%02d:%02d", hour, minute)
 }
 
+/** Returns the boundary after [periods] calendar-based billing cycles. */
+fun cycleBoundary(startDate: Long, cycleType: CycleType, periods: Int = 1): Long {
+    return Calendar.getInstance(TimeZone.getDefault()).run {
+        timeInMillis = startDate
+        when (cycleType) {
+            CycleType.DAILY -> add(Calendar.DAY_OF_YEAR, periods)
+            CycleType.WEEKLY -> add(Calendar.WEEK_OF_YEAR, periods)
+            CycleType.MONTHLY -> add(Calendar.MONTH, periods)
+            CycleType.YEARLY -> add(Calendar.YEAR, periods)
+        }
+        timeInMillis
+    }
+}
+
 /** Returns updated start/end/nextTrigger for a bill based on current time */
 fun computeCycleRange(bill: CycleBill, now: Long): Triple<Long, Long, Long> {
-    val cal = Calendar.getInstance(TimeZone.getDefault()).apply { timeInMillis = bill.startDate }
-    val startCal = Calendar.getInstance(TimeZone.getDefault())
-    val endCal = Calendar.getInstance(TimeZone.getDefault())
-
-    val (start, end, next) = when (bill.cycleType) {
-        CycleType.DAILY -> {
-            startCal.timeInMillis = now
-            startCal.set(Calendar.HOUR_OF_DAY, 0)
-            startCal.set(Calendar.MINUTE, 0)
-            startCal.set(Calendar.SECOND, 0)
-            startCal.set(Calendar.MILLISECOND, 0)
-            endCal.timeInMillis = startCal.timeInMillis + 86_400_000L
-            Triple(startCal.timeInMillis, endCal.timeInMillis, endCal.timeInMillis)
-        }
-        CycleType.WEEKLY -> {
-            while (cal.timeInMillis + 86_400_000L <= now) cal.add(Calendar.DAY_OF_WEEK, 1)
-            startCal.timeInMillis = cal.timeInMillis
-            endCal.timeInMillis = cal.timeInMillis + 7 * 86_400_000L
-            Triple(startCal.timeInMillis, endCal.timeInMillis, endCal.timeInMillis)
-        }
-        CycleType.MONTHLY -> {
-            val mDiff = countMonths(bill.startDate, now).coerceAtLeast(0)
-            cal.timeInMillis = bill.startDate
-            cal.add(Calendar.MONTH, mDiff)
-            startCal.timeInMillis = cal.timeInMillis
-            startCal.set(Calendar.HOUR_OF_DAY, 0)
-            startCal.set(Calendar.MINUTE, 0)
-            startCal.set(Calendar.SECOND, 0)
-            startCal.set(Calendar.MILLISECOND, 0)
-            endCal.timeInMillis = startCal.timeInMillis + getMonthDays(mDiff) * 86_400_000L
-            Triple(startCal.timeInMillis, endCal.timeInMillis, endCal.timeInMillis)
-        }
-        CycleType.YEARLY -> {
-            val yDiff = ((now - bill.startDate) / (365.25 * 86_400_000L)).toInt().coerceAtLeast(0)
-            cal.timeInMillis = bill.startDate
-            cal.add(Calendar.YEAR, yDiff)
-            while (cal.timeInMillis + 366 * 86_400_000L <= now) cal.add(Calendar.YEAR, 1)
-            startCal.timeInMillis = cal.timeInMillis
-            startCal.set(Calendar.HOUR_OF_DAY, 0)
-            startCal.set(Calendar.MINUTE, 0)
-            startCal.set(Calendar.SECOND, 0)
-            startCal.set(Calendar.MILLISECOND, 0)
-            endCal.timeInMillis = startCal.timeInMillis + 366 * 86_400_000L
-            Triple(startCal.timeInMillis, endCal.timeInMillis, endCal.timeInMillis)
-        }
+    var periods = 0
+    var start = bill.startDate
+    var end = cycleBoundary(bill.startDate, bill.cycleType, periods + 1)
+    while (end <= now) {
+        periods++
+        start = end
+        end = cycleBoundary(bill.startDate, bill.cycleType, periods + 1)
     }
-    return Triple(start, end, next)
+    return Triple(start, end, end)
 }
 
 // ═══════════════════════════════ Dao provider via singleton ═══════════════════════════════
@@ -173,6 +137,7 @@ fun CycleBillScreen(
     // Remove infinite loop - lifecycle updates handled by Worker/CycleBillWorker
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onNavigateAddBill,
@@ -183,7 +148,11 @@ fun CycleBillScreen(
             }
         }
     ) { innerPadding ->
-        Column(modifier = Modifier.padding(innerPadding)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
             // Tab bar
             Row(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
@@ -202,7 +171,11 @@ fun CycleBillScreen(
                 }
             }
             
-            AnimatedContent(targetState = selectedFilter, label = "filterChange") { filter ->
+            AnimatedContent(
+                targetState = selectedFilter,
+                modifier = Modifier.weight(1f),
+                label = "filterChange"
+            ) { filter ->
                 val filtered = when (filter) {
                     CycleFilter.ALL -> allBills
                     CycleFilter.DUE_SOON -> allBills.filter { it.enabled && it.nextTriggerDate in System.currentTimeMillis()..(System.currentTimeMillis() + 7 * 86_400_000L) }
@@ -578,12 +551,6 @@ fun CycleBillEditScreen(
         Button(
             onClick = {
                 val amt = amountStr.toDoubleOrNull() ?: 0.0
-                val cycleDuration = when(cycleType) {
-                    CycleType.DAILY -> 86400000L
-                    CycleType.WEEKLY -> 7 * 86400000L
-                    CycleType.MONTHLY -> 30 * 86400000L
-                    CycleType.YEARLY -> 365 * 86400000L
-                }
                 // Combine date and time into a single timestamp
                 val cal = Calendar.getInstance().apply { timeInMillis = startDateMillis }
                 cal.set(Calendar.HOUR_OF_DAY, startHour)
@@ -591,6 +558,7 @@ fun CycleBillEditScreen(
                 cal.set(Calendar.SECOND, 0)
                 cal.set(Calendar.MILLISECOND, 0)
                 val combinedDateTimeMillis = cal.timeInMillis
+                val firstCycleEnd = cycleBoundary(combinedDateTimeMillis, cycleType)
                 
                 val newBill = CycleBill(
                     id = editBillId ?: 0L,
@@ -607,9 +575,9 @@ fun CycleBillEditScreen(
                     currency = "CNY",
                     enabled = true,
                     currentCycleStart = combinedDateTimeMillis,
-                    currentCycleEnd = combinedDateTimeMillis + cycleDuration,
+                    currentCycleEnd = firstCycleEnd,
                     lastGeneratedDate = null,
-                    nextTriggerDate = combinedDateTimeMillis + cycleDuration,
+                    nextTriggerDate = firstCycleEnd,
                     overdue = false
                 )
                 scope.launch {
