@@ -744,6 +744,39 @@ fun MainScreen(
                     }
                 )
             }
+            composable("calculator_hub") {
+                CalculatorScreen(
+                    initialType = null,
+                    onUpdateTopBar = { title, backAction ->
+                        customTopBarTitle = title
+                        customBackAction = backAction
+                    }
+                )
+                DisposableEffect(Unit) {
+                    onDispose {
+                        customTopBarTitle = null
+                        customBackAction = null
+                    }
+                }
+            }
+            composable("calculator/{type}", arguments = listOf(
+                androidx.navigation.navArgument("type") { type = NavType.StringType; defaultValue = "" }
+            )) { backStackEntry ->
+                val calcType = backStackEntry.arguments?.getString("type") ?: ""
+                CalculatorScreen(
+                    initialType = calcType,
+                    onUpdateTopBar = { title, backAction ->
+                        customTopBarTitle = title
+                        customBackAction = backAction
+                    }
+                )
+                DisposableEffect(Unit) {
+                    onDispose {
+                        customTopBarTitle = null
+                        customBackAction = null
+                    }
+                }
+            }
             composable("keyword_category_management") {
                 KeywordCategoryManagementScreen(
                     viewModel = viewModel,
@@ -912,6 +945,25 @@ fun MainScreen(
                         Column {
                             Text("周期账单", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                             Text("管理周期性账单和提醒", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Surface(
+                    onClick = {
+                        showFabMenu = false
+                        navController.navigate("calculator_hub")
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                ) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text("多功能计算", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                            Text("复利、个税、储蓄、分期计算器", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }

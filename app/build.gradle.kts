@@ -13,7 +13,7 @@ android {
         minSdk = 26
         targetSdk = 34
         versionCode = 3
-        versionName = "1.4.9"
+        versionName = "1.5.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -87,6 +87,11 @@ dependencies {
 
     // WorkManager (for periodic cycle bill checking)
     implementation("androidx.work:work-runtime-ktx:2.9.0")
+
+    // Markdown rendering
+    implementation("org.commonmark:commonmark:0.21.0")
+    implementation("org.commonmark:commonmark-ext-gfm-tables:0.21.0")
+    implementation("io.coil-kt:coil-compose:2.5.0")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
