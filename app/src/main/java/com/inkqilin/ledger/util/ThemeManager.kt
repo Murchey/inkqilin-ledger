@@ -359,4 +359,17 @@ class ThemeManager(private val context: Context) {
             }
         }
     }
+
+    // ──── 个税税率配置 ────
+    private val TAX_CONFIG_KEY = stringPreferencesKey("tax_config")
+
+    val taxConfig: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[TAX_CONFIG_KEY] ?: ""
+    }
+
+    suspend fun setTaxConfig(configJson: String) {
+        context.dataStore.edit { preferences ->
+            preferences[TAX_CONFIG_KEY] = configJson
+        }
+    }
 }
