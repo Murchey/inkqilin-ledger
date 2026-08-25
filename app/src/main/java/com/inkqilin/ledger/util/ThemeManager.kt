@@ -60,6 +60,32 @@ class ThemeManager(private val context: Context) {
     private val AI_ALERTS_JSON_KEY = stringPreferencesKey("ai_alerts_json")
     private val AI_ANALYSIS_FAILED_KEY = booleanPreferencesKey("ai_analysis_failed")
     private val HOME_CARD_COLOR_KEY = stringPreferencesKey("home_card_color")
+private val WIDGET_SHOW_AMOUNT_KEY = booleanPreferencesKey("widget_show_amount")
+    private val WIDGET_QUICK_CATEGORIES_KEY = stringPreferencesKey("widget_quick_categories")
+
+    val widgetShowAmount: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[WIDGET_SHOW_AMOUNT_KEY] ?: true
+    }
+
+    val widgetQuickCategories: Flow<List<String>> = context.dataStore.data.map { preferences ->
+        val raw = preferences[WIDGET_QUICK_CATEGORIES_KEY]
+        if (raw.isNullOrBlank()) listOf("餐饮", "交通", "购物", "娱乐")
+        else raw.split("|||").filter { it.isNotBlank() }
+    }
+
+    suspend fun setWidgetShowAmount(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[WIDGET_SHOW_AMOUNT_KEY] = enabled
+        }
+    }
+
+    suspend fun setWidgetQuickCategories(categories: List<String>) {
+        context.dataStore.edit { preferences ->
+            if (categories.isEmpty()) preferences.remove(WIDGET_QUICK_CATEGORIES_KEY)
+            else preferences[WIDGET_QUICK_CATEGORIES_KEY] =
+                categories.filter { it.isNotBlank() }.joinToString("|||")
+        }
+    }
 
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { preferences ->
         val mode = preferences[THEME_KEY] ?: ThemeMode.AUTO.name

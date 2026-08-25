@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.inkqilin.ledger.LedgerApplication
 import com.inkqilin.ledger.data.*
 import com.inkqilin.ledger.service.AIAnalysisService
 import com.inkqilin.ledger.service.AiAlert
@@ -167,6 +168,34 @@ class TransactionViewModel(
         viewModelScope.launch { themeManager.setMonthlyBudget(amount) }
     }
 
+    // ── 桌面小组件设置 ──
+    val widgetShowAmount: StateFlow<Boolean> = themeManager.widgetShowAmount.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), true
+    )
+
+    val widgetQuickCategories: StateFlow<List<String>> = themeManager.widgetQuickCategories.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), listOf("餐饮", "交通", "购物", "娱乐")
+    )
+
+    fun setWidgetShowAmount(enabled: Boolean) {
+        viewModelScope.launch {
+            themeManager.setWidgetShowAmount(enabled)
+            notifyWidgets()
+        }
+    }
+
+    fun setWidgetQuickCategories(categories: List<String>) {
+        viewModelScope.launch {
+            themeManager.setWidgetQuickCategories(categories)
+            notifyWidgets()
+        }
+    }
+
+    /** 记账/周期账单数据变化后，通知桌面小部件刷新（未挂载时零开销） */
+    private fun notifyWidgets() {
+        runCatching { LedgerApplication.refreshWidgets() }
+    }
+
     fun addCurrencyAsset(asset: CurrencyAsset) {
         viewModelScope.launch { currencyAssetDao.insertAsset(asset) }
     }
@@ -191,6 +220,7 @@ class TransactionViewModel(
         viewModelScope.launch {
             val tx = if (transaction.uuid == null) transaction.copy(uuid = java.util.UUID.randomUUID().toString()) else transaction
             transactionDao.insertTransaction(tx)
+            notifyWidgets()
         }
     }
 
@@ -225,6 +255,7 @@ class TransactionViewModel(
     fun updateTransaction(transaction: Transaction) {
         viewModelScope.launch {
             transactionDao.updateTransaction(transaction)
+            notifyWidgets()
         }
     }
 
@@ -639,6 +670,7 @@ class TransactionViewModel(
     fun deleteTransaction(transaction: Transaction) {
         viewModelScope.launch {
             transactionDao.deleteTransaction(transaction)
+            notifyWidgets()
         }
     }
 
@@ -691,6 +723,7 @@ class TransactionViewModel(
             result.transactions.forEach { transaction ->
                 transactionDao.insertTransaction(transaction)
             }
+            notifyWidgets()
         }
     }
 

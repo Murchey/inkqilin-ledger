@@ -61,7 +61,9 @@ data class BottomNavItem(
 fun MainScreen(
     viewModel: TransactionViewModel,
     renQingViewModel: RenQingViewModel,
-    enableAnimations: Boolean = true
+    enableAnimations: Boolean = true,
+    externalNavTarget: String? = null,
+    onExternalTargetHandled: () -> Unit = {}
 ) {
     val navController = rememberNavController()
     val renQingEnabled by renQingViewModel.renQingEnabled.collectAsState()
@@ -100,6 +102,37 @@ fun MainScreen(
         if (pagerState.currentPage >= bottomItems.size) {
             pagerState.scrollToPage(0)
         }
+    }
+
+    // 桌面小部件外部导航目标（冷启动/热启动均可到达）
+    LaunchedEffect(externalNavTarget) {
+        val target = externalNavTarget ?: return@LaunchedEffect
+        when {
+            target == "main" || target == "home" -> {
+                if (navController.currentDestination?.route != "main") {
+                    navController.navigate("main") {
+                        popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                }
+            }
+            target == "settings" -> {
+                val index = bottomItems.indexOfFirst { it.route == "settings" }
+                if (index != -1) {
+                    scope.launch {
+                        pagerState.animateScrollToPage(index)
+                        if (navController.currentDestination?.route != "main") {
+                            navController.navigate("main") {
+                                popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        }
+                    }
+                }
+            }
+            else -> runCatching { navController.navigate(target) { launchSingleTop = true } }
+        }
+        onExternalTargetHandled()
     }
 
     val showBottomBar = currentRoute == "main" && !isAlbumInteracting
@@ -652,10 +685,21 @@ fun MainScreen(
                     onBack = { navController.popBackStack() }
                 )
             }
-            composable("add_transaction") {
+            composable(
+                route = "add_transaction?category={category}&type={type}",
+                arguments = listOf(
+                    navArgument("category") { type = NavType.StringType; defaultValue = "" },
+                    navArgument("type") { type = NavType.StringType; defaultValue = "EXPENSE" }
+                )
+            ) { backStackEntry ->
+                val initialCategory = backStackEntry.arguments?.getString("category").orEmpty()
+                val initialTypeStr = backStackEntry.arguments?.getString("type") ?: "EXPENSE"
                 AddTransactionScreen(
                     viewModel = viewModel,
                     renQingViewModel = renQingViewModel,
+                    initialCategory = initialCategory,
+                    initialType = runCatching { TransactionType.valueOf(initialTypeStr) }
+                        .getOrDefault(TransactionType.EXPENSE),
                     onSaved = { navController.popBackStack() }
                 )
             }

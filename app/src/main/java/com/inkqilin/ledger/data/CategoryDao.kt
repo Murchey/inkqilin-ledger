@@ -19,4 +19,8 @@ interface CategoryDao {
 
     @Delete
     suspend fun deleteCategory(category: Category)
+
+    // ── AppWidget 用：同步查询（供桌面小组件 goAsync 渲染使用）──
+    @Query("SELECT * FROM categories WHERE type = :type ORDER BY sortOrder ASC, id ASC")
+    suspend fun getCategoriesByTypeSync(type: TransactionType): List<Category>
 }

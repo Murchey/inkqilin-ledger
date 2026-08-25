@@ -52,4 +52,31 @@ interface TransactionDao {
 
     @Update
     suspend fun updateTransactions(transactions: List<Transaction>)
+
+    // ── AppWidget 同步聚合查询（供桌面小组件 goAsync 渲染使用）──
+    @Query("SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type = 'INCOME' AND date BETWEEN :start AND :end")
+    suspend fun getIncomeSumByRangeSync(start: Long, end: Long): Double
+
+    @Query("SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type = 'EXPENSE' AND date BETWEEN :start AND :end")
+    suspend fun getExpenseSumByRangeSync(start: Long, end: Long): Double
+
+    @Query("SELECT category, COALESCE(SUM(amount),0) AS total FROM transactions WHERE type = 'EXPENSE' AND date BETWEEN :start AND :end GROUP BY category ORDER BY total DESC LIMIT :limit")
+    suspend fun getTopExpenseCategoriesSync(start: Long, end: Long, limit: Int): List<CategoryTotal>
+
+    // ── AppWidget 用：最近使用的支出分类（按最近一次记账时间排）──
+    @Query("""SELECT category, MAX(date) AS last_used, COUNT(*) AS use_count FROM transactions
+               WHERE type = 'EXPENSE' AND date >= :since
+               GROUP BY category ORDER BY last_used DESC, use_count DESC LIMIT :limit""")
+    suspend fun getRecentExpenseCategoriesSync(since: Long, limit: Int): List<CategoryUsage>
 }
+
+data class CategoryUsage(
+    val category: String,
+    val last_used: Long,
+    val use_count: Int
+)
+
+data class CategoryTotal(
+    val category: String,
+    val total: Double
+)

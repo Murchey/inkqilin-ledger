@@ -152,4 +152,8 @@ interface CycleBillDao {
         id: Long, cycleStart: Long, cycleEnd: Long,
         nextTriggerDate: Long, overdue: Boolean
     )
+
+    // ── AppWidget 用：同步拉取已启用周期账单（按下次触发时间升序）──
+    @Query("SELECT * FROM cycle_bills WHERE enabled = 1 ORDER BY nextTriggerDate ASC, id ASC LIMIT :limit")
+    suspend fun getWidgetBillsSync(limit: Int): List<CycleBill>
 }

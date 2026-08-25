@@ -346,6 +346,64 @@ fun SettingsScreen(
         }
         // endregion
 
+        // region 桌面小组件
+        val widgetShowAmount by viewModel.widgetShowAmount.collectAsState()
+        val widgetQuickCategories by viewModel.widgetQuickCategories.collectAsState()
+        val allCategories by viewModel.allCategories.collectAsState(initial = emptyList())
+        val expenseWidgetCategories = allCategories.filter { it.type == TransactionType.EXPENSE }
+        Text(
+            text = "桌面小组件",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp, bottom = 12.dp)
+        )
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+            shape = RoundedCornerShape(18.dp),
+            elevation = CardDefaults.cardElevation(0.dp)
+        ) {
+            Column {
+                ListItem(
+                    headlineContent = { Text("小部件显示金额") },
+                    supportingContent = {
+                        Text(if (widgetShowAmount) "桌面小组件展示具体金额" else "已隐藏金额，仅显示 ¥ •••")
+                    },
+                    trailingContent = {
+                        Switch(checked = widgetShowAmount, onCheckedChange = { viewModel.setWidgetShowAmount(it) })
+                    }
+                )
+                Spacer(modifier = Modifier.height(0.5.dp))
+                ListItem(
+                    headlineContent = { Text("快捷记账按钮") },
+                    supportingContent = { Text("自动显示最近使用的分类；无记录时使用下方勾选分类（最多 6 个）") }
+                )
+                expenseWidgetCategories.chunked(4).forEach { rowCats ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        rowCats.forEach { cat ->
+                            val selected = cat.name in widgetQuickCategories
+                            FilterChip(
+                                selected = selected,
+                                onClick = {
+                                    val updated =
+                                        if (selected) widgetQuickCategories - cat.name
+                                        else (widgetQuickCategories + cat.name).take(6)
+                                    viewModel.setWidgetQuickCategories(updated)
+                                },
+                                label = { Text("${cat.icon} ${cat.name}", fontSize = 11.sp) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+        }
+        // endregion 桌面小组件
+
         // region 2. 显示设置
         var displaySettingsExpanded by remember { mutableStateOf(false) }
         Text(

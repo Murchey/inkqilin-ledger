@@ -1,3 +1,9 @@
 <resources>
     <string name="app_name">墨麒麟记账</string>
+    <string name="widget_overview_name">记账概览</string>
+    <string name="widget_quick_record_name">快捷记账</string>
+    <string name="widget_calculator_name">多功能计算器</string>
+    <string name="widget_overview_desc">快捷查看本月收支结余与预算进度</string>
+    <string name="widget_quick_record_desc">一到两步快速记一笔分类账单</string>
+    <string name="widget_calculator_desc">快捷打开定投、复利、个税、储蓄、分期等计算工具</string>
 </resources>

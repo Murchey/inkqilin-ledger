@@ -40,7 +40,9 @@ import com.inkqilin.ledger.util.DownloadSource
 import com.inkqilin.ledger.util.ThemeManager
 import com.inkqilin.ledger.util.ThemeMode
 import com.inkqilin.ledger.util.UpdateInfo
+import com.inkqilin.ledger.widget.WidgetIntents
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 /** 下载 UI 状态 */
@@ -52,6 +54,8 @@ private sealed class DownloadUiState {
 }
 
 class MainActivity : ComponentActivity() {
+    /** 桌面小部件导航目标（由 WidgetClickReceiver 携带，经此路由到 MainScreen） */
+    private val widgetNavTarget = MutableStateFlow<String?>(null)
     private val database by lazy { AppDatabase.getDatabase(this) }
     private val themeManager by lazy { ThemeManager(this) }
     private val viewModel: TransactionViewModel by viewModels {
@@ -80,6 +84,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        widgetNavTarget.value = parseWidgetTarget(intent)
         setContent {
             val themeMode by viewModel.themeMode.collectAsState()
             val customPrimaryColorHex by viewModel.customPrimaryColorHex.collectAsState()
@@ -316,13 +321,28 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
+                    val widgetTarget by widgetNavTarget.collectAsState()
                     MainScreen(
                         viewModel = viewModel,
                         renQingViewModel = renQingViewModel,
-                        enableAnimations = enableStartupAnimations
+                        enableAnimations = enableStartupAnimations,
+                        externalNavTarget = widgetTarget,
+                        onExternalTargetHandled = { widgetNavTarget.value = null }
                     )
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        parseWidgetTarget(intent)?.let { widgetNavTarget.value = it }
+    }
+
+    /** 解析桌面小部件导航目标 */
+    private fun parseWidgetTarget(intent: Intent): String? {
+        if (intent.action != WidgetIntents.ACTION_WIDGET_NAV) return null
+        return intent.getStringExtra(WidgetIntents.EXTRA_NAV_TARGET)
     }
 }

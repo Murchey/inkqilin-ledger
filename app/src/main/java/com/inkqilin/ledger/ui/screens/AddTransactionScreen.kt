@@ -39,12 +39,14 @@ import java.util.*
 fun AddTransactionScreen(
     viewModel: TransactionViewModel,
     renQingViewModel: RenQingViewModel,
+    initialCategory: String = "",
+    initialType: TransactionType = TransactionType.EXPENSE,
     onSaved: () -> Unit
 ) {
     var amount by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf("") }
-    var type by remember { mutableStateOf(TransactionType.EXPENSE) }
+    var category by remember { mutableStateOf(initialCategory) }
+    var type by remember { mutableStateOf(initialType) }
     var date by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var syncToRenQing by remember { mutableStateOf(false) }
     var selectedContact by remember { mutableStateOf<RenQingContact?>(null) }

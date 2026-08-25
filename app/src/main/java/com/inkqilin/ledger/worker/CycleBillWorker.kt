@@ -12,6 +12,7 @@ import androidx.work.WorkManager
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.ListenableWorker
+import com.inkqilin.ledger.LedgerApplication
 import com.inkqilin.ledger.util.CycleBillBroadcastReceiver
 import com.inkqilin.ledger.util.NotificationHelper
 import java.util.concurrent.TimeUnit
@@ -60,6 +61,8 @@ class CycleBillWorker(
     override suspend fun doWork(): ListenableWorker.Result {
         return try {
             Log.d(TAG, "CycleBillWorker running: periodic check")
+            // 兜底刷新桌面小部件（记账/周期状态可能已有变化）
+            LedgerApplication.refreshWidgets()
             ListenableWorker.Result.success()
         } catch (e: Exception) {
             Log.e(TAG, "Error in CycleBillWorker", e)
