@@ -9,7 +9,7 @@ import android.content.Intent
 /** 统一刷新入口：记账写库 / 周期账单变更 / 业务触发时调用 */
 object WidgetUpdater {
 
-    val PROVIDERS: List<Class<out AppWidgetProvider>> = listOf(
+    val PROVIDERS: List<Class<out BaseLedgerWidgetProvider>> = listOf(
         OverviewWidgetProvider::class.java,
         QuickRecordWidgetProvider::class.java,
         CalculatorWidgetProvider::class.java

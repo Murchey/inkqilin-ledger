@@ -678,6 +678,11 @@ class TransactionViewModel(
         return transactionDao.searchTransactions(query)
     }
 
+    /** 搜索聚合：支出/收入合计（一次 SQL），供搜索结果头部展示 */
+    fun searchSummary(query: String): Flow<SearchSummary> {
+        return transactionDao.searchSummary(query)
+    }
+
     fun getTransactionsByCategory(category: String): Flow<List<Transaction>> {
         return transactionDao.getTransactionsByCategory(category)
     }

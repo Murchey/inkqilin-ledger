@@ -68,7 +68,20 @@ interface TransactionDao {
                WHERE type = 'EXPENSE' AND date >= :since
                GROUP BY category ORDER BY last_used DESC, use_count DESC LIMIT :limit""")
     suspend fun getRecentExpenseCategoriesSync(since: Long, limit: Int): List<CategoryUsage>
+
+    // ── 搜索聚合：一次 SQL 返回支出/收入合计（供搜索结果头部金额展示）──
+    @Query("""SELECT
+                COALESCE(SUM(CASE WHEN type = 'EXPENSE' THEN amount END), 0) AS expenseTotal,
+                COALESCE(SUM(CASE WHEN type = 'INCOME' THEN amount END), 0) AS incomeTotal
+              FROM transactions
+              WHERE note LIKE '%' || :query || '%' OR category LIKE '%' || :query || '%'""")
+    fun searchSummary(query: String): Flow<SearchSummary>
 }
+
+data class SearchSummary(
+    val expenseTotal: Double,
+    val incomeTotal: Double
+)
 
 data class CategoryUsage(
     val category: String,

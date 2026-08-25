@@ -66,6 +66,15 @@
                 android:resource="@xml/calculator_widget_info" />
         </receiver>
 
+        <!-- 业务侧（记账/设置变更）触发的刷新广播接收器 -->
+        <receiver
+            android:name=".widget.WidgetClickReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.inkqilin.ledger.widget.REFRESH" />
+            </intent-filter>
+        </receiver>
+
         <!-- 开机 / 时间 / 时区变更后刷新小部件 -->
         <receiver
             android:name=".widget.WidgetRefreshBroadcastReceiver"

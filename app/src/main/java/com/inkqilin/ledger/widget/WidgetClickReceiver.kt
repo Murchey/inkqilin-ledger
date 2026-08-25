@@ -21,7 +21,7 @@ class WidgetClickReceiver : BroadcastReceiver() {
             if (ids.isNotEmpty()) {
                 runCatching {
                     val provider = providerCls.getDeclaredConstructor().newInstance()
-                    provider.onUpdate(appContext, manager, ids)
+                    provider.refresh(appContext, manager, ids)
                 }
             }
         }

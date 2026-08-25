@@ -26,14 +26,13 @@ abstract class BaseLedgerWidgetProvider : AppWidgetProvider() {
     ) {
         val result = goAsync()
         val appContext = context.applicationContext
+        val manager = appWidgetManager
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val theme = ThemeManager(appContext)
-                appWidgetIds.forEach { id ->
-                    runCatching { render(appContext, theme, appWidgetManager, id) }
-                }
+                renderWidgets(appContext, manager, appWidgetIds)
             } finally {
-                result.finish()
+                // 极端情况下 goAsync 可能返回 null，做空保护
+                runCatching { result.finish() }
             }
         }
     }
@@ -46,6 +45,29 @@ abstract class BaseLedgerWidgetProvider : AppWidgetProvider() {
     ) {
         super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
         onUpdate(context, appWidgetManager, intArrayOf(appWidgetId))
+    }
+
+    /**
+     * 业务侧（记账 / 设置变更 / 手动刷新）触发：
+     * 不依赖系统 BroadcastReceiver 生命周期，可直接刷新已挂载实例。
+     */
+    fun refresh(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
+        val appContext = context.applicationContext
+        val manager = appWidgetManager
+        CoroutineScope(Dispatchers.IO).launch {
+            renderWidgets(appContext, manager, appWidgetIds)
+        }
+    }
+
+    private suspend fun renderWidgets(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetIds: IntArray
+    ) {
+        val theme = ThemeManager(context)
+        appWidgetIds.forEach { id ->
+            runCatching { render(context, theme, appWidgetManager, id) }
+        }
     }
 
     protected abstract suspend fun render(
