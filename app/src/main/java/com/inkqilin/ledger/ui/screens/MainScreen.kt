@@ -434,18 +434,24 @@ fun MainScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(barRadius))
+                                .border(
+                                    width = 0.6.dp,
+                                    color = if (isDarkMode) Color.White.copy(alpha = 0.16f)
+                                            else Color.White.copy(alpha = 0.85f),
+                                    shape = RoundedCornerShape(barRadius)
+                                )
                                 .drawBehind {
                                     val cr = barCornerPx
                                     drawRoundRect(
-                                        color = if (isDarkMode) Color.White.copy(alpha = 0.12f)
-                                                else Color.White.copy(alpha = 0.65f),
+                                        color = if (isDarkMode) Color(0xFF1C1C1E).copy(alpha = 0.96f)
+                                                else Color.White.copy(alpha = 0.94f),
                                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(cr)
                                     )
                                     drawLine(
-                                        color = Color.White.copy(alpha = if (isDarkMode) 0.08f else 0.20f),
+                                        color = Color.White.copy(alpha = if (isDarkMode) 0.12f else 0.95f),
                                         start = androidx.compose.ui.geometry.Offset(cr * 0.5f, 0.5f),
                                         end = androidx.compose.ui.geometry.Offset(size.width - cr * 0.5f, 0.5f),
-                                        strokeWidth = 0.3f
+                                        strokeWidth = 0.6f
                                     )
                                 }
                                 .padding(horizontal = 4.dp, vertical = 4.dp)
