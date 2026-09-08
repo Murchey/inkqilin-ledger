@@ -54,6 +54,32 @@ private fun isNotificationServiceEnabled(context: Context): Boolean {
     return packageNames.contains(context.packageName)
 }
 
+@Composable
+private fun SettingsSectionHeader(
+    title: String,
+    summary: String,
+    expanded: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+            .padding(top = 8.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Icon(
+            imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+            contentDescription = if (expanded) "收起" else "展开"
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -282,9 +308,18 @@ fun SettingsScreen(
         }
     )
 
+    var appSectionExpanded by remember { mutableStateOf(true) }
+    var displaySectionExpanded by remember { mutableStateOf(true) }
+    var categorySectionExpanded by remember { mutableStateOf(false) }
+    var renQingSectionExpanded by remember { mutableStateOf(false) }
+    var currencySectionExpanded by remember { mutableStateOf(false) }
+    var updateSectionExpanded by remember { mutableStateOf(false) }
+    var dataSectionExpanded by remember { mutableStateOf(false) }
+
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 16.dp)) {
         // region 1. 应用版本
-        Text(text = "应用版本", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 12.dp))
+        SettingsSectionHeader("应用版本", if (appMode == AppMode.SMART) "智能版" else "基础版", appSectionExpanded) { appSectionExpanded = !appSectionExpanded }
+        AnimatedVisibility(visible = appSectionExpanded) {
         Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
                 ListItem(
@@ -344,20 +379,19 @@ fun SettingsScreen(
                 }
             }
         }
+        }
         // endregion
 
         // 桌面小组件设置已移至左侧抽屉（MainScreen 内 WidgetSettingsPanel）
 
         // region 2. 显示设置
         var displaySettingsExpanded by remember { mutableStateOf(false) }
-        Text(
-            text = "显示设置",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { displaySettingsExpanded = !displaySettingsExpanded }
-                .padding(top = 8.dp, bottom = 12.dp)
-        )
+        SettingsSectionHeader("显示设置", when (themeMode) {
+            ThemeMode.AUTO -> "跟随系统"
+            ThemeMode.LIGHT -> "浅色模式"
+            ThemeMode.DARK -> "深色模式"
+        }, displaySectionExpanded) { displaySectionExpanded = !displaySectionExpanded }
+        AnimatedVisibility(visible = displaySectionExpanded) {
         Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
                 ListItem(
@@ -614,7 +648,9 @@ fun SettingsScreen(
             }
         }
 
-        Text(text = "分类管理", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
+        }
+        SettingsSectionHeader("分类管理", "账单分类与自动分类规则", categorySectionExpanded) { categorySectionExpanded = !categorySectionExpanded }
+        AnimatedVisibility(visible = categorySectionExpanded) {
         Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
                 ListItem(
@@ -633,8 +669,10 @@ fun SettingsScreen(
             }
         }
 
+        }
         val renQingEnabled by renQingViewModel.renQingEnabled.collectAsState()
-        Text(text = "人情账本", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
+        SettingsSectionHeader("人情账本", if (renQingEnabled) "已启用" else "未启用", renQingSectionExpanded) { renQingSectionExpanded = !renQingSectionExpanded }
+        AnimatedVisibility(visible = renQingSectionExpanded) {
         Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
             ListItem(
                 headlineContent = { Text("启用人情账本") },
@@ -645,8 +683,10 @@ fun SettingsScreen(
             )
         }
 
+        }
         val multiCurrencyEnabled by viewModel.multiCurrencyEnabled.collectAsState()
-        Text(text = "多币种管理", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
+        SettingsSectionHeader("多币种管理", if (multiCurrencyEnabled) "已启用" else "未启用", currencySectionExpanded) { currencySectionExpanded = !currencySectionExpanded }
+        AnimatedVisibility(visible = currencySectionExpanded) {
         Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
                 ListItem(
@@ -668,6 +708,7 @@ fun SettingsScreen(
             }
         }
 
+        }
         val checkUpdateEnabled by viewModel.checkUpdateEnabled.collectAsState()
         val updateProxyUrl by viewModel.updateProxyUrl.collectAsState()
         val proxyOptions = com.inkqilin.ledger.util.PROXY_SOURCES + "自定义"
@@ -675,7 +716,8 @@ fun SettingsScreen(
         var showCustomProxyInput by remember { mutableStateOf(false) }
         var customProxyUrl by remember { mutableStateOf("") }
 
-        Text(text = "更新检测", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
+        SettingsSectionHeader("更新检测", if (checkUpdateEnabled) "启动时自动检查" else "已关闭", updateSectionExpanded) { updateSectionExpanded = !updateSectionExpanded }
+        AnimatedVisibility(visible = updateSectionExpanded) {
         Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
                 ListItem(
@@ -724,6 +766,7 @@ fun SettingsScreen(
             }
         }
 
+        }
         // 自定义代理源输入对话框
         if (showCustomProxyInput) {
             AlertDialog(
@@ -758,20 +801,13 @@ fun SettingsScreen(
         }
 
         var labExpanded by remember { mutableStateOf(false) }
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(text = "实验室功能", style = MaterialTheme.typography.titleMedium)
-            IconButton(onClick = { labExpanded = !labExpanded }) {
-                Icon(
-                    imageVector = if (labExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    contentDescription = if (labExpanded) "收起" else "展开"
-                )
-            }
-        }
-        if (labExpanded) {
+        SettingsSectionHeader(
+            title = "实验室功能",
+            summary = if (autoRecordEnabled || ocrEnabled || albumEnabled) "部分功能已启用" else "未启用实验室功能",
+            expanded = labExpanded,
+            onClick = { labExpanded = !labExpanded }
+        )
+        AnimatedVisibility(visible = labExpanded) {
             Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
                 Column {
                 ListItem(
@@ -852,7 +888,8 @@ fun SettingsScreen(
     }
 
 
-        Text(text = "数据管理", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
+        SettingsSectionHeader("数据管理", "导入、导出与人情账本数据", dataSectionExpanded) { dataSectionExpanded = !dataSectionExpanded }
+        AnimatedVisibility(visible = dataSectionExpanded) {
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
                 ListItem(
@@ -1052,6 +1089,7 @@ fun SettingsScreen(
                     }
                 )
             }
+        }
         }
         val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(6.dp)
         Spacer(modifier = Modifier.height(navBarBottomPadding + 76.dp))

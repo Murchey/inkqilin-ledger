@@ -10,6 +10,7 @@ import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -43,6 +44,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.activity.compose.BackHandler
 import androidx.navigation.NavController
 import com.inkqilin.ledger.data.AssetFlow
 import com.inkqilin.ledger.data.AssetFlowType
@@ -192,6 +194,13 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showEndDatePicker by remember { mutableStateOf(false) }
     var showPieChart by rememberSaveable { mutableStateOf(false) }
+    val statisticsListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+
+    BackHandler(enabled = showSubFilterBar) {
+        showSubFilterBar = false
+        selectedSubFilter = null
+        selectedWeekOffset = null
+    }
 
     if (showStartDatePicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = startDate)
@@ -560,6 +569,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
 
     val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(6.dp)
     LazyColumn(
+        state = statisticsListState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = navBarBottomPadding + 76.dp)
     ) {

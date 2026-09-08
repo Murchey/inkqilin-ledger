@@ -35,6 +35,19 @@ fun CategoryTransactionsScreen(
     val filteredTransactions = transactions.filter {
         it.type == transactionType && (startDate == 0L || it.date in startDate..endDate)
     }
+    var transactionToEdit by remember { mutableStateOf<Transaction?>(null) }
+
+    transactionToEdit?.let { transaction ->
+        EditTransactionDialog(
+            transaction = transaction,
+            viewModel = viewModel,
+            onDismiss = { transactionToEdit = null },
+            onConfirm = { updatedTransaction ->
+                viewModel.updateTransaction(updatedTransaction)
+                transactionToEdit = null
+            }
+        )
+    }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text(
@@ -52,7 +65,8 @@ fun CategoryTransactionsScreen(
                 items(filteredTransactions) { transaction ->
                     TransactionItem(
                         transaction = transaction,
-                        viewModel = viewModel
+                        viewModel = viewModel,
+                        onClick = { transactionToEdit = transaction }
                     )
                 }
             }

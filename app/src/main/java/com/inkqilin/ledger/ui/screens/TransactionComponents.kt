@@ -54,7 +54,8 @@ fun SwipeableTransactionItem(
     transaction: Transaction,
     viewModel: TransactionViewModel,
     onDelete: () -> Unit,
-    onEdit: () -> Unit
+    onEdit: () -> Unit,
+    onClick: () -> Unit = onEdit
 ) {
     val density = LocalDensity.current
     val menuWidth = 120.dp
@@ -120,7 +121,7 @@ fun SwipeableTransactionItem(
                     }
                 )
         ) {
-            TransactionItem(transaction, viewModel)
+            TransactionItem(transaction, viewModel, onClick = onClick)
         }
     }
 }
@@ -288,7 +289,11 @@ fun CategoryEditDialog(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TransactionItem(transaction: Transaction, viewModel: TransactionViewModel) {
+fun TransactionItem(
+    transaction: Transaction,
+    viewModel: TransactionViewModel,
+    onClick: () -> Unit = {}
+) {
     val sdf = SimpleDateFormat("MM月dd日", Locale.getDefault())
     val dateStr = sdf.format(Date(transaction.date))
 
@@ -321,7 +326,7 @@ fun TransactionItem(transaction: Transaction, viewModel: TransactionViewModel) {
             pressedElevation = 0.dp
         ),
         interactionSource = interactionSource,
-        onClick = {}
+        onClick = onClick
     ) {
         Row(
             modifier = Modifier

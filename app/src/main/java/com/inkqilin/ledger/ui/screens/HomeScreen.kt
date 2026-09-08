@@ -64,7 +64,8 @@ private fun Modifier.frostedGlass(
         shape = shape
     )
 
-@OptIn(ExperimentalMaterial3Api::class)
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     viewModel: TransactionViewModel,
@@ -393,62 +394,53 @@ fun HomeScreen(
                 val todayStart = todayCal.timeInMillis
                 val yesterdayStart = todayStart - 86400000L
                 val shortSdf = SimpleDateFormat("MM月dd日", Locale.getDefault())
-                homeData.groupedTransactions.forEachIndexed { _, group ->
-                    item {
-                        val symbol = defaultAsset?.symbol ?: "¥"
-                        val dateLabel = when {
-                            group.dateKey >= todayStart -> "今天"
-                            group.dateKey >= yesterdayStart -> "昨天"
-                            else -> shortSdf.format(Date(group.dateKey))
-                        }
-                        val balanceColor = when {
-                            group.balance > 0 -> incomeColor
-                            group.balance < 0 -> expenseColor
-                            else -> MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                        val balanceText = when {
-                            group.balance > 0 -> "+$symbol${String.format("%.2f", group.balance)}"
-                            group.balance < 0 -> "-$symbol${String.format("%.2f", -group.balance)}"
-                            else -> "${symbol}0.00"
-                        }
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 24.dp, vertical = 10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = dateLabel,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
-                            )
-                            Text(
-                                text = balanceText,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Medium,
-                                color = balanceColor.copy(alpha = 0.75f)
-                            )
-                        }
-                    }
-                    itemsIndexed(
-                        items = group.transactions,
-                        key = { _, it -> it.id }
-                    ) { index, transaction ->
+                homeData.groupedTransactions.forEach { group ->
+                    group.transactions.forEachIndexed { index, transaction ->
+                        stickyHeader(key = "transaction_${transaction.id}") {
                         // iOS-style staggered entry
                         var itemVisible by remember { mutableStateOf(false) }
                         LaunchedEffect(Unit) {
                             itemVisible = true
                         }
-                        
-                        Box(modifier = Modifier.staggeredAppearance(index, itemVisible)) {
-                            SwipeableTransactionItem(
-                                transaction = transaction,
-                                viewModel = viewModel,
-                                onDelete = { transactionToDelete = transaction },
-                                onEdit = { transactionToEdit = transaction }
-                            )
+                        Column {
+                            if (index == 0) {
+                                val symbol = defaultAsset?.symbol ?: "¥"
+                                val dateLabel = when {
+                                    group.dateKey >= todayStart -> "今天"
+                                    group.dateKey >= yesterdayStart -> "昨天"
+                                    else -> shortSdf.format(Date(group.dateKey))
+                                }
+                                val balanceColor = when {
+                                    group.balance > 0 -> incomeColor
+                                    group.balance < 0 -> expenseColor
+                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                                val balanceText = when {
+                                    group.balance > 0 -> "+$symbol${String.format("%.2f", group.balance)}"
+                                    group.balance < 0 -> "-$symbol${String.format("%.2f", -group.balance)}"
+                                    else -> "${symbol}0.00"
+                                }
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 20.dp, vertical = 6.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(dateLabel, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f))
+                                    Text(balanceText, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Medium, color = balanceColor.copy(alpha = 0.75f))
+                                }
+                            }
+                            Box(modifier = Modifier.staggeredAppearance(index, itemVisible)) {
+                                SwipeableTransactionItem(
+                                    transaction = transaction,
+                                    viewModel = viewModel,
+                                    onDelete = { transactionToDelete = transaction },
+                                    onEdit = { transactionToEdit = transaction },
+                                    onClick = { transactionToEdit = transaction }
+                                )
+                            }
+                        }
                         }
                     }
                 }
