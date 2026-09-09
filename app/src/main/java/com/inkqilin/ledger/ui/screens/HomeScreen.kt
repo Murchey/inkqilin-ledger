@@ -16,6 +16,8 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,6 +31,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -72,6 +75,7 @@ fun HomeScreen(
     viewModel: TransactionViewModel,
     onNavigateToAddTransaction: () -> Unit = {},
     onNavigateToStatistics: () -> Unit = {},
+    onNavigateToEditTransaction: (Transaction) -> Unit = {},
     @Suppress("UNUSED_PARAMETER") onNavigateToSearch: () -> Unit = {},
     onNavigateToOcrRecognition: () -> Unit = {},
     onNavigateToAssetManagement: () -> Unit = {}
@@ -91,7 +95,12 @@ fun HomeScreen(
     val incomeColor = Color(incomeColorHex.toColorInt())
     val homeCardColorHex by viewModel.homeCardColor.collectAsState()
 
-    var selectedYearMonth by remember {
+    var selectedYearMonth by rememberSaveable(
+        stateSaver = listSaver(
+            save = { listOf(it.first, it.second) },
+            restore = { it[0] to it[1] }
+        )
+    ) {
         mutableStateOf(Calendar.getInstance().let { it.get(Calendar.YEAR) to it.get(Calendar.MONTH) })
     }
     var showMonthPicker by remember { mutableStateOf(false) }
@@ -168,7 +177,7 @@ fun HomeScreen(
     }
 
     var transactionToDelete by remember { mutableStateOf<Transaction?>(null) }
-    var transactionToEdit by remember { mutableStateOf<Transaction?>(null) }
+
 
     if (transactionToDelete != null) {
         AppleAlertDialog(
@@ -185,17 +194,6 @@ fun HomeScreen(
         )
     }
 
-    if (transactionToEdit != null) {
-        EditTransactionDialog(
-            transaction = transactionToEdit!!,
-            viewModel = viewModel,
-            onDismiss = { transactionToEdit = null },
-            onConfirm = { updatedTransaction ->
-                viewModel.updateTransaction(updatedTransaction)
-                transactionToEdit = null
-            }
-        )
-    }
 
     val displayCalendar = remember(selectedYearMonth) {
         Calendar.getInstance().apply {
@@ -226,21 +224,28 @@ fun HomeScreen(
     }
 
     val homeData = homeDataState.value
-    val isDataLoading = !homeData.isLoaded && allTransactions.isNotEmpty()
+    // 仅在首次冷启动加载时显示骨架屏；从编辑页返回时避免骨架闪烁导致滚动位置被夹错
+    var hasLoadedOnce by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(homeData.isLoaded) {
+        if (homeData.isLoaded) hasLoadedOnce = true
+    }
+    val isDataLoading = !homeData.isLoaded && !hasLoadedOnce
     val maxTrendValue = remember(homeData.recentDays) { homeData.recentDays.maxOfOrNull { it.second } ?: 1.0 }
+    val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
 
     Scaffold(
         containerColor = Color.Transparent,
     ) { scaffoldPadding ->
         val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(6.dp)
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .padding(scaffoldPadding),
             contentPadding = PaddingValues(bottom = navBarBottomPadding + 76.dp)
         ) {
-            item {
+            item(key = "overview") {
                 if (isDataLoading) {
                     OverviewCardSkeleton()
                 } else if (multiCurrencyEnabled && allAssets.isNotEmpty()) {
@@ -265,7 +270,7 @@ fun HomeScreen(
                 }
             }
 
-            item {
+            item(key = "trend") {
                 Spacer(modifier = Modifier.height(16.dp))
 
                 if (isDataLoading) {
@@ -338,7 +343,7 @@ fun HomeScreen(
             }
 
             if (appMode == AppMode.SMART && !isDataLoading) {
-                item {
+                item(key = "ai_alert") {
                     Spacer(modifier = Modifier.height(24.dp))
                     if (aiAnalysisResult != null) {
                         AnomalyAlertCard(
@@ -366,11 +371,11 @@ fun HomeScreen(
             }
 
             if (isDataLoading) {
-                items(5) {
+                items(5, key = { "skeleton_$it" }) {
                     TransactionItemSkeleton()
                 }
             } else if (allTransactions.isEmpty()) {
-                item {
+                item(key = "empty") {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -397,7 +402,7 @@ fun HomeScreen(
                 val shortSdf = SimpleDateFormat("MM月dd日", Locale.getDefault())
                 homeData.groupedTransactions.forEach { group ->
                     group.transactions.forEachIndexed { index, transaction ->
-                        item {
+                        item(key = "tx_${transaction.id}") {
                         // iOS-style staggered entry
                         var itemVisible by remember { mutableStateOf(false) }
                         LaunchedEffect(Unit) {
@@ -437,8 +442,8 @@ fun HomeScreen(
                                     transaction = transaction,
                                     viewModel = viewModel,
                                     onDelete = { transactionToDelete = transaction },
-                                    onEdit = { transactionToEdit = transaction },
-                                    onClick = { transactionToEdit = transaction }
+                                    onEdit = { onNavigateToEditTransaction(transaction) },
+                                    onClick = { onNavigateToEditTransaction(transaction) }
                                 )
                             }
                         }
@@ -1641,6 +1646,12 @@ fun EditTransactionDialog(
     var category by remember { mutableStateOf(transaction.category) }
     var date by remember { mutableLongStateOf(transaction.date) }
     var showDatePicker by remember { mutableStateOf(false) }
+    var showAmountKeypad by remember { mutableStateOf(false) }
+    fun evaluateAmount() {
+        AmountExpressionEvaluator.evaluate(amount)?.let { result ->
+            if (result >= 0) amount = result.toString()
+        }
+    }
     
     val allCategories by viewModel.allCategories.collectAsState(initial = emptyList())
     val allAssets by viewModel.allAssets.collectAsState()
@@ -1716,14 +1727,30 @@ fun EditTransactionDialog(
                     }
                 }
 
-                OutlinedTextField(
-                    value = amount,
-                    onValueChange = { amount = it },
-                    label = { Text("账单金额") },
-                    prefix = { Text("$currencySymbol ") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = amount,
+                        onValueChange = { amount = it },
+                        label = { Text("账单金额") },
+                        prefix = { Text("$currencySymbol ") },
+                        readOnly = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .zIndex(1f)
+                            .clickable { showAmountKeypad = true }
+                    )
+                }
+                if (showAmountKeypad) {
+                    AmountKeypad(
+                        value = amount,
+                        onValueChange = { amount = it },
+                        onEvaluate = ::evaluateAmount,
+                        onDismiss = { showAmountKeypad = false }
+                    )
+                }
 
                 OutlinedTextField(
                     value = note,
@@ -1755,7 +1782,7 @@ fun EditTransactionDialog(
         buttons = listOf(
             AppleDialogButton("取消", AppleDialogButtonStyle.CANCEL, onDismiss),
             AppleDialogButton("确认修改", AppleDialogButtonStyle.DEFAULT) {
-                val amountDouble = amount.toDoubleOrNull() ?: 0.0
+                val amountDouble = AmountExpressionEvaluator.evaluate(amount) ?: 0.0
                 if (amountDouble > 0 && category.isNotEmpty()) {
                     onConfirm(transaction.copy(
                         amount = amountDouble,

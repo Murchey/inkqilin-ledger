@@ -164,6 +164,7 @@ fun MainScreen(
         }
         currentRoute == "search" -> "搜索"
         currentRoute == "add_transaction" -> "记一笔"
+        currentRoute?.startsWith("edit_transaction") == true -> "编辑账单"
         currentRoute == "add_renqing_event" -> "添加事件"
         currentRoute == "category_management" -> "分类管理"
         currentRoute?.startsWith("renqing_contact_detail") == true -> "联系人详情"
@@ -592,6 +593,10 @@ fun MainScreen(
                                     if (statsIndex != -1) pagerState.animateScrollToPage(statsIndex)
                                 }
                             },
+                            onNavigateToEditTransaction = { transaction ->
+                                viewModel.setPendingEditTransaction(transaction)
+                                navController.navigate("edit_transaction/${transaction.id}")
+                            },
                             onNavigateToSearch = {
                                 navController.navigate("search")
                             },
@@ -710,6 +715,30 @@ fun MainScreen(
                         .getOrDefault(TransactionType.EXPENSE),
                     onSaved = { navController.popBackStack() }
                 )
+            }
+            composable(
+                route = "edit_transaction/{transactionId}",
+                arguments = listOf(navArgument("transactionId") { type = NavType.LongType })
+            ) { backStackEntry ->
+                val transactionId = backStackEntry.arguments?.getLong("transactionId") ?: 0L
+                val pendingTx by viewModel.pendingEditTransaction.collectAsState()
+                val transactions by viewModel.allTransactions.collectAsState(initial = emptyList())
+                // 优先用 Flow 已有数据；未就绪时用导航前缓存，保证转场首帧就有内容
+                val transaction = transactions.firstOrNull { it.id == transactionId }
+                    ?: pendingTx?.takeIf { it.id == transactionId }
+                transaction?.let { tx ->
+                    AddTransactionScreen(
+                        viewModel = viewModel,
+                        renQingViewModel = renQingViewModel,
+                        existingTransaction = tx,
+                        onSaved = { navController.popBackStack() }
+                    )
+                }
+                DisposableEffect(transactionId) {
+                    onDispose {
+                        viewModel.setPendingEditTransaction(null)
+                    }
+                }
             }
             composable("category_management") {
                 CategoryManagementScreen(

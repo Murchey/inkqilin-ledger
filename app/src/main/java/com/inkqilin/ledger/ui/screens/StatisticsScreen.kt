@@ -316,10 +316,15 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
         Triple(netChange, percent, endValue)
     }
 
-    // 切换时间段时重置子筛选
+    // 切换时间段时重置子筛选；仅在用户真正切换时段时触发，
+    // 避免从子页返回 / 页面重组时把已恢复的筛选清掉
+    var lastAppliedPeriod by rememberSaveable { mutableStateOf(selectedPeriod) }
     LaunchedEffect(selectedPeriod) {
-        selectedSubFilter = null
-        selectedWeekOffset = null
+        if (selectedPeriod != lastAppliedPeriod) {
+            selectedSubFilter = null
+            selectedWeekOffset = null
+            lastAppliedPeriod = selectedPeriod
+        }
     }
 
     // ── 子筛选数据 ──
@@ -573,7 +578,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = navBarBottomPadding + 76.dp)
     ) {
-        item {
+        item(key = "period_tabs") {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -618,7 +623,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
         }
 
         // ── 子筛选 Bar ──
-        item {
+        item(key = "sub_filter_bar") {
             AnimatedVisibility(
                 visible = selectedPeriod != TimePeriod.CUSTOM && showSubFilterBar,
                 enter = expandVertically(
@@ -714,7 +719,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
             }
         }
 
-        item {
+        item(key = "type_toggle") {
             Spacer(modifier = Modifier.height(16.dp))
             Row(
                 modifier = Modifier
@@ -753,7 +758,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
         }
 
         if (allUserAssets.isNotEmpty()) {
-            item {
+            item(key = "asset_summary") {
                 Spacer(modifier = Modifier.height(16.dp))
                 val shape = RoundedCornerShape(24.dp)
                 val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
@@ -896,7 +901,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
         }
 
         if (multiCurrencyEnabled && allAssets.size > 1) {
-            item {
+            item(key = "currency_filter") {
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(
                     modifier = Modifier
@@ -960,7 +965,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
             }
         }
 
-        item {
+        item(key = "total_card") {
             Spacer(modifier = Modifier.height(24.dp))
             val totalShape = RoundedCornerShape(20.dp)
             val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
@@ -1082,7 +1087,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
         }
 
         if (barChartData.isNotEmpty()) {
-            item {
+            item(key = "chart_section") {
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Title + toggle buttons
@@ -1231,7 +1236,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
         }
 
         if (appMode == AppMode.SMART) {
-            item {
+            item(key = "score_card") {
                 Spacer(modifier = Modifier.height(16.dp))
                 if (aiAnalysisResult != null) {
                     AiFinancialScoreCard(
@@ -1254,7 +1259,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
             }
         }
 
-        item {
+        item(key = "category_rank_title") {
             Spacer(modifier = Modifier.height(24.dp))
             Text(
                 text = "分类排行",
@@ -1265,7 +1270,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
         }
 
         if (categoryTotals.isEmpty()) {
-            item {
+            item(key = "category_empty") {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1279,7 +1284,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                 }
             }
         } else {
-            items(categoryTotals) { (categoryName, total) ->
+            items(categoryTotals, key = { "cat_${it.first}" }) { (categoryName, total) ->
                 val percentage = if (totalAmount > 0) (total / totalAmount).toFloat() else 0f
                 val accentColor = if (selectedType == TransactionType.EXPENSE) expenseColor else incomeColor
                 val category = categories.find { it.name == categoryName && it.type == selectedType }

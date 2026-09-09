@@ -60,6 +60,14 @@ class TransactionViewModel(
         _isAlbumInteracting.value = interacting
     }
 
+    // 导航进入编辑页前缓存账单，避免首帧等 Flow 导致动画期间空白
+    private val _pendingEditTransaction = MutableStateFlow<Transaction?>(null)
+    val pendingEditTransaction: StateFlow<Transaction?> = _pendingEditTransaction.asStateFlow()
+
+    fun setPendingEditTransaction(transaction: Transaction?) {
+        _pendingEditTransaction.value = transaction
+    }
+
     init {
         viewModelScope.launch(Dispatchers.IO) {
             if (categoryDao.getAllCategories().first().isEmpty()) {

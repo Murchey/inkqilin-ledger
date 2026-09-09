@@ -27,6 +27,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.inkqilin.ledger.data.AssetFlow
 import com.inkqilin.ledger.data.AssetFlowType
 import com.inkqilin.ledger.data.UserAsset
@@ -422,7 +423,8 @@ private fun AssetEditDialog(
     var note by remember { mutableStateOf(asset?.note ?: "") }
     var typeDropdownExpanded by remember { mutableStateOf(false) }
 
-    val isValid = name.isNotBlank() && (valueStr.toDoubleOrNull() ?: 0.0) >= 0
+    val value = AmountExpressionEvaluator.evaluate(valueStr) ?: 0.0
+    val isValid = name.isNotBlank() && value >= 0
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -480,16 +482,17 @@ private fun AssetEditDialog(
                     }
                 }
 
-                OutlinedTextField(
-                    value = valueStr,
-                    onValueChange = { valueStr = it },
-                    label = { Text("当前估值") },
-                    singleLine = true,
-                    prefix = { Text("¥ ") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = valueStr,
+                        onValueChange = { valueStr = it },
+                        label = { Text("当前估值") },
+                        singleLine = true,
+                        prefix = { Text("¥ ") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
                 OutlinedTextField(
                     value = note,
                     onValueChange = { note = it },
@@ -502,7 +505,6 @@ private fun AssetEditDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    val value = valueStr.toDoubleOrNull() ?: 0.0
                     val now = System.currentTimeMillis()
                     onSave(
                         UserAsset(
@@ -897,7 +899,7 @@ private fun AssetFlowEditDialog(
     var flowDate by remember { mutableStateOf(flow?.date ?: System.currentTimeMillis()) }
     var showDatePicker by remember { mutableStateOf(false) }
 
-    val amount = amountStr.toDoubleOrNull() ?: 0.0
+    val amount = AmountExpressionEvaluator.evaluate(amountStr) ?: 0.0
     // 计算新的总价值
     val newValue = when (selectedType) {
         AssetFlowType.INCREASE -> currentValue + amount
@@ -965,7 +967,6 @@ private fun AssetFlowEditDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth()
                 )
-
                 // 日期选择
                 Box {
                     OutlinedTextField(

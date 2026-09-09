@@ -24,6 +24,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.inkqilin.ledger.data.*
 import com.inkqilin.ledger.ui.RenQingViewModel
 import kotlinx.coroutines.launch
@@ -41,16 +42,17 @@ fun AddTransactionScreen(
     renQingViewModel: RenQingViewModel,
     initialCategory: String = "",
     initialType: TransactionType = TransactionType.EXPENSE,
+    existingTransaction: Transaction? = null,
     onSaved: () -> Unit
 ) {
-    var amount by remember { mutableStateOf("") }
-    var note by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf(initialCategory) }
-    var type by remember { mutableStateOf(initialType) }
-    var date by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var amount by remember(existingTransaction?.id) { mutableStateOf(existingTransaction?.amount?.toString() ?: "") }
+    var note by remember(existingTransaction?.id) { mutableStateOf(existingTransaction?.note ?: "") }
+    var category by remember(existingTransaction?.id) { mutableStateOf(existingTransaction?.category ?: initialCategory) }
+    var type by remember(existingTransaction?.id) { mutableStateOf(existingTransaction?.type ?: initialType) }
+    var date by remember(existingTransaction?.id) { mutableLongStateOf(existingTransaction?.date ?: System.currentTimeMillis()) }
     var syncToRenQing by remember { mutableStateOf(false) }
     var selectedContact by remember { mutableStateOf<RenQingContact?>(null) }
-    var selectedCurrency by remember { mutableStateOf("CNY") }
+    var selectedCurrency by remember(existingTransaction?.id) { mutableStateOf(existingTransaction?.currency ?: "CNY") }
     val scope = rememberCoroutineScope()
 
     val allCategories by viewModel.allCategories.collectAsState(initial = emptyList())
@@ -69,6 +71,12 @@ fun AddTransactionScreen(
 
     var showAddCategoryDialog by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
+    var showAmountKeypad by remember { mutableStateOf(false) }
+    fun evaluateAmount() {
+        AmountExpressionEvaluator.evaluate(amount)?.let { result ->
+            if (result >= 0) amount = result.toString()
+        }
+    }
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = date)
@@ -109,7 +117,7 @@ fun AddTransactionScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("记一笔", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(if (existingTransaction == null) "记一笔" else "编辑账单", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                 AssistChip(
                     onClick = { showDatePicker = true },
@@ -149,15 +157,31 @@ fun AddTransactionScreen(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    OutlinedTextField(
-                        value = amount, onValueChange = { amount = it },
-                        label = { Text("金额") },
-                        prefix = { Text("${currentAsset?.symbol ?: "¥"} ", fontWeight = FontWeight.Bold, fontSize = 20.sp) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
-                        textStyle = LocalTextStyle.current.copy(fontSize = 24.sp, fontWeight = FontWeight.Bold),
-                        singleLine = true
-                    )
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = amount, onValueChange = { amount = it },
+                            label = { Text("金额") },
+                            prefix = { Text("${currentAsset?.symbol ?: "¥"} ", fontWeight = FontWeight.Bold, fontSize = 20.sp) },
+                            readOnly = true,
+                            modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
+                            textStyle = LocalTextStyle.current.copy(fontSize = 24.sp, fontWeight = FontWeight.Bold),
+                            singleLine = true
+                        )
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .zIndex(1f)
+                                .clickable { showAmountKeypad = true }
+                        )
+                    }
+                    if (showAmountKeypad) {
+                        AmountKeypad(
+                            value = amount,
+                            onValueChange = { amount = it },
+                            onEvaluate = ::evaluateAmount,
+                            onDismiss = { showAmountKeypad = false }
+                        )
+                    }
                 }
             }
         }
@@ -370,22 +394,21 @@ fun AddTransactionScreen(
             val saveInteractionSource = remember { MutableInteractionSource() }
             Button(
                 onClick = {
-                    val amountDouble = amount.toDoubleOrNull() ?: 0.0
+                    val amountDouble = AmountExpressionEvaluator.evaluate(amount) ?: 0.0
                     if (amountDouble > 0 && category.isNotEmpty()) {
-                        viewModel.addTransaction(
-                            Transaction(
-                                amount = amountDouble,
-                                category = category,
-                                note = note,
-                                date = date,
-                                type = type,
-                                currency = selectedCurrency
-                            )
+                        val savedTransaction = existingTransaction?.copy(
+                            amount = amountDouble, category = category, note = note,
+                            date = date, type = type, currency = selectedCurrency
+                        ) ?: Transaction(
+                            amount = amountDouble, category = category, note = note,
+                            date = date, type = type, currency = selectedCurrency
                         )
+                        if (existingTransaction == null) viewModel.addTransaction(savedTransaction)
+                        else viewModel.updateTransaction(savedTransaction)
                         if (note.isNotBlank()) {
                             viewModel.addRecentNote(note)
                         }
-                        if (syncToRenQing) {
+                        if (syncToRenQing && existingTransaction == null) {
                             renQingViewModel.addRenQingEventFromTransaction(
                                 amountDouble, type, category, note, date,
                                 contactId = selectedContact?.id ?: 0,
@@ -407,7 +430,7 @@ fun AddTransactionScreen(
                 interactionSource = saveInteractionSource,
                 elevation = appButtonElevation()
             ) {
-                Text("保存", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(if (existingTransaction == null) "保存" else "保存修改", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
