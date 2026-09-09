@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/calc_root"
     android:layout_width="match_parent"
@@ -11,16 +11,16 @@
         android:id="@+id/calc_title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="6dp"
+        android:layout_marginStart="4dp"
+        android:layout_marginTop="2dp"
         android:text="多功能计算器"
-        android:textColor="#30D158"
-        android:textSize="12sp"
-        android:textStyle="bold" />
+        android:textColor="#FF9B9BA3"
+        android:textSize="12sp" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginTop="4dp"
+        android:layout_marginTop="6dp"
         android:layout_weight="1"
         android:orientation="horizontal">
 
@@ -30,7 +30,7 @@
             android:layout_height="match_parent"
             android:layout_margin="4dp"
             android:layout_weight="1"
-            android:background="@drawable/widget_btn_bg"
+            android:background="@drawable/widget_btn_bg_night"
             android:gravity="center"
             android:orientation="vertical">
 
@@ -44,7 +44,8 @@
                 android:id="@+id/calc1_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
+                android:layout_marginTop="3dp"
+                android:textColor="#FFF2F2F7"
                 android:textSize="11sp" />
         </LinearLayout>
 
@@ -54,7 +55,7 @@
             android:layout_height="match_parent"
             android:layout_margin="4dp"
             android:layout_weight="1"
-            android:background="@drawable/widget_btn_bg"
+            android:background="@drawable/widget_btn_bg_night"
             android:gravity="center"
             android:orientation="vertical">
 
@@ -68,7 +69,8 @@
                 android:id="@+id/calc2_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
+                android:layout_marginTop="3dp"
+                android:textColor="#FFF2F2F7"
                 android:textSize="11sp" />
         </LinearLayout>
 
@@ -78,7 +80,7 @@
             android:layout_height="match_parent"
             android:layout_margin="4dp"
             android:layout_weight="1"
-            android:background="@drawable/widget_btn_bg"
+            android:background="@drawable/widget_btn_bg_night"
             android:gravity="center"
             android:orientation="vertical">
 
@@ -92,10 +94,12 @@
                 android:id="@+id/calc3_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
+                android:layout_marginTop="3dp"
+                android:textColor="#FFF2F2F7"
                 android:textSize="11sp" />
         </LinearLayout>
     </LinearLayout>
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -108,7 +112,7 @@
             android:layout_height="match_parent"
             android:layout_margin="4dp"
             android:layout_weight="1"
-            android:background="@drawable/widget_btn_bg"
+            android:background="@drawable/widget_btn_bg_night"
             android:gravity="center"
             android:orientation="vertical">
 
@@ -122,7 +126,8 @@
                 android:id="@+id/calc4_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
+                android:layout_marginTop="3dp"
+                android:textColor="#FFF2F2F7"
                 android:textSize="11sp" />
         </LinearLayout>
 
@@ -132,7 +137,7 @@
             android:layout_height="match_parent"
             android:layout_margin="4dp"
             android:layout_weight="1"
-            android:background="@drawable/widget_btn_bg"
+            android:background="@drawable/widget_btn_bg_night"
             android:gravity="center"
             android:orientation="vertical">
 
@@ -146,7 +151,8 @@
                 android:id="@+id/calc5_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
+                android:layout_marginTop="3dp"
+                android:textColor="#FFF2F2F7"
                 android:textSize="11sp" />
         </LinearLayout>
 
@@ -156,7 +162,7 @@
             android:layout_height="match_parent"
             android:layout_margin="4dp"
             android:layout_weight="1"
-            android:background="@drawable/widget_btn_bg"
+            android:background="@drawable/widget_btn_bg_night"
             android:gravity="center"
             android:orientation="vertical">
 
@@ -170,7 +176,8 @@
                 android:id="@+id/calc6_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
+                android:layout_marginTop="3dp"
+                android:textColor="#FFF2F2F7"
                 android:textSize="11sp" />
         </LinearLayout>
     </LinearLayout>

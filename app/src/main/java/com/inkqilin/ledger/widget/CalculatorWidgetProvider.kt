@@ -31,10 +31,6 @@ class CalculatorWidgetProvider : BaseLedgerWidgetProvider() {
     ) {
         val dark = WidgetUtils.isDark(context)
         val textColor = WidgetUtils.textColor(dark)
-        val primary = WidgetUtils.parseColor(
-            theme.customPrimaryColor.first() ?: DEFAULT_PRIMARY_COLOR_HEX,
-            WidgetUtils.DEFAULT_GREEN
-        )
 
         val (w, h) = widgetSize(manager, appWidgetId)
         val big = w >= 200 && h >= 200
@@ -43,13 +39,12 @@ class CalculatorWidgetProvider : BaseLedgerWidgetProvider() {
             if (big) R.layout.widget_calculator_big else R.layout.widget_calculator_small
         )
 
-        rv.setInt(R.id.calc_root, "setBackgroundResource", R.drawable.widget_card)
-        rv.setColorStateList(
-            R.id.calc_root, "setBackgroundTintList",
-            ColorStateList.valueOf(WidgetUtils.bgColor(dark))
+        rv.setInt(
+            R.id.calc_root, "setBackgroundResource",
+            if (dark) R.drawable.widget_card_night else R.drawable.widget_card
         )
         rv.setTextViewText(R.id.calc_title, if (big) "多功能计算器" else "多功能计算")
-        rv.setTextColor(R.id.calc_title, primary)
+        rv.setTextColor(R.id.calc_title, WidgetUtils.subColor(dark))
 
         val list = if (big) entries else entries.take(4)
         val containers = if (big) {
@@ -73,7 +68,6 @@ class CalculatorWidgetProvider : BaseLedgerWidgetProvider() {
         } else {
             intArrayOf(R.id.calc1_label, R.id.calc2_label, R.id.calc3_label, R.id.calc4_label)
         }
-        val tint = WidgetUtils.withAlpha(primary, 0x24)
 
         for (i in list.indices) {
             val e = list[i]
@@ -81,7 +75,6 @@ class CalculatorWidgetProvider : BaseLedgerWidgetProvider() {
             rv.setTextViewText(labels[i], e.name)
             rv.setTextColor(icons[i], textColor)
             rv.setTextColor(labels[i], textColor)
-            rv.setColorStateList(containers[i], "setBackgroundTintList", ColorStateList.valueOf(tint))
             rv.setOnClickPendingIntent(containers[i], navPendingIntent(context, WidgetIntents.calculator(e.type)))
         }
 

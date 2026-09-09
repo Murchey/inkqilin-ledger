@@ -40,12 +40,8 @@ class OverviewWidgetProvider : BaseLedgerWidgetProvider() {
         val dark = WidgetUtils.isDark(context)
         val textColor = WidgetUtils.textColor(dark)
         val subColor = WidgetUtils.subColor(dark)
-        val incomeColor = WidgetUtils.parseColor(theme.incomeColor.first(), WidgetUtils.DEFAULT_GREEN)
-        val expenseColor = WidgetUtils.parseColor(theme.expenseColor.first(), WidgetUtils.DEFAULT_ORANGE)
-        val primary = WidgetUtils.parseColor(
-            theme.customPrimaryColor.first() ?: DEFAULT_PRIMARY_COLOR_HEX,
-            WidgetUtils.DEFAULT_GREEN
-        )
+        val incomeColor = if (dark) WidgetUtils.INCOME_DARK else WidgetUtils.INCOME_LIGHT
+        val expenseColor = if (dark) WidgetUtils.EXPENSE_DARK else WidgetUtils.EXPENSE_LIGHT
 
         val (w, h) = widgetSize(manager, appWidgetId)
         val big = w >= 200 && h >= 200
@@ -54,19 +50,18 @@ class OverviewWidgetProvider : BaseLedgerWidgetProvider() {
             if (big) R.layout.widget_overview_big else R.layout.widget_overview_small
         )
 
-        // 公共部分
-        rv.setInt(R.id.overview_root, "setBackgroundResource", R.drawable.widget_card)
-        rv.setColorStateList(
-            R.id.overview_root, "setBackgroundTintList",
-            ColorStateList.valueOf(WidgetUtils.bgColor(dark))
+        // 公共部分：按深浅选卡片资源，不再运行时 tint（保留描边层次）
+        rv.setInt(
+            R.id.overview_root, "setBackgroundResource",
+            if (dark) R.drawable.widget_card_night else R.drawable.widget_card
         )
         rv.setTextViewText(R.id.ov_title, "墨麒麟记账")
-        rv.setTextColor(R.id.ov_title, textColor)
+        rv.setTextColor(R.id.ov_title, subColor)
         rv.setTextViewText(
             R.id.ov_month,
             if (big) "$nowYearMonth" else "${Calendar.getInstance().get(Calendar.MONTH) + 1}月"
         )
-        rv.setTextColor(R.id.ov_month, subColor)
+        rv.setTextColor(R.id.ov_month, textColor)
         rv.setTextViewText(R.id.ov_income, "收 " + WidgetUtils.amount(showAmount, income))
         rv.setTextColor(R.id.ov_income, incomeColor)
         rv.setTextViewText(R.id.ov_expense, "支 " + WidgetUtils.amount(showAmount, expense))
@@ -75,16 +70,16 @@ class OverviewWidgetProvider : BaseLedgerWidgetProvider() {
         rv.setTextColor(R.id.ov_balance, textColor)
 
         rv.setTextViewText(R.id.ov_add_btn, "记一笔")
-        rv.setTextColor(R.id.ov_add_btn, 0xFFFFFFFF.toInt())
-        rv.setColorStateList(
-            R.id.ov_add_btn, "setBackgroundTintList",
-            ColorStateList.valueOf(primary)
+        rv.setTextColor(
+            R.id.ov_add_btn,
+            if (dark) WidgetUtils.INK_TEXT_ON_DARK_BTN else WidgetUtils.INK_DARK_ON_LIGHT
         )
+        // 主按钮保持墨色，不再跟随用户主题绿
         rv.setOnClickPendingIntent(R.id.ov_add_btn, navPendingIntent(context, WidgetIntents.TARGET_ADD))
 
         val pending = overdueCount + dueSoonCount
-        rv.setTextViewText(R.id.ov_cycle_btn, "🔁 周期账单" + if (pending > 0) " · $pending" else "")
-        rv.setTextColor(R.id.ov_cycle_btn, primary)
+        rv.setTextViewText(R.id.ov_cycle_btn, "周期账单" + if (pending > 0) " · $pending" else "")
+        rv.setTextColor(R.id.ov_cycle_btn, textColor)
         rv.setOnClickPendingIntent(R.id.ov_cycle_btn, navPendingIntent(context, WidgetIntents.TARGET_CYCLE_LIST))
 
         // 卡片整体点击 → 首页
@@ -98,9 +93,12 @@ class OverviewWidgetProvider : BaseLedgerWidgetProvider() {
             rv.setProgressBar(R.id.ov_budget_progress, 100, pct, false)
             rv.setColorStateList(
                 R.id.ov_budget_progress, "setProgressTintList",
-                ColorStateList.valueOf(if (pct >= 100) WidgetUtils.OVERDUE_RED else primary)
+                ColorStateList.valueOf(if (pct >= 100) WidgetUtils.OVERDUE_RED else textColor)
             )
-            rv.setInt(R.id.ov_divider, "setBackgroundColor", subColor)
+            rv.setInt(
+                R.id.ov_divider, "setBackgroundColor",
+                if (dark) 0xFF2C2D33.toInt() else 0xFFE8E8ED.toInt()
+            )
 
             // 近 7 日 Top3
             rv.setTextViewText(R.id.ov_top_label, "近 7 日支出")

@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:background="@drawable/widget_card"
     android:orientation="vertical"
-    android:padding="14dp">
+    android:padding="16dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -19,46 +19,157 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="墨麒麟记账"
-            android:textColor="#1D1D1F"
-            android:textSize="12sp"
-            android:textStyle="bold" />
+            android:textColor="#FF6E6E73"
+            android:textSize="11sp" />
 
         <TextView
             android:id="@+id/ov_month"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:background="@drawable/widget_chip_bg"
+            android:paddingBottom="4dp"
+            android:paddingLeft="10dp"
+            android:paddingRight="10dp"
+            android:paddingTop="4dp"
             android:text="2026年8月"
-            android:textColor="#6E6E73"
-            android:textSize="11sp" />
+            android:textColor="#FF1D1D1F"
+            android:textSize="10sp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/ov_balance"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:includeFontPadding="false"
+        android:text="余 ¥0.00"
+        android:textColor="#FF1D1D1F"
+        android:textSize="26sp"
+        android:textStyle="bold" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@drawable/widget_chip_bg"
+            android:orientation="vertical"
+            android:paddingBottom="8dp"
+            android:paddingLeft="10dp"
+            android:paddingRight="10dp"
+            android:paddingTop="8dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="收入"
+                android:textColor="#FF8E8E93"
+                android:textSize="10sp" />
+
+            <TextView
+                android:id="@+id/ov_income"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="收 ¥0.00"
+                android:textColor="#FF248A3D"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <Space
+            android:layout_width="8dp"
+            android:layout_height="0dp" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@drawable/widget_chip_bg"
+            android:orientation="vertical"
+            android:paddingBottom="8dp"
+            android:paddingLeft="10dp"
+            android:paddingRight="10dp"
+            android:paddingTop="8dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="支出"
+                android:textColor="#FF8E8E93"
+                android:textSize="10sp" />
+
+            <TextView
+                android:id="@+id/ov_expense"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="支 ¥0.00"
+                android:textColor="#FFC9342F"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+        </LinearLayout>
     </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="10dp"
+        android:gravity="center_vertical"
         android:orientation="horizontal">
 
         <TextView
-            android:id="@+id/ov_income"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="收 ¥0.00"
-            android:textColor="#34C759"
-            android:textSize="14sp"
-            android:textStyle="bold" />
+            android:text="预算"
+            android:textColor="#FF8E8E93"
+            android:textSize="10sp" />
+
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
 
         <TextView
-            android:id="@+id/ov_expense"
-            android:layout_width="0dp"
+            android:id="@+id/ov_budget_pct"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="end"
-            android:text="支 ¥0.00"
-            android:textColor="#FF9500"
-            android:textSize="14sp"
+            android:text="0%"
+            android:textColor="#FF1D1D1F"
+            android:textSize="10sp"
             android:textStyle="bold" />
     </LinearLayout>
+
+    <ProgressBar
+        android:id="@+id/ov_budget_progress"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="4dp"
+        android:layout_marginTop="6dp"
+        android:max="100"
+        android:progress="0"
+        android:progressDrawable="@drawable/widget_budget_progress" />
+
+    <View
+        android:id="@+id/ov_divider"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="12dp"
+        android:background="#FFE8E8ED" />
+
+    <TextView
+        android:id="@+id/ov_top_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="近 7 日支出"
+        android:textColor="#FF8E8E93"
+        android:textSize="10sp" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -68,92 +179,36 @@
         android:orientation="horizontal">
 
         <TextView
-            android:id="@+id/ov_balance"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="余 ¥0.00"
-            android:textColor="#1D1D1F"
-            android:textSize="17sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="预算"
-            android:textColor="#6E6E73"
-            android:textSize="11sp" />
-
-        <TextView
-            android:id="@+id/ov_budget_pct"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
-            android:text="0%"
-            android:textColor="#1D1D1F"
-            android:textSize="11sp" />
-    </LinearLayout>
-
-    <ProgressBar
-        android:id="@+id/ov_budget_progress"
-        style="?android:attr/progressBarStyleHorizontal"
-        android:layout_width="match_parent"
-        android:layout_height="6dp"
-        android:layout_marginTop="6dp"
-        android:max="100"
-        android:progress="0" />
-
-    <View
-        android:id="@+id/ov_divider"
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginTop="10dp"
-        android:background="#E5E5EA" />
-
-    <TextView
-        android:id="@+id/ov_top_label"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="近 7 日支出"
-        android:textColor="#6E6E73"
-        android:textSize="11sp" />
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:orientation="horizontal">
-
-        <TextView
             android:id="@+id/ov_top1_icon"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="🍜"
-            android:textSize="12sp" />
+            android:textSize="11sp" />
 
         <TextView
             android:id="@+id/ov_top1_name"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
+            android:layout_marginStart="8dp"
             android:layout_weight="1"
             android:text="餐饮"
-            android:textColor="#1D1D1F"
-            android:textSize="12sp" />
+            android:textColor="#FF1D1D1F"
+            android:textSize="11sp" />
 
         <TextView
             android:id="@+id/ov_top1_amount"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="¥0.00"
-            android:textColor="#6E6E73"
-            android:textSize="12sp" />
+            android:textColor="#FF6E6E73"
+            android:textSize="11sp" />
     </LinearLayout>
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="3dp"
+        android:layout_marginTop="5dp"
+        android:gravity="center_vertical"
         android:orientation="horizontal">
 
         <TextView
@@ -161,31 +216,32 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="🚗"
-            android:textSize="12sp" />
+            android:textSize="11sp" />
 
         <TextView
             android:id="@+id/ov_top2_name"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
+            android:layout_marginStart="8dp"
             android:layout_weight="1"
             android:text="交通"
-            android:textColor="#1D1D1F"
-            android:textSize="12sp" />
+            android:textColor="#FF1D1D1F"
+            android:textSize="11sp" />
 
         <TextView
             android:id="@+id/ov_top2_amount"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="¥0.00"
-            android:textColor="#6E6E73"
-            android:textSize="12sp" />
+            android:textColor="#FF6E6E73"
+            android:textSize="11sp" />
     </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="3dp"
+        android:layout_marginTop="5dp"
+        android:gravity="center_vertical"
         android:orientation="horizontal">
 
         <TextView
@@ -193,25 +249,25 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="🛒"
-            android:textSize="12sp" />
+            android:textSize="11sp" />
 
         <TextView
             android:id="@+id/ov_top3_name"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
+            android:layout_marginStart="8dp"
             android:layout_weight="1"
             android:text="购物"
-            android:textColor="#1D1D1F"
-            android:textSize="12sp" />
+            android:textColor="#FF1D1D1F"
+            android:textSize="11sp" />
 
         <TextView
             android:id="@+id/ov_top3_amount"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="¥0.00"
-            android:textColor="#6E6E73"
-            android:textSize="12sp" />
+            android:textColor="#FF6E6E73"
+            android:textSize="11sp" />
     </LinearLayout>
 
     <View
@@ -228,29 +284,30 @@
 
         <TextView
             android:id="@+id/ov_add_btn"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="@drawable/widget_btn_bg"
-            android:paddingBottom="6dp"
-            android:paddingLeft="16dp"
-            android:paddingRight="16dp"
-            android:paddingTop="6dp"
-            android:text="记一笔"
-            android:textColor="#FFFFFF"
-            android:textSize="11sp"
-            android:textStyle="bold" />
-
-        <View
             android:layout_width="0dp"
-            android:layout_height="0dp"
-            android:layout_weight="1" />
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@drawable/widget_primary_btn"
+            android:gravity="center"
+            android:paddingBottom="9dp"
+            android:paddingTop="9dp"
+            android:text="记一笔"
+            android:textColor="#FFFFFFFF"
+            android:textSize="12sp"
+            android:textStyle="bold" />
 
         <TextView
             android:id="@+id/ov_cycle_btn"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="🔁 周期账单"
-            android:textColor="#34C759"
-            android:textSize="12sp" />
+            android:layout_marginStart="10dp"
+            android:background="@drawable/widget_chip_bg"
+            android:paddingBottom="8dp"
+            android:paddingLeft="12dp"
+            android:paddingRight="12dp"
+            android:paddingTop="8dp"
+            android:text="周期账单"
+            android:textColor="#FF1D1D1F"
+            android:textSize="11sp" />
     </LinearLayout>
 </LinearLayout>

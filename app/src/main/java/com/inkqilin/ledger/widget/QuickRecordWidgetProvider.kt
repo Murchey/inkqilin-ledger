@@ -36,10 +36,6 @@ class QuickRecordWidgetProvider : BaseLedgerWidgetProvider() {
         val dark = WidgetUtils.isDark(context)
         val textColor = WidgetUtils.textColor(dark)
         val subColor = WidgetUtils.subColor(dark)
-        val primary = WidgetUtils.parseColor(
-            theme.customPrimaryColor.first() ?: DEFAULT_PRIMARY_COLOR_HEX,
-            WidgetUtils.DEFAULT_GREEN
-        )
 
         val (w, _) = widgetSize(manager, appWidgetId)
         val big = w >= 200
@@ -48,10 +44,9 @@ class QuickRecordWidgetProvider : BaseLedgerWidgetProvider() {
             if (big) R.layout.widget_quick_record_big else R.layout.widget_quick_record_small
         )
 
-        rv.setInt(R.id.quick_root, "setBackgroundResource", R.drawable.widget_card)
-        rv.setColorStateList(
-            R.id.quick_root, "setBackgroundTintList",
-            ColorStateList.valueOf(WidgetUtils.bgColor(dark))
+        rv.setInt(
+            R.id.quick_root, "setBackgroundResource",
+            if (dark) R.drawable.widget_card_night else R.drawable.widget_card
         )
 
         val containers = if (big) {
@@ -69,11 +64,11 @@ class QuickRecordWidgetProvider : BaseLedgerWidgetProvider() {
         } else {
             intArrayOf(R.id.q1_label, R.id.q2_label, R.id.q3_label, R.id.q4_label)
         }
-        val btnTint = WidgetUtils.withAlpha(primary, 0x24)
 
         for (i in containers.indices) {
             val container = containers[i]
             val isLast = i == containers.size - 1
+            // 底色交给布局的 tile drawable，不再用主题色 tint
             when {
                 i < slots.size -> {
                     val cat = slots[i]
@@ -81,7 +76,6 @@ class QuickRecordWidgetProvider : BaseLedgerWidgetProvider() {
                     rv.setTextViewText(labels[i], cat.name)
                     rv.setTextColor(icons[i], textColor)
                     rv.setTextColor(labels[i], textColor)
-                    rv.setColorStateList(container, "setBackgroundTintList", ColorStateList.valueOf(btnTint))
                     rv.setOnClickPendingIntent(
                         container,
                         navPendingIntent(context, WidgetIntents.addWithCategory(cat.name))
@@ -89,19 +83,17 @@ class QuickRecordWidgetProvider : BaseLedgerWidgetProvider() {
                 }
                 // big 布局末位固定「设置」，其余补位「随意记」
                 big && isLast -> {
-                    rv.setTextViewText(icons[i], "⚙️")
+                    rv.setTextViewText(icons[i], "⚙")
                     rv.setTextViewText(labels[i], "设置")
                     rv.setTextColor(icons[i], subColor)
                     rv.setTextColor(labels[i], subColor)
-                    rv.setColorStateList(container, "setBackgroundTintList", ColorStateList.valueOf(btnTint))
                     rv.setOnClickPendingIntent(container, navPendingIntent(context, WidgetIntents.TARGET_SETTINGS))
                 }
                 else -> {
-                    rv.setTextViewText(icons[i], "✚")
+                    rv.setTextViewText(icons[i], "＋")
                     rv.setTextViewText(labels[i], "随意记")
-                    rv.setTextColor(icons[i], primary)
-                    rv.setTextColor(labels[i], primary)
-                    rv.setColorStateList(container, "setBackgroundTintList", ColorStateList.valueOf(btnTint))
+                    rv.setTextColor(icons[i], textColor)
+                    rv.setTextColor(labels[i], textColor)
                     rv.setOnClickPendingIntent(container, navPendingIntent(context, WidgetIntents.TARGET_ADD))
                 }
             }

@@ -14,12 +14,21 @@ object WidgetUtils {
     const val DEFAULT_ORANGE = 0xFFFF9500.toInt()
     const val OVERDUE_RED = 0xFFFF3B30.toInt()
 
-    const val LIGHT_BG = 0xFFFFFFFF.toInt()
+    // 墨色体系：主按钮与数据色，避免荧光绿当 UI 底色
+    const val INK_LIGHT = 0xFF1D1D1F.toInt()
+    const val INK_DARK_ON_LIGHT = 0xFFFFFFFF.toInt()
+    const val INK_TEXT_ON_DARK_BTN = 0xFF1A1B20.toInt()
+    const val INCOME_LIGHT = 0xFF248A3D.toInt()
+    const val INCOME_DARK = 0xFF30D158.toInt()
+    const val EXPENSE_LIGHT = 0xFFC9342F.toInt()
+    const val EXPENSE_DARK = 0xFFFF6961.toInt()
+
+    const val LIGHT_BG = 0xFFFCFCFE.toInt()
     const val LIGHT_TEXT = 0xFF1D1D1F.toInt()
     const val LIGHT_SUB = 0xFF6E6E73.toInt()
-    const val DARK_BG = 0xFF1C1E24.toInt()
-    const val DARK_TEXT = 0xFFF2F2F2.toInt()
-    const val DARK_SUB = 0xFFB0B0B8.toInt()
+    const val DARK_BG = 0xFF1A1B20.toInt()
+    const val DARK_TEXT = 0xFFF2F2F7.toInt()
+    const val DARK_SUB = 0xFF9B9BA3.toInt()
 
     fun isDark(context: Context): Boolean =
         (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
