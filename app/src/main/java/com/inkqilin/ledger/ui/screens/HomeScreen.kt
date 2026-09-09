@@ -44,8 +44,6 @@ import com.inkqilin.ledger.ui.motion.*
 import com.inkqilin.ledger.ui.theme.*
 import com.inkqilin.ledger.util.AppMode
 import androidx.core.graphics.toColorInt
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -80,7 +78,8 @@ fun HomeScreen(
     onNavigateToOcrRecognition: () -> Unit = {},
     onNavigateToAssetManagement: () -> Unit = {}
 ) {
-    val allTransactions by viewModel.allTransactions.collectAsState(initial = emptyList())
+    // StateFlow 已有缓存值，不要再用 emptyList 当 initial，否则返回首页时会闪一帧空列表
+    val allTransactions by viewModel.allTransactions.collectAsState()
     val monthlyBudget by viewModel.monthlyBudget.collectAsState()
     val multiCurrencyEnabled by viewModel.multiCurrencyEnabled.collectAsState()
     val allAssets by viewModel.allAssets.collectAsState()
@@ -202,17 +201,15 @@ fun HomeScreen(
         }
     }
 
-    val homeDataState = produceState(
-        initialValue = HomeData(),
-        allTransactions,
-        selectedYearMonth
-    ) {
-        value = withContext(Dispatchers.Default) {
+    // 同步计算：produceState 首帧会给出空 HomeData，导致返回时列表结构先塌缩再撑开，滚动位置被夹掉
+    val homeData = remember(allTransactions, selectedYearMonth) {
+        if (allTransactions.isEmpty()) {
+            HomeData(isLoaded = true)
+        } else {
             val periodSummary = buildPeriodSummary(allTransactions, 2, selectedYearMonth)
             val recentDays = buildRecentExpenseTrend(allTransactions)
             val groupedTransactions = buildDayTransactionGroups(allTransactions, selectedYearMonth)
             val currencySummaries = buildCurrencySummaries(periodSummary.transactions)
-            
             HomeData(
                 periodSummary = periodSummary,
                 recentDays = recentDays,
@@ -222,14 +219,7 @@ fun HomeScreen(
             )
         }
     }
-
-    val homeData = homeDataState.value
-    // 仅在首次冷启动加载时显示骨架屏；从编辑页返回时避免骨架闪烁导致滚动位置被夹错
-    var hasLoadedOnce by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(homeData.isLoaded) {
-        if (homeData.isLoaded) hasLoadedOnce = true
-    }
-    val isDataLoading = !homeData.isLoaded && !hasLoadedOnce
+    val isDataLoading = false
     val maxTrendValue = remember(homeData.recentDays) { homeData.recentDays.maxOfOrNull { it.second } ?: 1.0 }
     val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
 

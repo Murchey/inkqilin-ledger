@@ -159,7 +159,7 @@ private fun BouncyTabItem(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavController) {
-    val transactions by viewModel.allTransactions.collectAsState(initial = emptyList())
+    val transactions by viewModel.allTransactions.collectAsState()
     val categories by viewModel.allCategories.collectAsState(initial = emptyList())
     val incomeColorHex by viewModel.incomeColor.collectAsState()
     val expenseColorHex by viewModel.expenseColor.collectAsState()

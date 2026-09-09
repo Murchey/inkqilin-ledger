@@ -722,7 +722,7 @@ fun MainScreen(
             ) { backStackEntry ->
                 val transactionId = backStackEntry.arguments?.getLong("transactionId") ?: 0L
                 val pendingTx by viewModel.pendingEditTransaction.collectAsState()
-                val transactions by viewModel.allTransactions.collectAsState(initial = emptyList())
+                val transactions by viewModel.allTransactions.collectAsState()
                 // 优先用 Flow 已有数据；未就绪时用导航前缓存，保证转场首帧就有内容
                 val transaction = transactions.firstOrNull { it.id == transactionId }
                     ?: pendingTx?.takeIf { it.id == transactionId }

@@ -35,7 +35,9 @@ class TransactionViewModel(
     private val assetFlowDao: AssetFlowDao,
     private val themeManager: ThemeManager
 ) : ViewModel() {
-    val allTransactions: Flow<List<Transaction>> = transactionDao.getAllTransactions()
+    // Eagerly 保持缓存：子页面返回时首帧就能拿到完整账单，避免空列表闪断导致滚动位置丢失
+    val allTransactions: StateFlow<List<Transaction>> = transactionDao.getAllTransactions()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val totalIncome: Flow<Double?> = transactionDao.getTotalIncome()
     val totalExpense: Flow<Double?> = transactionDao.getTotalExpense()
 
