@@ -254,15 +254,6 @@ fun SettingsScreen(
         }
     )
 
-    val importLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent(),
-        onResult = { uri ->
-            uri?.let {
-                viewModel.importTransactions(context, it)
-                Toast.makeText(context, "导入请求已提交，正在后台处理...", Toast.LENGTH_SHORT).show()
-            }
-        }
-    )
 
     val renQingEventsExportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
@@ -311,10 +302,11 @@ fun SettingsScreen(
     var appSectionExpanded by remember { mutableStateOf(true) }
     var displaySectionExpanded by remember { mutableStateOf(true) }
     var categorySectionExpanded by remember { mutableStateOf(false) }
-    var renQingSectionExpanded by remember { mutableStateOf(false) }
+    var featureSectionExpanded by remember { mutableStateOf(true) }
     var currencySectionExpanded by remember { mutableStateOf(false) }
     var updateSectionExpanded by remember { mutableStateOf(false) }
     var dataSectionExpanded by remember { mutableStateOf(false) }
+    var widgetSectionExpanded by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 16.dp)) {
         // region 1. 应用版本
@@ -382,7 +374,10 @@ fun SettingsScreen(
         }
         // endregion
 
-        // 桌面小组件设置已移至左侧抽屉（MainScreen 内 WidgetSettingsPanel）
+        SettingsSectionHeader("桌面小组件", "余额显示与刷新", widgetSectionExpanded) { widgetSectionExpanded = !widgetSectionExpanded }
+        AnimatedVisibility(visible = widgetSectionExpanded) {
+            WidgetSettingsPanel(viewModel)
+        }
 
         // region 2. 显示设置
         var displaySettingsExpanded by remember { mutableStateOf(false) }
@@ -671,18 +666,50 @@ fun SettingsScreen(
 
         }
         val renQingEnabled by renQingViewModel.renQingEnabled.collectAsState()
-        SettingsSectionHeader("人情账本", if (renQingEnabled) "已启用" else "未启用", renQingSectionExpanded) { renQingSectionExpanded = !renQingSectionExpanded }
-        AnimatedVisibility(visible = renQingSectionExpanded) {
-        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
-            ListItem(
-                headlineContent = { Text("启用人情账本") },
-                supportingContent = { Text(if (renQingEnabled) "已启用，底部导航栏显示" else "未启用") },
-                trailingContent = {
-                    Switch(checked = renQingEnabled, onCheckedChange = { renQingViewModel.setRenQingEnabled(it) })
+        SettingsSectionHeader("功能开关", if (renQingEnabled) "人情账本已启用" else "按需开启页面功能", featureSectionExpanded) { featureSectionExpanded = !featureSectionExpanded }
+        AnimatedVisibility(visible = featureSectionExpanded) {
+            Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+                Column {
+                    ListItem(
+                        headlineContent = { Text("人情账本") },
+                        supportingContent = {
+                            Text(if (renQingEnabled) "已启用，底部导航栏显示人情页面" else "未启用；首次使用可按需开启")
+                        },
+                        trailingContent = {
+                            Switch(checked = renQingEnabled, onCheckedChange = { renQingViewModel.setRenQingEnabled(it) })
+                        }
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    ListItem(
+                        headlineContent = { Text("记账相册") },
+                        supportingContent = {
+                            Text(if (albumEnabled) "已启用，底部导航栏显示相册页面" else "未启用；需要时再开启")
+                        },
+                        trailingContent = {
+                            Switch(checked = albumEnabled, onCheckedChange = { viewModel.setAlbumEnabled(it) })
+                        }
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    ListItem(
+                        headlineContent = { Text("自动记账") },
+                        supportingContent = {
+                            Text(if (autoRecordEnabled) "已启用；需要通知监听权限" else "未启用；需要时再开启")
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = autoRecordEnabled,
+                                onCheckedChange = { enabled ->
+                                    if (enabled && !isNotificationServiceEnabled(context)) {
+                                        context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                                        Toast.makeText(context, "请先开启通知监听权限", Toast.LENGTH_LONG).show()
+                                    }
+                                    viewModel.setAutoRecordEnabled(enabled)
+                                }
+                            )
+                        }
+                    )
                 }
-            )
-        }
-
+            }
         }
         val multiCurrencyEnabled by viewModel.multiCurrencyEnabled.collectAsState()
         SettingsSectionHeader("多币种管理", if (multiCurrencyEnabled) "已启用" else "未启用", currencySectionExpanded) { currencySectionExpanded = !currencySectionExpanded }
@@ -748,7 +775,7 @@ fun SettingsScreen(
                         onDismissRequest = { showProxyDropdown = false },
                         modifier = Modifier.fillMaxWidth(0.85f)
                     ) {
-                        proxyOptions.forEachIndexed { index, label ->
+                        proxyOptions.forEach { label ->
                             DropdownMenuItem(
                                 text = { Text(label, maxLines = 1, fontSize = 13.sp) },
                                 onClick = {
@@ -810,39 +837,6 @@ fun SettingsScreen(
         AnimatedVisibility(visible = labExpanded) {
             Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
                 Column {
-                ListItem(
-                    headlineContent = { Text("自动记账") },
-                    supportingContent = { Text("捕获支付宝/微信支付通知，自动记录账单。需要在手机的“自启动管理”和“电池优化”中把“墨麒麟记账”设为“不受限制”") },
-                    trailingContent = {
-                        Switch(
-                            checked = autoRecordEnabled,
-                            onCheckedChange = { enabled ->
-                                if (enabled && !isNotificationServiceEnabled(context)) {
-                                    // 引导开启权限
-                                    val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-                                    context.startActivity(intent)
-                                    Toast.makeText(context, "请先开启通知监听权限", Toast.LENGTH_LONG).show()
-                                }
-                                viewModel.setAutoRecordEnabled(enabled)
-                            }
-                        )
-                    }
-                )
-                if (autoRecordEnabled && !isNotificationServiceEnabled(context)) {
-                    Spacer(modifier = Modifier.height(0.5.dp))
-                    ListItem(
-                        headlineContent = { Text("未开启监听权限", color = MaterialTheme.colorScheme.error) },
-                        supportingContent = { Text("点击去开启，否则自动记账无法生效") },
-                        trailingContent = {
-                            TextButton(onClick = {
-                                val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-                                context.startActivity(intent)
-                            }) {
-                                Text("去开启")
-                            }
-                        }
-                    )
-                }
                 Spacer(modifier = Modifier.height(0.5.dp))
                 ListItem(
                     headlineContent = { Text("测试系统通知") },
@@ -872,17 +866,6 @@ fun SettingsScreen(
                         modifier = Modifier.clickable { onNavigateToOCRConfig() }
                     )
                 }
-                Spacer(modifier = Modifier.height(0.5.dp))
-                ListItem(
-                    headlineContent = { Text("记账相册") },
-                    supportingContent = { Text("用于保存重要账单的原件，可以直接连接OCR功能。拍摄的照片会同步到系统相册，删除照片仅在本APP生效，不会删除系统相册内容。") },
-                    trailingContent = {
-                        Switch(
-                            checked = albumEnabled,
-                            onCheckedChange = { viewModel.setAlbumEnabled(it) }
-                        )
-                    }
-                )
             }
         }
     }

@@ -198,47 +198,9 @@ fun MainScreen(
     var customBackAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     var albumFabTrigger by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val drawerState = rememberDrawerState(DrawerValue.Closed)
     val ocrEnabled by viewModel.ocrEnabled.collectAsState()
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        gesturesEnabled = true,
-        drawerContent = {
-            ModalDrawerSheet(
-                modifier = Modifier.width(340.dp),
-                drawerContainerColor = MaterialTheme.colorScheme.background
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                ) {
-                    Column(
-                        modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 16.dp)
-                    ) {
-                        Text(
-                            "墨麒麟记账",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            "桌面小组件设置",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                    Spacer(modifier = Modifier.height(8.dp))
-                    WidgetSettingsPanel(viewModel)
-                    Spacer(modifier = Modifier.height(24.dp))
-                }
-            }
-        }
-    ) {
-        Scaffold(
+    Scaffold(
         containerColor = Color.Transparent,
         topBar = {
             AnimatedVisibility(
@@ -276,30 +238,6 @@ fun MainScreen(
                         }
                     },
                     navigationIcon = {
-                        // 侧边抽屉开关（仅当无返回按钮时显示）
-                        AnimatedVisibility(
-                            visible = !showBackButton,
-                            enter = if (enableAnimations) {
-                                fadeIn(MotionSprings.interactive()) + scaleIn(
-                                    animationSpec = MotionSprings.interactive(),
-                                    initialScale = 0.8f
-                                )
-                            } else {
-                                EnterTransition.None
-                            },
-                            exit = if (enableAnimations) {
-                                fadeOut(MotionSprings.interactive()) + scaleOut(
-                                    animationSpec = MotionSprings.interactive(),
-                                    targetScale = 0.8f
-                                )
-                            } else {
-                                ExitTransition.None
-                            }
-                        ) {
-                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                                Icon(Icons.Default.Menu, contentDescription = "菜单")
-                            }
-                        }
                         AnimatedVisibility(
                             visible = showBackButton,
                             enter = if (enableAnimations) {
@@ -1105,6 +1043,5 @@ fun MainScreen(
                 }
             }
         }
-    }
     }
 }
