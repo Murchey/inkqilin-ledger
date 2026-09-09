@@ -317,7 +317,7 @@ fun MainScreen(
                 }
                 val isDarkMode = bgLuminance < 0.5f
 
-                // Apple Music colors: subtle, low-contrast
+                // Apple Music colors: subtle in dark, clearly elevated in light
                 val unselectedColor = if (isDarkMode) Color.White.copy(alpha = 0.55f) else Color(0xFF8E8E93)
                 val selectedColor = if (isDarkMode) Color.White else Color(0xFF1D1D1F)
 
@@ -362,11 +362,12 @@ fun MainScreen(
                         modifier = Modifier
                             .weight(1f)
                             .graphicsLayer {
-                                shadowElevation = if (isDarkMode) 3f else 2f
+                                // 浅色模式需要更明显的抬升感，否则白底压在 #F5F5F7 上几乎看不见
+                                shadowElevation = if (isDarkMode) 3f else 6f
                                 shape = RoundedCornerShape(barRadius)
                                 clip = false
-                                ambientShadowColor = Color.Black.copy(alpha = if (isDarkMode) 0.12f else 0.04f)
-                                spotShadowColor = Color.Black.copy(alpha = if (isDarkMode) 0.08f else 0.03f)
+                                ambientShadowColor = Color.Black.copy(alpha = if (isDarkMode) 0.12f else 0.14f)
+                                spotShadowColor = Color.Black.copy(alpha = if (isDarkMode) 0.08f else 0.18f)
                             }
                     ) {
                         Box(
@@ -374,23 +375,30 @@ fun MainScreen(
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(barRadius))
                                 .border(
-                                    width = 0.6.dp,
+                                    width = 1.dp,
                                     color = if (isDarkMode) Color.White.copy(alpha = 0.16f)
-                                            else Color.White.copy(alpha = 0.85f),
+                                            else Color(0xFFD1D1D6).copy(alpha = 0.9f),
                                     shape = RoundedCornerShape(barRadius)
                                 )
                                 .drawBehind {
                                     val cr = barCornerPx
+                                    // 浅色：更实的白底，叠一层极淡灰影，让条从背景里「浮」出来
+                                    val barFill = if (isDarkMode) {
+                                        Color(0xFF1C1C1E).copy(alpha = 0.96f)
+                                    } else {
+                                        Color.White.copy(alpha = 0.98f)
+                                    }
                                     drawRoundRect(
-                                        color = if (isDarkMode) Color(0xFF1C1C1E).copy(alpha = 0.96f)
-                                                else Color.White.copy(alpha = 0.94f),
+                                        color = barFill,
                                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(cr)
                                     )
+                                    // 顶缘高光：浅色用灰线压住边缘，深色用白高光
                                     drawLine(
-                                        color = Color.White.copy(alpha = if (isDarkMode) 0.12f else 0.95f),
+                                        color = if (isDarkMode) Color.White.copy(alpha = 0.12f)
+                                                else Color(0xFFE5E5EA).copy(alpha = 0.9f),
                                         start = androidx.compose.ui.geometry.Offset(cr * 0.5f, 0.5f),
                                         end = androidx.compose.ui.geometry.Offset(size.width - cr * 0.5f, 0.5f),
-                                        strokeWidth = 0.6f
+                                        strokeWidth = 1f
                                     )
                                 }
                                 .padding(horizontal = 4.dp, vertical = 4.dp)
@@ -408,7 +416,7 @@ fun MainScreen(
                                         .clip(RoundedCornerShape(12.dp))
                                         .background(
                                             if (isDarkMode) Color.White.copy(alpha = 0.08f)
-                                            else Color.Black.copy(alpha = 0.06f)
+                                            else Color.Black.copy(alpha = 0.08f)
                                         )
                                 )
                             }
@@ -470,7 +478,10 @@ fun MainScreen(
                                         Spacer(modifier = Modifier.height(1.dp))
                                         Text(
                                             text = item.label,
-                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontSize = 9.sp,
+                                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+                                            ),
                                             color = iconColor
                                         )
                                     }
