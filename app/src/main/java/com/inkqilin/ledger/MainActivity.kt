@@ -100,6 +100,8 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     val checkUpdateEnabled by viewModel.checkUpdateEnabled.collectAsState()
+                    val updateRepo by viewModel.updateRepo.collectAsState()
+                    val githubRepo by viewModel.githubRepo.collectAsState()
                     var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
                     var enableStartupAnimations by remember { mutableStateOf(false) }
                     val context = LocalContext.current
@@ -119,14 +121,32 @@ class MainActivity : ComponentActivity() {
                     // ── 下载状态 ──
                     var downloadState by remember { mutableStateOf<DownloadUiState>(DownloadUiState.Idle) }
 
-                    LaunchedEffect(checkUpdateEnabled) {
+                    LaunchedEffect(checkUpdateEnabled, updateRepo) {
                         if (checkUpdateEnabled) {
                             delay(1200)
                             // 检查前先清理历史 APK
                             AppUpdateDownloader.cleanOldApks(context)
-                            val result = AppUpdateChecker.checkForUpdate(context)
+                            val result = AppUpdateChecker.checkForUpdate(context, updateRepo)
                             if (result != null) {
                                 updateInfo = result
+                            }
+                        }
+                    }
+
+                    // 设置页手动「检查更新」：复用同一套更新弹窗
+                    LaunchedEffect(Unit) {
+                        viewModel.manualUpdateCheckTrigger.collect {
+                            AppUpdateDownloader.cleanOldApks(context)
+                            val result = AppUpdateChecker.checkForUpdate(context, viewModel.updateRepo.value)
+                            if (result != null) {
+                                downloadState = DownloadUiState.Idle
+                                updateInfo = result
+                            } else {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "已是最新版本",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
                             }
                         }
                     }
@@ -290,15 +310,27 @@ class MainActivity : ComponentActivity() {
                                             val source = sourceEnums[selectedSourceIndex]
                                             val effectiveProxy = if (source == DownloadSource.PROXY) proxyUrl else null
                                             scope.launch {
-                                                AppUpdateDownloader.download(context, info.versionName, source, effectiveProxy).collect { progress ->
-                                                    when (progress) {
-                                                        is DownloadProgress.Progress ->
-                                                            downloadState = DownloadUiState.Downloading(progress.fraction)
-                                                        is DownloadProgress.Completed ->
-                                                            downloadState = DownloadUiState.Downloaded
-                                                        is DownloadProgress.Failed ->
-                                                            downloadState = DownloadUiState.Failed
+                                                try {
+                                                    AppUpdateDownloader.download(
+                                                        context = context,
+                                                        versionName = info.versionName,
+                                                        source = source,
+                                                        proxyPrefix = effectiveProxy,
+                                                        giteeRepo = updateRepo,
+                                                        githubRepo = githubRepo
+                                                    ).collect { progress ->
+                                                        when (progress) {
+                                                            is DownloadProgress.Progress ->
+                                                                downloadState = DownloadUiState.Downloading(progress.fraction)
+                                                            is DownloadProgress.Completed ->
+                                                                downloadState = DownloadUiState.Downloaded
+                                                            is DownloadProgress.Failed ->
+                                                                downloadState = DownloadUiState.Failed
+                                                        }
                                                     }
+                                                } catch (e: Exception) {
+                                                    android.util.Log.e("AppUpdate", "下载异常", e)
+                                                    downloadState = DownloadUiState.Failed
                                                 }
                                             }
                                         }) { Text("下载更新") }

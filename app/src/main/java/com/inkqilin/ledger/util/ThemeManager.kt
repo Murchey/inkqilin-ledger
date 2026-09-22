@@ -16,6 +16,8 @@ private val Context.dataStore by preferencesDataStore(name = "settings")
 const val DEFAULT_PRIMARY_COLOR_HEX = "#34C759"
 const val DEFAULT_INCOME_COLOR_HEX = "#34C759"
 const val DEFAULT_EXPENSE_COLOR_HEX = "#FF9500"
+const val DEFAULT_UPDATE_REPO = "Murchey/inkqinlin-ledger"
+const val DEFAULT_GITHUB_REPO = "Niriko-mu/InkQilin-ledger"
 
 enum class ThemeMode {
     AUTO, LIGHT, DARK
@@ -31,6 +33,33 @@ enum class AiDataRange(val label: String) {
     THIS_MONTH_AND_LAST("本月和上月")
 }
 
+/**
+ * 将用户输入规范化为 `owner/repo`。
+ * 支持：owner/repo、https://host/owner/repo、https://host/owner/repo/releases 等。
+ */
+fun normalizeRepoPath(input: String, vararg hosts: String): String {
+    var s = input.trim().trimEnd('/')
+    if (s.isBlank()) return ""
+    hosts.forEach { host ->
+        s = s.removePrefix("https://$host/")
+            .removePrefix("http://$host/")
+            .removePrefix("https://www.$host/")
+            .removePrefix("http://www.$host/")
+    }
+    s = s.substringBefore("/releases")
+        .substringBefore("/tree")
+        .substringBefore("/blob")
+        .trim('/')
+    val parts = s.split("/").filter { it.isNotBlank() }
+    return if (parts.size >= 2) "${parts[0]}/${parts[1]}" else s
+}
+
+fun normalizeGiteeRepo(input: String): String =
+    normalizeRepoPath(input, "gitee.com")
+
+fun normalizeGithubRepo(input: String): String =
+    normalizeRepoPath(input, "github.com")
+
 class ThemeManager(private val context: Context) {
     private val THEME_KEY = stringPreferencesKey("theme_mode")
     private val INCOME_COLOR_KEY = stringPreferencesKey("income_color")
@@ -40,6 +69,12 @@ class ThemeManager(private val context: Context) {
     private val MONTHLY_BUDGET_KEY = doublePreferencesKey("monthly_budget")
     private val CHECK_UPDATE_ENABLED_KEY = booleanPreferencesKey("check_update_enabled")
     private val UPDATE_PROXY_URL_KEY = stringPreferencesKey("update_proxy_url")
+    private val UPDATE_REPO_KEY = stringPreferencesKey("update_repo")
+    private val GITHUB_REPO_KEY = stringPreferencesKey("github_repo")
+    private val COS_SECRET_ID_KEY = stringPreferencesKey("cos_secret_id")
+    private val COS_SECRET_KEY_KEY = stringPreferencesKey("cos_secret_key")
+    private val COS_BUCKET_URL_KEY = stringPreferencesKey("cos_bucket_url")
+    private val COS_PREFIX_KEY = stringPreferencesKey("cos_prefix")
     private val CUSTOM_PRIMARY_COLOR_KEY = stringPreferencesKey("custom_primary_color")
     private val AUTO_RECORD_ENABLED_KEY = booleanPreferencesKey("auto_record_enabled")
     private val OCR_ENABLED_KEY = booleanPreferencesKey("ocr_enabled")
@@ -60,6 +95,9 @@ class ThemeManager(private val context: Context) {
     private val AI_ALERTS_JSON_KEY = stringPreferencesKey("ai_alerts_json")
     private val AI_ANALYSIS_FAILED_KEY = booleanPreferencesKey("ai_analysis_failed")
     private val HOME_CARD_COLOR_KEY = stringPreferencesKey("home_card_color")
+    private val HOME_BG_IMAGE_PATH_KEY = stringPreferencesKey("home_bg_image_path")
+    private val HOME_BG_OPACITY_KEY = doublePreferencesKey("home_bg_opacity")
+    private val HOME_TX_CARD_OPACITY_KEY = doublePreferencesKey("home_tx_card_opacity")
 private val WIDGET_SHOW_AMOUNT_KEY = booleanPreferencesKey("widget_show_amount")
     private val WIDGET_QUICK_CATEGORIES_KEY = stringPreferencesKey("widget_quick_categories")
 
@@ -119,6 +157,39 @@ private val WIDGET_SHOW_AMOUNT_KEY = booleanPreferencesKey("widget_show_amount")
     /** 代理源 URL 前缀，默认使用 gh-proxy.org */
     val updateProxyUrl: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[UPDATE_PROXY_URL_KEY] ?: PROXY_SOURCES.first()
+    }
+
+    /** 更新检测仓库路径，格式 owner/repo 或完整 Gitee 地址 */
+    val updateRepo: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[UPDATE_REPO_KEY]?.takeIf { it.isNotBlank() } ?: DEFAULT_UPDATE_REPO
+    }
+
+    /** GitHub 下载仓库路径，格式 owner/repo 或完整 GitHub 地址 */
+    val githubRepo: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[GITHUB_REPO_KEY]?.takeIf { it.isNotBlank() } ?: DEFAULT_GITHUB_REPO
+    }
+
+    /** 腾讯云 COS 私有备份配置 */
+    val cosConfig: Flow<CosConfig> = context.dataStore.data.map { preferences ->
+        CosConfig(
+            secretId = preferences[COS_SECRET_ID_KEY] ?: "",
+            secretKey = preferences[COS_SECRET_KEY_KEY] ?: "",
+            bucketUrl = preferences[COS_BUCKET_URL_KEY] ?: "",
+            prefix = preferences[COS_PREFIX_KEY]?.takeIf { it.isNotBlank() } ?: "backups/v1"
+        )
+    }
+
+    suspend fun setCosConfig(config: CosConfig) {
+        context.dataStore.edit { preferences ->
+            if (config.secretId.isBlank()) preferences.remove(COS_SECRET_ID_KEY)
+            else preferences[COS_SECRET_ID_KEY] = config.secretId.trim()
+            if (config.secretKey.isBlank()) preferences.remove(COS_SECRET_KEY_KEY)
+            else preferences[COS_SECRET_KEY_KEY] = config.secretKey.trim()
+            if (config.bucketUrl.isBlank()) preferences.remove(COS_BUCKET_URL_KEY)
+            else preferences[COS_BUCKET_URL_KEY] = config.bucketUrl.trim()
+            if (config.prefix.isBlank()) preferences.remove(COS_PREFIX_KEY)
+            else preferences[COS_PREFIX_KEY] = config.prefix.trim().ifBlank { "backups/v1" }
+        }
     }
 
     val customPrimaryColor: Flow<String?> = context.dataStore.data.map { preferences ->
@@ -205,6 +276,21 @@ private val WIDGET_SHOW_AMOUNT_KEY = booleanPreferencesKey("widget_show_amount")
         preferences[HOME_CARD_COLOR_KEY]
     }
 
+    /** 首页背景图本地文件绝对路径；null 表示未设置 */
+    val homeBgImagePath: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[HOME_BG_IMAGE_PATH_KEY]?.takeIf { it.isNotBlank() }
+    }
+
+    /** 首页背景不透明度 0f–1f，默认 0.35 */
+    val homeBgOpacity: Flow<Float> = context.dataStore.data.map { preferences ->
+        ((preferences[HOME_BG_OPACITY_KEY] ?: 0.35).toFloat()).coerceIn(0.05f, 1f)
+    }
+
+    /** 首页账单条目卡片不透明度，默认 0.72 */
+    val homeTxCardOpacity: Flow<Float> = context.dataStore.data.map { preferences ->
+        ((preferences[HOME_TX_CARD_OPACITY_KEY] ?: 0.72).toFloat()).coerceIn(0.08f, 1f)
+    }
+
     suspend fun setThemeMode(mode: ThemeMode) {
         context.dataStore.edit { preferences ->
             preferences[THEME_KEY] = mode.name
@@ -250,6 +336,28 @@ private val WIDGET_SHOW_AMOUNT_KEY = booleanPreferencesKey("widget_show_amount")
     suspend fun setUpdateProxyUrl(url: String) {
         context.dataStore.edit { preferences ->
             preferences[UPDATE_PROXY_URL_KEY] = url
+        }
+    }
+
+    suspend fun setUpdateRepo(repo: String) {
+        context.dataStore.edit { preferences ->
+            val normalized = normalizeGiteeRepo(repo)
+            if (normalized.isBlank()) {
+                preferences.remove(UPDATE_REPO_KEY)
+            } else {
+                preferences[UPDATE_REPO_KEY] = normalized
+            }
+        }
+    }
+
+    suspend fun setGithubRepo(repo: String) {
+        context.dataStore.edit { preferences ->
+            val normalized = normalizeGithubRepo(repo)
+            if (normalized.isBlank()) {
+                preferences.remove(GITHUB_REPO_KEY)
+            } else {
+                preferences[GITHUB_REPO_KEY] = normalized
+            }
         }
     }
 
@@ -383,6 +491,28 @@ private val WIDGET_SHOW_AMOUNT_KEY = booleanPreferencesKey("widget_show_amount")
             } else {
                 preferences[HOME_CARD_COLOR_KEY] = colorHex
             }
+        }
+    }
+
+    suspend fun setHomeBgImagePath(path: String?) {
+        context.dataStore.edit { preferences ->
+            if (path.isNullOrBlank()) {
+                preferences.remove(HOME_BG_IMAGE_PATH_KEY)
+            } else {
+                preferences[HOME_BG_IMAGE_PATH_KEY] = path
+            }
+        }
+    }
+
+    suspend fun setHomeBgOpacity(opacity: Float) {
+        context.dataStore.edit { preferences ->
+            preferences[HOME_BG_OPACITY_KEY] = opacity.coerceIn(0.05f, 1f).toDouble()
+        }
+    }
+
+    suspend fun setHomeTxCardOpacity(opacity: Float) {
+        context.dataStore.edit { preferences ->
+            preferences[HOME_TX_CARD_OPACITY_KEY] = opacity.coerceIn(0.08f, 1f).toDouble()
         }
     }
 

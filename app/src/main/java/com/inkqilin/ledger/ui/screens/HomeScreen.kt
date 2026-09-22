@@ -93,6 +93,9 @@ fun HomeScreen(
     val incomeColorHex by viewModel.incomeColor.collectAsState()
     val incomeColor = Color(incomeColorHex.toColorInt())
     val homeCardColorHex by viewModel.homeCardColor.collectAsState()
+    val homeBgImagePath by viewModel.homeBgImagePath.collectAsState()
+    val homeBgOpacity by viewModel.homeBgOpacity.collectAsState()
+    val homeTxCardOpacity by viewModel.homeTxCardOpacity.collectAsState()
 
     var selectedYearMonth by rememberSaveable(
         stateSaver = listSaver(
@@ -223,18 +226,36 @@ fun HomeScreen(
     val maxTrendValue = remember(homeData.recentDays) { homeData.recentDays.maxOfOrNull { it.second } ?: 1.0 }
     val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
 
-    Scaffold(
-        containerColor = Color.Transparent,
-    ) { scaffoldPadding ->
-        val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(6.dp)
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(scaffoldPadding),
-            contentPadding = PaddingValues(bottom = navBarBottomPadding + 76.dp)
-        ) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        // 首页自定义背景（设置里导入，可调不透明度）
+        val bgFile = homeBgImagePath?.let { java.io.File(it) }
+        if (bgFile != null && bgFile.exists()) {
+            coil.compose.AsyncImage(
+                model = bgFile,
+                contentDescription = null,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                alpha = homeBgOpacity.coerceIn(0.05f, 1f),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .matchParentSize()
+            )
+        }
+
+        Scaffold(
+            containerColor = Color.Transparent,
+        ) { scaffoldPadding ->
+            val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(6.dp)
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        if (bgFile != null && bgFile.exists()) Color.Transparent
+                        else MaterialTheme.colorScheme.background
+                    )
+                    .padding(scaffoldPadding),
+                contentPadding = PaddingValues(bottom = navBarBottomPadding + 76.dp)
+            ) {
             item(key = "overview") {
                 if (isDataLoading) {
                     OverviewCardSkeleton()
@@ -244,7 +265,8 @@ fun HomeScreen(
                         currencySummaries = homeData.currencySummaries,
                         displayCalendar = displayCalendar,
                         onMonthClick = { showMonthPicker = true },
-                        enableAnimations = enableCardAnimations
+                        enableAnimations = enableCardAnimations,
+                        translucent = bgFile != null && bgFile.exists()
                     )
                 } else {
                     SingleCurrencyOverviewCard(
@@ -255,7 +277,8 @@ fun HomeScreen(
                         defaultAsset = allAssets.firstOrNull { it.isDefault },
                         onMonthClick = { showMonthPicker = true },
                         enableAnimations = enableCardAnimations,
-                        customColorHex = homeCardColorHex
+                        customColorHex = homeCardColorHex,
+                        translucent = bgFile != null && bgFile.exists()
                     )
                 }
             }
@@ -433,7 +456,8 @@ fun HomeScreen(
                                     viewModel = viewModel,
                                     onDelete = { transactionToDelete = transaction },
                                     onEdit = { onNavigateToEditTransaction(transaction) },
-                                    onClick = { onNavigateToEditTransaction(transaction) }
+                                    onClick = { onNavigateToEditTransaction(transaction) },
+                                    cardOpacity = homeTxCardOpacity
                                 )
                             }
                         }
@@ -441,6 +465,7 @@ fun HomeScreen(
                     }
                 }
             }
+        }
         }
     }
 }
@@ -455,7 +480,8 @@ private fun SingleCurrencyOverviewCard(
     defaultAsset: CurrencyAsset?,
     onMonthClick: () -> Unit,
     enableAnimations: Boolean,
-    customColorHex: String? = null
+    customColorHex: String? = null,
+    translucent: Boolean = false
 ) {
     val symbol = defaultAsset?.symbol ?: "¥"
     val balance = periodIncome - periodExpense
@@ -469,6 +495,9 @@ private fun SingleCurrencyOverviewCard(
     )
 
     // Apple Card style: dark gradient background, data is the hero
+    // translucent 时降低不透明度，让首页背景图透出
+    val gradTop = if (translucent) 0.72f else 0.95f
+    val gradBottom = if (translucent) 0.52f else 0.75f
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -477,8 +506,8 @@ private fun SingleCurrencyOverviewCard(
             .background(
                 brush = androidx.compose.ui.graphics.Brush.verticalGradient(
                     colors = listOf(
-                        cardColor.copy(alpha = 0.95f),
-                        cardColor.copy(alpha = 0.75f).copy(red = (cardColor.red * 0.6f).coerceIn(0f, 1f))
+                        cardColor.copy(alpha = gradTop),
+                        cardColor.copy(alpha = gradBottom).copy(red = (cardColor.red * 0.6f).coerceIn(0f, 1f))
                     )
                 )
             )
@@ -597,9 +626,12 @@ private fun MultiCurrencyOverviewCards(
     currencySummaries: Map<String, CurrencyPeriodSummary>,
     displayCalendar: Calendar,
     onMonthClick: () -> Unit,
-    enableAnimations: Boolean
+    enableAnimations: Boolean,
+    translucent: Boolean = false
 ) {
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val gradTop = if (translucent) 0.72f else 0.95f
+    val gradBottom = if (translucent) 0.52f else 0.75f
     LazyRow(
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -631,8 +663,8 @@ private fun MultiCurrencyOverviewCards(
                     .background(
                         brush = androidx.compose.ui.graphics.Brush.verticalGradient(
                             colors = listOf(
-                                cardColor.copy(alpha = 0.95f),
-                                cardColor.copy(alpha = 0.75f).copy(red = (cardColor.red * 0.6f).coerceIn(0f, 1f))
+                                cardColor.copy(alpha = gradTop),
+                                cardColor.copy(alpha = gradBottom).copy(red = (cardColor.red * 0.6f).coerceIn(0f, 1f))
                             )
                         )
                     )
@@ -1639,7 +1671,7 @@ fun EditTransactionDialog(
     var showAmountKeypad by remember { mutableStateOf(false) }
     fun evaluateAmount() {
         AmountExpressionEvaluator.evaluate(amount)?.let { result ->
-            if (result >= 0) amount = result.toString()
+            if (result >= 0) amount = AmountExpressionEvaluator.formatForField(result)
         }
     }
     

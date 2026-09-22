@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.width
 import com.inkqilin.ledger.data.AssetFlow
 import com.inkqilin.ledger.data.AssetFlowType
 import com.inkqilin.ledger.data.Transaction
@@ -51,6 +52,7 @@ fun BillImportScreen(
     var parsedAssets by remember { mutableStateOf<List<BillImporter.ParsedAssetData>>(emptyList()) }
     var parsedFlows by remember { mutableStateOf<List<BillImporter.ParsedFlowData>>(emptyList()) }
     var isParsing by remember { mutableStateOf(false) }
+    var importProgress by remember { mutableStateOf<Pair<Float, String>?>(null) }
     var showFormatDialog by remember { mutableStateOf(true) }
     var selectedFormat by remember { mutableStateOf<String?>(null) }
 
@@ -152,15 +154,33 @@ fun BillImportScreen(
     }
 
     // Loading state
-    if (isParsing) {
+    if (isParsing || importProgress != null) {
+        val (fraction, message) = importProgress ?: (0f to "正在解析账单...")
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("操作已确认", fontSize = 32.sp)
+                Text(
+                    if (importProgress != null) "正在导入" else "操作已确认",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold
+                )
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("正在解析账单...", style = MaterialTheme.typography.bodyLarge)
+                Text(message, style = MaterialTheme.typography.bodyLarge)
+                if (importProgress != null) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    LinearProgressIndicator(
+                        progress = { fraction.coerceIn(0f, 1f) },
+                        modifier = Modifier.width(220.dp)
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        "${(fraction * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
         return
@@ -216,9 +236,11 @@ fun BillImportScreen(
                 Button(
                     onClick = {
                         scope.launch {
+                            importProgress = 0f to "准备导入…"
                             var imported = 0
                             var skipped = 0
-                            parsedBills.forEach { bill ->
+                            val billTotal = parsedBills.size.coerceAtLeast(1)
+                            parsedBills.forEachIndexed { index, bill ->
                                 val inserted = viewModel.importTransactionSkipDuplicates(
                                     Transaction(
                                         amount = bill.amount,
@@ -231,10 +253,15 @@ fun BillImportScreen(
                                     )
                                 )
                                 if (inserted) imported++ else skipped++
+                                if (index % 20 == 0 || index == parsedBills.lastIndex) {
+                                    importProgress = (index + 1).toFloat() / billTotal * 0.7f to
+                                        "导入账单 ${index + 1} / $billTotal"
+                                }
                             }
 
                             // 导入资产
                             var assetImported = 0
+                            importProgress = 0.72f to "导入资产…"
                             parsedAssets.forEach { asset ->
                                 val existing = viewModel.allUserAssets.value.find {
                                     it.name == asset.assetName && it.type.label == asset.assetType
@@ -258,6 +285,7 @@ fun BillImportScreen(
                             // 导入流转（带去重）
                             var flowImported = 0
                             var flowSkipped = 0
+                            importProgress = 0.85f to "导入流转…"
                             parsedFlows.forEach { flow ->
                                 val matchedAsset = viewModel.allUserAssets.value.find { it.name == flow.assetName }
                                 if (matchedAsset != null) {
@@ -278,6 +306,7 @@ fun BillImportScreen(
                                 }
                             }
 
+                            importProgress = 1f to "完成"
                             val summary = buildString {
                                 append("已导入 $imported 条账单")
                                 if (skipped > 0) append("，跳过 $skipped 条重复")
@@ -285,6 +314,7 @@ fun BillImportScreen(
                                 if (flowImported > 0) append("，${flowImported}条流转")
                                 if (flowSkipped > 0) append("，跳过 $flowSkipped 条重复流转")
                             }
+                            importProgress = null
                             Toast.makeText(context, summary, Toast.LENGTH_SHORT).show()
                             onBack()
                         }

@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.activity.compose.BackHandler
 import com.inkqilin.ledger.data.AssetFlow
 import com.inkqilin.ledger.data.AssetFlowType
 import com.inkqilin.ledger.data.UserAsset
@@ -99,6 +100,11 @@ fun AssetManagementScreen(
         } else {
             onUpdateTopBar("资产管理", onBack)
         }
+    }
+
+    // 系统返回：资产流转详情 → 资产列表 → 再退出本页（与顶栏返回一致）
+    BackHandler(enabled = selectedAssetForFlow != null) {
+        selectedAssetForFlow = null
     }
 
     // 流转记录子页面（替换整个界面）

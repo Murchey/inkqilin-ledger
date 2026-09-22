@@ -253,7 +253,12 @@ private fun RenQingTagItem(
                     .background(tagColor.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
-                Text(tag.icon, fontSize = 20.sp)
+                Icon(
+                    RenQingIcons.iconForTagIconValue(tag.icon),
+                    contentDescription = null,
+                    tint = tagColor,
+                    modifier = Modifier.size(22.dp)
+                )
             }
             Spacer(modifier = Modifier.width(12.dp))
             Text(
@@ -424,19 +429,8 @@ private fun RenQingTagEditDialog(
 ) {
     val isEdit = tag != null
     var name by remember { mutableStateOf(tag?.name ?: "") }
-    var icon by remember { mutableStateOf(tag?.icon ?: "\uD83C\uDF81") }
+    var icon by remember { mutableStateOf(tag?.icon ?: "gift") }
     var color by remember { mutableStateOf(tag?.color ?: "#715CFF") }
-    val emojiList = listOf(
-        "\uD83D\uDC92", "\uD83D\uDE4F", "\uD83C\uDF82", "\uD83C\uDFE0", "\uD83C\uDF93",
-        "\uD83D\uDC76", "\uD83C\uDF81", "\uD83C\uDF89", "\u2764\uFE0F", "\uD83D\uDC8D",
-        "\uD83D\uDC57", "\uD83D\uDEAA", "\uD83C\uDF7D\uFE0F", "\uD83D\uDCDA", "\uD83D\uDCE6",
-        "\u2B50", "\uD83C\uDF1F", "\uD83C\uDFC6", "\uD83D\uDC8E", "\uD83D\uDCB0",
-        "\uD83C\uDFA8", "\uD83C\uDFB5", "\uD83C\uDFA4", "\uD83C\uDFA7", "\uD83C\uDFB6",
-        "\uD83D\uDE97", "\u2708\uFE0F", "\uD83D\uDED2", "\uD83D\uDCF7", "\u26BD",
-        "\uD83C\uDFC0", "\uD83C\uDFBF", "\uD83E\uDD3E", "\uD83C\uDFAB", "\uD83C\uDF88",
-        "\uD83C\uDF70", "\uD83C\uDF7A", "\u2615", "\uD83C\uDF54", "\uD83C\uDF55",
-        "\uD83C\uDF63", "\uD83C\uDF66"
-    )
     val colorOptions = listOf("#715CFF", "#E91E63", "#F44336", "#FF9800", "#FFC107", "#4CAF50", "#00BCD4", "#2196F3", "#9C27B0", "#607D8B", "#795548", "#FF5722")
 
     AppleAlertDialog(
@@ -454,20 +448,17 @@ private fun RenQingTagEditDialog(
                 Spacer(modifier = Modifier.height(12.dp))
                 Text("图标", style = MaterialTheme.typography.titleSmall)
                 Spacer(modifier = Modifier.height(4.dp))
-                OutlinedTextField(
-                    value = icon,
-                    onValueChange = { icon = it },
-                    label = { Text("自定义emoji") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-                Spacer(modifier = Modifier.height(8.dp))
+                val currentIconKey = RenQingIcons.tagIconOptions
+                    .firstOrNull { it.first == icon }?.first
+                    ?: RenQingIcons.tagIconOptions.first().first
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(emojiList) { emoji ->
+                    items(RenQingIcons.tagIconOptions) { (key, vector) ->
                         FilterChip(
-                            selected = icon == emoji,
-                            onClick = { icon = emoji },
-                            label = { Text(emoji, fontSize = 20.sp) }
+                            selected = currentIconKey == key,
+                            onClick = { icon = key },
+                            label = {
+                                Icon(vector, contentDescription = null, modifier = Modifier.size(18.dp))
+                            }
                         )
                     }
                 }

@@ -55,12 +55,14 @@ fun SwipeableTransactionItem(
     viewModel: TransactionViewModel,
     onDelete: () -> Unit,
     onEdit: () -> Unit,
-    onClick: () -> Unit = onEdit
+    onClick: () -> Unit = onEdit,
+    /** 卡片不透明度 0.08–1；配合首页背景图使用 */
+    cardOpacity: Float = 0.8f
 ) {
     val density = LocalDensity.current
     val menuWidth = 120.dp
     val menuWidthPx = with(density) { menuWidth.toPx() }
-    
+
     var offsetX by remember(transaction.id) { mutableFloatStateOf(0f) }
     val draggableState = rememberDraggableState { delta ->
         val newOffset = (offsetX + delta).coerceIn(-menuWidthPx, 0f)
@@ -69,37 +71,46 @@ fun SwipeableTransactionItem(
 
     val expenseColorHex by viewModel.expenseColor.collectAsState()
     val expenseColor = Color(expenseColorHex.toColorInt())
+    val cardAlpha = cardOpacity.coerceIn(0.08f, 1f)
+    val trackAlpha = (cardAlpha * 0.45f).coerceIn(0.06f, 0.55f)
+    // 未滑开时不组合操作按钮，避免半透明卡片下图标透出重叠
+    val menuProgress = if (menuWidthPx <= 0f) 0f else (-offsetX / menuWidthPx).coerceIn(0f, 1f)
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp)
             .clip(RoundedCornerShape(18.dp))
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f))
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = trackAlpha))
     ) {
-        Row(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .width(menuWidth)
-                .fillMaxHeight(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            IconButton(
-                onClick = {
-                    offsetX = 0f
-                    onEdit()
-                }
+        if (menuProgress > 0.02f) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .width(menuWidth)
+                    .fillMaxHeight()
+                    // 操作区用接近不透明底，滑开后不与背景图/上层内容混叠
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.92f))
+                    .graphicsLayer { alpha = menuProgress },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.primary)
-            }
-            IconButton(
-                onClick = {
-                    offsetX = 0f
-                    onDelete()
+                IconButton(
+                    onClick = {
+                        offsetX = 0f
+                        onEdit()
+                    }
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.primary)
                 }
-            ) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = expenseColor)
+                IconButton(
+                    onClick = {
+                        offsetX = 0f
+                        onDelete()
+                    }
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = expenseColor)
+                }
             }
         }
 
@@ -107,7 +118,7 @@ fun SwipeableTransactionItem(
             modifier = Modifier
                 .offset { IntOffset(offsetX.roundToInt(), 0) }
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.8f))
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = cardAlpha))
                 .draggable(
                     state = draggableState,
                     orientation = Orientation.Horizontal,
@@ -116,12 +127,17 @@ fun SwipeableTransactionItem(
                         animate(
                             initialValue = offsetX,
                             targetValue = target,
-                            animationSpec = MotionSprings.interactive() // iOS-like bouncy menu snap
+                            animationSpec = MotionSprings.interactive()
                         ) { value, _ -> offsetX = value }
                     }
                 )
         ) {
-            TransactionItem(transaction, viewModel, onClick = onClick)
+            TransactionItem(
+                transaction = transaction,
+                viewModel = viewModel,
+                onClick = onClick,
+                translucent = cardAlpha < 0.95f
+            )
         }
     }
 }
@@ -292,7 +308,8 @@ fun CategoryEditDialog(
 fun TransactionItem(
     transaction: Transaction,
     viewModel: TransactionViewModel,
-    onClick: () -> Unit = {}
+    onClick: () -> Unit = {},
+    translucent: Boolean = false
 ) {
     val sdf = SimpleDateFormat("MM月dd日", Locale.getDefault())
     val dateStr = sdf.format(Date(transaction.date))
@@ -311,15 +328,21 @@ fun TransactionItem(
     val expenseColor = Color(android.graphics.Color.parseColor(expenseColorHex))
 
     val interactionSource = remember { MutableInteractionSource() }
-    
+    // Card 本身必须透明/半透明，否则外层半透明底会被完全盖住
+    val cardContainer = if (translucent) {
+        Color.Transparent
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .pressScale(interactionSource), // Use our custom iOS-style press down
+            .pressScale(interactionSource),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-            disabledContainerColor = MaterialTheme.colorScheme.surface
+            containerColor = cardContainer,
+            disabledContainerColor = cardContainer
         ),
         elevation = CardDefaults.cardElevation(
             defaultElevation = 0.dp,

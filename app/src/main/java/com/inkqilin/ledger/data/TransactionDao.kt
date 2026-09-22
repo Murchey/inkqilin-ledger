@@ -76,6 +76,25 @@ interface TransactionDao {
               FROM transactions
               WHERE note LIKE '%' || :query || '%' OR category LIKE '%' || :query || '%'""")
     fun searchSummary(query: String): Flow<SearchSummary>
+
+    /** 关键词 + 日期范围搜索（query 为空表示只按日期筛选） */
+    @Query("""
+        SELECT * FROM transactions
+        WHERE date BETWEEN :start AND :end
+          AND (:query = '' OR note LIKE '%' || :query || '%' OR category LIKE '%' || :query || '%')
+        ORDER BY date DESC
+    """)
+    fun searchTransactionsFiltered(query: String, start: Long, end: Long): Flow<List<Transaction>>
+
+    @Query("""
+        SELECT
+            COALESCE(SUM(CASE WHEN type = 'EXPENSE' THEN amount END), 0) AS expenseTotal,
+            COALESCE(SUM(CASE WHEN type = 'INCOME' THEN amount END), 0) AS incomeTotal
+        FROM transactions
+        WHERE date BETWEEN :start AND :end
+          AND (:query = '' OR note LIKE '%' || :query || '%' OR category LIKE '%' || :query || '%')
+    """)
+    fun searchSummaryFiltered(query: String, start: Long, end: Long): Flow<SearchSummary>
 }
 
 data class SearchSummary(

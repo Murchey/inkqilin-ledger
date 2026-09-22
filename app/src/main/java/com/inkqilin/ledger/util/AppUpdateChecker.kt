@@ -17,19 +17,29 @@ data class UpdateInfo(
 )
 
 object AppUpdateChecker {
-    private const val GITHUB_API_URL = "https://api.github.com/repos/Murchey/inkqilin-ledger/releases/latest"
-
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(10, TimeUnit.SECONDS)
         .build()
 
-    suspend fun checkForUpdate(context: Context): UpdateInfo? = withContext(Dispatchers.IO) {
+    fun buildLatestApiUrl(repo: String): String {
+        val path = normalizeGiteeRepo(repo).ifBlank { DEFAULT_UPDATE_REPO }
+        return "https://gitee.com/api/v5/repos/$path/releases/latest"
+    }
+
+    /**
+     * 从 Gitee Release 检查更新。
+     * @param repo owner/repo 或完整 Gitee 仓库地址；默认使用内置仓库
+     */
+    suspend fun checkForUpdate(
+        context: Context,
+        repo: String = DEFAULT_UPDATE_REPO
+    ): UpdateInfo? = withContext(Dispatchers.IO) {
         try {
             val currentVersion = getCurrentVersion(context)
             val request = Request.Builder()
-                .url(GITHUB_API_URL)
-                .header("Accept", "application/vnd.github.v3+json")
+                .url(buildLatestApiUrl(repo))
+                .header("Accept", "application/json")
                 .build()
 
             val response = client.newCall(request).execute()
@@ -43,6 +53,8 @@ object AppUpdateChecker {
             val htmlUrl = json.optString("html_url", "")
 
             val latestVersion = tagName.removePrefix("v").removePrefix("V")
+
+            if (latestVersion.isBlank()) return@withContext null
 
             if (isNewerVersion(latestVersion, currentVersion)) {
                 UpdateInfo(

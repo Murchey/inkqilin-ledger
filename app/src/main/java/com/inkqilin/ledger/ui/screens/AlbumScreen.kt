@@ -153,6 +153,7 @@ fun AlbumScreen(
                         saveToSystemGallery(context, bitmap)
                         polaroidBitmap = bitmap
                         capturedUri = uri
+                        viewModel.addAlbumPhoto(uri.toString())
                         showFlash = true
                     }
                 } catch (_: Exception) {
@@ -188,6 +189,8 @@ fun AlbumScreen(
                                 saveToSystemGallery(context, bitmap)
                                 polaroidBitmap = bitmap
                                 capturedUri = uri
+                                // 立刻入库，避免动画未完成时退出相册导致丢失
+                                viewModel.addAlbumPhoto(uri.toString())
                                 showFlash = true
                             }
                             scope.launch {
@@ -444,9 +447,9 @@ fun AlbumScreen(
                 onComplete = {
                     showPolaroid = false
                     isPrinting = false
-                    capturedUri?.let { viewModel.addAlbumPhoto(it.toString()) }
                     polaroidBitmap = null
                     capturedUri = null
+                    // 已在拍照成功时入库，这里不再重复插入
                 }
             )
         }

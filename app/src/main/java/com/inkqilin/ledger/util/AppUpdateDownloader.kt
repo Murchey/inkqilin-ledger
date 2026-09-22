@@ -29,15 +29,24 @@ enum class DownloadSource {
     PROXY
 }
 
-/** 内置代理源选项 */
+/** 内置代理源选项（GitHub 加速） */
 val PROXY_SOURCES = listOf(
     "https://gh-proxy.org/",
     "https://v4.gh-proxy.org/",
     "https://cdn.gh-proxy.org/"
 )
 
-private const val GITHUB_RELEASE_BASE = "https://github.com/Murchey/inkqilin-ledger/releases/download"
-private const val GITEE_RELEASE_BASE = "https://gitee.com/Murchey/inkqinlin-ledger/releases/download"
+/** 构建 GitHub Release 下载基址；repo 支持 owner/repo 或完整地址 */
+fun buildGithubReleaseBase(repo: String): String {
+    val path = normalizeGithubRepo(repo).ifBlank { DEFAULT_GITHUB_REPO }
+    return "https://github.com/$path/releases/download"
+}
+
+/** 构建 Gitee Release 下载基址；repo 支持 owner/repo 或完整地址 */
+fun buildGiteeReleaseBase(repo: String): String {
+    val path = normalizeGiteeRepo(repo).ifBlank { DEFAULT_UPDATE_REPO }
+    return "https://gitee.com/$path/releases/download"
+}
 
 /**
  * 内嵌 APK 下载 / 安装 / 清理工具。
@@ -49,21 +58,28 @@ object AppUpdateDownloader {
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(120, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
         .followRedirects(true)
         .followSslRedirects(true)
         .build()
 
     /** 构建下载链接 */
-    fun buildDownloadUrl(versionName: String, source: DownloadSource, proxyPrefix: String? = null): String {
+    fun buildDownloadUrl(
+        versionName: String,
+        source: DownloadSource,
+        proxyPrefix: String? = null,
+        giteeRepo: String = DEFAULT_UPDATE_REPO,
+        githubRepo: String = DEFAULT_GITHUB_REPO
+    ): String {
         val tag = "V$versionName"
         val fileName = "$APK_FILE_PREFIX$versionName.apk"
         val base = when (source) {
-            DownloadSource.GITEE -> GITEE_RELEASE_BASE
-            DownloadSource.GITHUB -> GITHUB_RELEASE_BASE
+            DownloadSource.GITEE -> buildGiteeReleaseBase(giteeRepo)
+            DownloadSource.GITHUB -> buildGithubReleaseBase(githubRepo)
             DownloadSource.PROXY -> {
                 val prefix = proxyPrefix ?: PROXY_SOURCES.first()
-                "$prefix$GITHUB_RELEASE_BASE"
+                "$prefix${buildGithubReleaseBase(githubRepo)}"
             }
         }
         return "$base/$tag/$fileName"
@@ -88,68 +104,85 @@ object AppUpdateDownloader {
     /**
      * 下载 APK 并实时发射进度。
      * 完成后由调用方通过 [install] 触发安装。
+     *
+     * 注意：callbackFlow 所有路径都必须走到末尾 awaitClose，否则会闪退。
      */
     fun download(
         context: Context,
         versionName: String,
         source: DownloadSource,
-        proxyPrefix: String? = null
+        proxyPrefix: String? = null,
+        giteeRepo: String = DEFAULT_UPDATE_REPO,
+        githubRepo: String = DEFAULT_GITHUB_REPO
     ): Flow<DownloadProgress> = callbackFlow {
-        val url = buildDownloadUrl(versionName, source, proxyPrefix)
-        val file = apkFile(context, versionName)
-
-        // 如果已有完整文件且大小 >0，跳过下载
-        if (file.exists() && file.length() > 0) {
-            trySend(DownloadProgress.Completed)
-            return@callbackFlow
-        }
-
+        var downloadUrl: String? = null
         try {
-            val request = Request.Builder().url(url).build()
-            val response = withContext(Dispatchers.IO) {
-                client.newCall(request).execute()
-            }
+            val url = buildDownloadUrl(versionName, source, proxyPrefix, giteeRepo, githubRepo)
+            downloadUrl = url
+            android.util.Log.i("AppUpdateDownloader", "开始下载 source=$source url=$url")
+            val file = apkFile(context, versionName)
 
-            if (!response.isSuccessful) {
-                trySend(DownloadProgress.Failed)
-                return@callbackFlow
-            }
+            if (file.exists() && file.length() > 0) {
+                android.util.Log.i("AppUpdateDownloader", "命中本地缓存 ${file.absolutePath} size=${file.length()}")
+                trySend(DownloadProgress.Completed)
+            } else {
+                if (file.exists()) file.delete()
+                val request = Request.Builder()
+                    .url(url)
+                    .header("User-Agent", "InkQilin-ledger-Update")
+                    .build()
+                val response = withContext(Dispatchers.IO) {
+                    client.newCall(request).execute()
+                }
+                try {
+                    android.util.Log.i(
+                        "AppUpdateDownloader",
+                        "HTTP ${response.code} contentLength=${response.body?.contentLength() ?: -1}"
+                    )
+                    if (!response.isSuccessful) {
+                        trySend(DownloadProgress.Failed)
+                    } else {
+                        val body = response.body
+                        if (body == null) {
+                            trySend(DownloadProgress.Failed)
+                        } else {
+                            val totalBytes = body.contentLength()
+                            var downloadedBytes = 0L
 
-            val body = response.body ?: run {
-                trySend(DownloadProgress.Failed)
-                return@callbackFlow
-            }
+                            withContext(Dispatchers.IO) {
+                                body.byteStream().use { input ->
+                                    FileOutputStream(file).use { output ->
+                                        val buffer = ByteArray(8192)
+                                        var bytesRead: Int
+                                        while (input.read(buffer).also { bytesRead = it } != -1) {
+                                            output.write(buffer, 0, bytesRead)
+                                            downloadedBytes += bytesRead
+                                            if (totalBytes > 0) {
+                                                val fraction = (downloadedBytes.toFloat() / totalBytes).coerceIn(0f, 0.99f)
+                                                trySend(DownloadProgress.Progress(fraction))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
 
-            val totalBytes = body.contentLength()
-            var downloadedBytes = 0L
-
-            withContext(Dispatchers.IO) {
-                body.byteStream().use { input ->
-                    FileOutputStream(file).use { output ->
-                        val buffer = ByteArray(8192)
-                        var bytesRead: Int
-                        while (input.read(buffer).also { bytesRead = it } != -1) {
-                            output.write(buffer, 0, bytesRead)
-                            downloadedBytes += bytesRead
-                            if (totalBytes > 0) {
-                                val fraction = (downloadedBytes.toFloat() / totalBytes).coerceIn(0f, 0.99f)
-                                trySend(DownloadProgress.Progress(fraction))
+                            android.util.Log.i(
+                                "AppUpdateDownloader",
+                                "写入完成 bytes=$downloadedBytes file=${file.length()}"
+                            )
+                            if (file.exists() && file.length() > 0) {
+                                trySend(DownloadProgress.Completed)
+                            } else {
+                                trySend(DownloadProgress.Failed)
                             }
                         }
                     }
+                } finally {
+                    response.close()
                 }
             }
-
-            response.close()
-
-            // 验证文件完整性
-            if (file.exists() && file.length() > 0) {
-                trySend(DownloadProgress.Completed)
-            } else {
-                trySend(DownloadProgress.Failed)
-            }
         } catch (e: Exception) {
-            android.util.Log.e("AppUpdateDownloader", "下载失败", e)
+            android.util.Log.e("AppUpdateDownloader", "下载失败 url=$downloadUrl", e)
             trySend(DownloadProgress.Failed)
         }
 
@@ -178,7 +211,6 @@ object AppUpdateDownloader {
             dir?.listFiles()?.forEach {
                 val deleted = it.delete()
                 if (!deleted) {
-                    // 删除失败时标记为退出时删除
                     it.deleteOnExit()
                 }
             }

@@ -45,14 +45,15 @@ class RenQingViewModel(
     }
 
     private suspend fun initializeDefaultTags() {
+        // 使用语义图标键（旧的 emoji 数据仍可显示，由 RenQingIcons 兼容）
         val defaults = listOf(
-            RenQingTag(name = "婚礼", icon = "\uD83D\uDC92", color = "#E91E63"),
-            RenQingTag(name = "丧礼", icon = "\uD83D\uDE4F", color = "#607D8B"),
-            RenQingTag(name = "生日", icon = "\uD83C\uDF82", color = "#FF9800"),
-            RenQingTag(name = "乔迁", icon = "\uD83C\uDFE0", color = "#4CAF50"),
-            RenQingTag(name = "升学", icon = "\uD83C\uDF93", color = "#2196F3"),
-            RenQingTag(name = "满月", icon = "\uD83D\uDC76", color = "#9C27B0"),
-            RenQingTag(name = "其他", icon = "\uD83C\uDF81", color = "#715CFF")
+            RenQingTag(name = "婚礼", icon = "favorite", color = "#E91E63"),
+            RenQingTag(name = "丧礼", icon = "flower", color = "#607D8B"),
+            RenQingTag(name = "生日", icon = "cake", color = "#FF9800"),
+            RenQingTag(name = "乔迁", icon = "home", color = "#4CAF50"),
+            RenQingTag(name = "升学", icon = "school", color = "#2196F3"),
+            RenQingTag(name = "满月", icon = "child", color = "#9C27B0"),
+            RenQingTag(name = "其他", icon = "gift", color = "#715CFF")
         )
         defaults.forEach { tagDao.insertTag(it) }
     }

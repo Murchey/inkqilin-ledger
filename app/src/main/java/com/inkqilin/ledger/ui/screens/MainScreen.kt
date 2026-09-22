@@ -51,12 +51,18 @@ import com.inkqilin.ledger.data.Transaction
 import com.inkqilin.ledger.data.TransactionType
 import com.inkqilin.ledger.util.NotificationHelper
 import kotlinx.coroutines.launch
+import androidx.activity.compose.BackHandler
 
 data class BottomNavItem(
     val route: String,
     val icon: ImageVector,
     val label: String
 )
+
+/** 二级页导航：避免同一路由重复压栈，导致系统返回需要连按多次 */
+fun androidx.navigation.NavController.navigateSingle(route: String) {
+    navigate(route) { launchSingleTop = true }
+}
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -132,7 +138,7 @@ fun MainScreen(
                     }
                 }
             }
-            else -> runCatching { navController.navigate(target) { launchSingleTop = true } }
+            else -> runCatching { navController.navigateSingle(target) }
         }
         onExternalTargetHandled()
     }
@@ -142,6 +148,16 @@ fun MainScreen(
         bottomItems[pagerState.currentPage].route
     } else {
         "home"
+    }
+
+    // 主页非「首页」Tab 时，系统返回先回首页 Tab，而不是直接退出 App
+    BackHandler(enabled = currentRoute == "main" && currentPageRoute != "home") {
+        scope.launch {
+            val homeIndex = bottomItems.indexOfFirst { it.route == "home" }
+            if (homeIndex != -1) {
+                pagerState.animateScrollToPage(homeIndex)
+            }
+        }
     }
 
     // Sync Pager with Bottom Nav selection (initial sync)
@@ -171,11 +187,13 @@ fun MainScreen(
         currentRoute?.startsWith("renqing_month_detail") == true -> "月度详情"
         currentRoute?.startsWith("renqing_tag_stats") == true -> "标签统计"
         currentRoute?.startsWith("renqing_contact_analysis") == true -> "关系分析"
+        currentRoute == "renqing_stats" -> "人情统计"
         currentRoute?.startsWith("category_transactions") == true -> "分类账单"
         currentRoute == "contact_management" -> "联系人管理"
         currentRoute == "currency_management" -> "币种卡片管理"
         currentRoute == "keyword_category_management" -> "关键词管理"
         currentRoute == "ai_config" -> "AI API 配置"
+        currentRoute == "cloud_backup" -> "数据备份"
         currentRoute == "ocr_batch_recognition" -> "OCR 批量识别"
         currentRoute == "asset_management" -> "资产管理"
         currentRoute?.startsWith("cycle_bill_edit") == true -> {
@@ -197,6 +215,7 @@ fun MainScreen(
     // 子页面可覆盖的 TopAppBar 状态
     var customTopBarTitle by remember { mutableStateOf<String?>(null) }
     var customBackAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var cloudBackupOpenSettings by remember { mutableStateOf(false) }
     var albumFabTrigger by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val ocrEnabled by viewModel.ocrEnabled.collectAsState()
@@ -270,7 +289,7 @@ fun MainScreen(
                             enter = if (enableAnimations) fadeIn(MotionSprings.interactive()) else EnterTransition.None,
                             exit = if (enableAnimations) fadeOut(MotionSprings.interactive()) else ExitTransition.None
                         ) {
-                            IconButton(onClick = { navController.navigate("search") }) {
+                            IconButton(onClick = { navController.navigateSingle("search") }) {
                                 Icon(Icons.Default.Search, contentDescription = "搜索")
                             }
                         }
@@ -280,8 +299,18 @@ fun MainScreen(
                             enter = if (enableAnimations) fadeIn(MotionSprings.interactive()) else EnterTransition.None,
                             exit = if (enableAnimations) fadeOut(MotionSprings.interactive()) else ExitTransition.None
                         ) {
-                            IconButton(onClick = { navController.navigate("add_renqing_event") }) {
+                            IconButton(onClick = { navController.navigateSingle("add_renqing_event") }) {
                                 Icon(Icons.Default.Add, contentDescription = "添加事件")
+                            }
+                        }
+                        // 云备份：COS 设置
+                        AnimatedVisibility(
+                            visible = currentRoute == "cloud_backup",
+                            enter = if (enableAnimations) fadeIn(MotionSprings.interactive()) else EnterTransition.None,
+                            exit = if (enableAnimations) fadeOut(MotionSprings.interactive()) else ExitTransition.None
+                        ) {
+                            IconButton(onClick = { cloudBackupOpenSettings = true }) {
+                                Icon(Icons.Default.Settings, contentDescription = "COS 设置")
                             }
                         }
                     }
@@ -596,7 +625,7 @@ fun MainScreen(
                         "home" -> HomeScreen(
                             viewModel = viewModel,
                             onNavigateToAddTransaction = {
-                                navController.navigate("add_transaction")
+                                navController.navigateSingle("add_transaction")
                             },
                             onNavigateToStatistics = {
                                 scope.launch {
@@ -606,16 +635,16 @@ fun MainScreen(
                             },
                             onNavigateToEditTransaction = { transaction ->
                                 viewModel.setPendingEditTransaction(transaction)
-                                navController.navigate("edit_transaction/${transaction.id}")
+                                navController.navigateSingle("edit_transaction/${transaction.id}")
                             },
                             onNavigateToSearch = {
-                                navController.navigate("search")
+                                navController.navigateSingle("search")
                             },
                             onNavigateToOcrRecognition = {
-                                navController.navigate("ocr_batch_recognition")
+                                navController.navigateSingle("ocr_batch_recognition")
                             },
                             onNavigateToAssetManagement = {
-                                navController.navigate("asset_management")
+                                navController.navigateSingle("asset_management")
                             }
                         )
                         "statistics" -> StatisticsScreen(viewModel, navController)
@@ -628,41 +657,47 @@ fun MainScreen(
                         "renqing" -> RenQingMainScreen(
                             viewModel = renQingViewModel,
                             onNavigateToContactDetail = { contactId ->
-                                navController.navigate("renqing_contact_detail/$contactId")
+                                navController.navigateSingle("renqing_contact_detail/$contactId")
                             },
                             onNavigateToMonthDetail = { year, month ->
-                                navController.navigate("renqing_month_detail/$year/$month")
+                                navController.navigateSingle("renqing_month_detail/$year/$month")
                             },
                             onNavigateToTagStats = { year ->
-                                navController.navigate("renqing_tag_stats/$year")
+                                navController.navigateSingle("renqing_tag_stats/$year")
                             },
                             onNavigateToContactAnalysis = { year ->
-                                navController.navigate("renqing_contact_analysis/$year")
+                                navController.navigateSingle("renqing_contact_analysis/$year")
+                            },
+                            onNavigateToRenQingStats = {
+                                navController.navigateSingle("renqing_stats")
                             }
                         )
                         "settings" -> SettingsScreen(
                             viewModel = viewModel,
                             renQingViewModel = renQingViewModel,
                             onNavigateToCategoryManagement = {
-                                navController.navigate("category_management")
+                                navController.navigateSingle("category_management")
                             },
                             onNavigateToKeywordCategoryManagement = {
-                                navController.navigate("keyword_category_management")
+                                navController.navigateSingle("keyword_category_management")
                             },
                             onNavigateToContactManagement = {
-                                navController.navigate("contact_management")
+                                navController.navigateSingle("contact_management")
                             },
                             onNavigateToCurrencyManagement = {
-                                navController.navigate("currency_management")
+                                navController.navigateSingle("currency_management")
                             },
                             onNavigateToAIConfig = {
-                                navController.navigate("ai_config")
+                                navController.navigateSingle("ai_config")
                             },
                             onNavigateToOCRConfig = {
-                                navController.navigate("ocr_config")
+                                navController.navigateSingle("ocr_config")
                             },
                             onNavigateToBillImport = {
-                                navController.navigate("bill_import")
+                                navController.navigateSingle("bill_import")
+                            },
+                            onNavigateToCloudBackup = {
+                                navController.navigateSingle("cloud_backup")
                             }
                         )
                     }
@@ -680,6 +715,16 @@ fun MainScreen(
                     viewModel = viewModel,
                     onBack = { navController.popBackStack() }
                 )
+            }
+            composable("cloud_backup") {
+                CloudBackupScreen(
+                    viewModel = viewModel,
+                    openSettings = cloudBackupOpenSettings,
+                    onOpenSettingsConsumed = { cloudBackupOpenSettings = false }
+                )
+                DisposableEffect(Unit) {
+                    onDispose { cloudBackupOpenSettings = false }
+                }
             }
             composable("asset_management") {
                 AssetManagementScreen(
@@ -767,9 +812,9 @@ fun MainScreen(
                 val ctx = androidx.compose.ui.platform.LocalContext.current
                 CycleBillScreen(
                     onBack = { navController.popBackStack() },
-                    onNavigateAddBill = { navController.navigate("cycle_bill_edit/0") },
-                    onNavigateEditBill = { billId -> navController.navigate("cycle_bill_edit/$billId") },
-                    onNavigateRecycleBin = { navController.navigate("recycle_bin") },
+                    onNavigateAddBill = { navController.navigateSingle("cycle_bill_edit/0") },
+                    onNavigateEditBill = { billId -> navController.navigateSingle("cycle_bill_edit/$billId") },
+                    onNavigateRecycleBin = { navController.navigateSingle("recycle_bin") },
                     onCreateTransaction = { bill ->
                         val txDate = System.currentTimeMillis()
                         val nextCycleEnd = cycleBoundary(txDate, bill.cycleType)
@@ -892,6 +937,21 @@ fun MainScreen(
                     contactId = contactId
                 )
             }
+            composable("renqing_stats") {
+                RenQingStatsScreen(
+                    viewModel = renQingViewModel,
+                    tags = renQingViewModel.allTags.collectAsState().value,
+                    onNavigateToMonthDetail = { year, month ->
+                        navController.navigateSingle("renqing_month_detail/$year/$month")
+                    },
+                    onNavigateToTagStats = { year ->
+                        navController.navigateSingle("renqing_tag_stats/$year")
+                    },
+                    onNavigateToContactAnalysis = { year ->
+                        navController.navigateSingle("renqing_contact_analysis/$year")
+                    }
+                )
+            }
             composable(
                 route = "renqing_month_detail/{year}/{month}",
                 arguments = listOf(
@@ -978,7 +1038,7 @@ fun MainScreen(
                     Surface(
                         onClick = {
                             showFabMenu = false
-                            navController.navigate("ocr_batch_recognition")
+                            navController.navigateSingle("ocr_batch_recognition")
                         },
                         shape = RoundedCornerShape(16.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
@@ -1001,7 +1061,7 @@ fun MainScreen(
                 Surface(
                     onClick = {
                         showFabMenu = false
-                        navController.navigate("asset_management")
+                        navController.navigateSingle("asset_management")
                     },
                     shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
@@ -1023,7 +1083,7 @@ fun MainScreen(
                 Surface(
                     onClick = {
                         showFabMenu = false
-                        navController.navigate("cycle_bill_list")
+                        navController.navigateSingle("cycle_bill_list")
                     },
                     shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
@@ -1045,7 +1105,7 @@ fun MainScreen(
                 Surface(
                     onClick = {
                         showFabMenu = false
-                        navController.navigate("calculator_hub")
+                        navController.navigateSingle("calculator_hub")
                     },
                     shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
@@ -1064,7 +1124,7 @@ fun MainScreen(
                 Surface(
                     onClick = {
                         showFabMenu = false
-                        navController.navigate("add_transaction")
+                        navController.navigateSingle("add_transaction")
                     },
                     shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)

@@ -337,9 +337,26 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                     .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
                     .fallbackToDestructiveMigrationOnDowngrade()
+                    // DELETE 时用零覆盖行内容，降低从 db 文件残留页恢复账单的可能
+                    .addCallback(object : Callback() {
+                        override fun onOpen(db: SupportSQLiteDatabase) {
+                            runCatching { db.execSQL("PRAGMA secure_delete = ON") }
+                        }
+                    })
                     .build()
                 INSTANCE = instance
                 instance
+            }
+        }
+
+        /** 云恢复前关闭并丢弃单例，避免覆盖文件后仍使用旧连接 */
+        fun closeAndClear() {
+            synchronized(this) {
+                try {
+                    INSTANCE?.close()
+                } catch (_: Exception) {
+                }
+                INSTANCE = null
             }
         }
     }

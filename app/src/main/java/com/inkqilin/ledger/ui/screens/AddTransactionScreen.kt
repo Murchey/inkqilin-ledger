@@ -74,7 +74,7 @@ fun AddTransactionScreen(
     var showAmountKeypad by remember { mutableStateOf(false) }
     fun evaluateAmount() {
         AmountExpressionEvaluator.evaluate(amount)?.let { result ->
-            if (result >= 0) amount = result.toString()
+            if (result >= 0) amount = AmountExpressionEvaluator.formatForField(result)
         }
     }
 

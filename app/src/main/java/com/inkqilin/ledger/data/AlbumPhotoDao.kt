@@ -25,4 +25,7 @@ interface AlbumPhotoDao {
 
     @Query("DELETE FROM album_photos WHERE id = :id")
     suspend fun deletePhotoById(id: Long)
+
+    @Query("DELETE FROM album_photos")
+    suspend fun deleteAllPhotos()
 }

@@ -9,6 +9,7 @@ A personal finance Android app built with Jetpack Compose and Material 3. Suppor
 ### Core
 
 - **Transaction Management** — Quickly add income/expense entries with custom amounts, notes, categories, and dates
+- **Amount Keypad Arithmetic** — Edit and add-transaction amount input supports `+ − × ÷` and parentheses (e.g. `(20+5)×2`), with backspace, clear, and live preview
 - **Multi-Currency Support** — Manage multiple currencies with customizable card colors, symbols, and names; switch default currency anytime
 - **Monthly Overview Card** — Displays total income, expense, and net balance for the selected month with a year-month picker
 - **7-Day Trend Chart** — Visual bar chart of daily spending over the past week
@@ -38,12 +39,17 @@ A personal finance Android app built with Jetpack Compose and Material 3. Suppor
 - **Tag & Contact Analytics** — View gift distribution by tag and contact rankings
 - **Excel Export** — Export gift records and contacts by time range
 
-### Data Management
+### Data Management & Backup
 
 - **Flexible Export** — Export transactions by "All / This Year / Custom Range" for both ledgers
 - **Excel Export** — One-tap export to Excel with custom save location
 - **Template Download** — Download a pre-formatted template for bulk import
 - **Smart Import** — Import from Excel; auto-creates missing categories
+- **Local Backup** — Pack the Room database into a zip under the app-private directory; export to system storage, restore, or delete from history
+- **Cloud Backup (Tencent COS)** — Private read/write COS: configure SecretId/SecretKey and bucket URL, then upload/list/restore/delete backups
+- **Optional Password Encryption** — Backups can be encrypted with AES-256-GCM (key via PBKDF2-HmacSHA256); encrypted restores require the password
+- **Hard Delete** — Local backups are overwritten before unlink; cloud deletes are verified as gone; home-screen bills use hard delete with SQLite `secure_delete` to reduce residual recovery from the DB file
+- **Safe Exit After Restore** — After restore, a dialog offers one-tap force-close so the app reloads the new database
 
 ### General
 
@@ -51,7 +57,10 @@ A personal finance Android app built with Jetpack Compose and Material 3. Suppor
 - **Theme Customization** — Light mode (#715CFF purple) / Dark mode (#51B4FF blue); follows system setting
 - **Custom Colors** — Customize income/expense display colors across all views
 - **Immersive UI** — Full-screen layout with transparent status and navigation bars
-- **Update Checker** — Auto-checks GitHub for new versions; view changelog and download
+- **Update Checker** — Optional startup check against the latest Gitee Release, plus a manual “Check for updates” action in Settings; view changelog and download via Gitee / GitHub / proxy
+- **Configurable Update Repos** — Point the update checker at any Gitee repository and set the GitHub download repository (`owner/repo` or full URL); both settings are persisted
+- **Settings State Kept** — Expanded/collapsed settings sections survive navigation to secondary screens and back
+- **About (Top-Level)** — Dedicated settings section with version info, Gitee/GitHub links, and a usage guide
 
 ## Tech Stack
 

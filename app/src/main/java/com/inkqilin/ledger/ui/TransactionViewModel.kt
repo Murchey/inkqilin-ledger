@@ -22,6 +22,7 @@ import com.inkqilin.ledger.util.ThemeMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Calendar
 
@@ -315,6 +316,45 @@ class TransactionViewModel(
         com.inkqilin.ledger.util.PROXY_SOURCES.first()
     )
 
+    val updateRepo: StateFlow<String> = themeManager.updateRepo.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000),
+        com.inkqilin.ledger.util.DEFAULT_UPDATE_REPO
+    )
+
+    val githubRepo: StateFlow<String> = themeManager.githubRepo.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000),
+        com.inkqilin.ledger.util.DEFAULT_GITHUB_REPO
+    )
+
+    fun setUpdateRepo(repo: String) {
+        viewModelScope.launch { themeManager.setUpdateRepo(repo) }
+    }
+
+    fun setGithubRepo(repo: String) {
+        viewModelScope.launch { themeManager.setGithubRepo(repo) }
+    }
+
+    val cosConfig: StateFlow<com.inkqilin.ledger.util.CosConfig> =
+        themeManager.cosConfig.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            com.inkqilin.ledger.util.CosConfig()
+        )
+
+    fun setCosConfig(config: com.inkqilin.ledger.util.CosConfig) {
+        viewModelScope.launch { themeManager.setCosConfig(config) }
+    }
+
+    /** 设置页「检查更新」→ MainActivity 弹出更新对话框 */
+    private val _manualUpdateCheckTrigger = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val manualUpdateCheckTrigger: SharedFlow<Unit> = _manualUpdateCheckTrigger.asSharedFlow()
+
+    fun triggerManualUpdateCheck() {
+        viewModelScope.launch {
+            _manualUpdateCheckTrigger.emit(Unit)
+        }
+    }
+
     val customPrimaryColorHex: StateFlow<String?> = themeManager.customPrimaryColor.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), null
     )
@@ -322,6 +362,57 @@ class TransactionViewModel(
     val homeCardColor: StateFlow<String?> = themeManager.homeCardColor.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), null
     )
+
+    val homeBgImagePath: StateFlow<String?> = themeManager.homeBgImagePath.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), null
+    )
+
+    val homeBgOpacity: StateFlow<Float> = themeManager.homeBgOpacity.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), 0.35f
+    )
+
+    val homeTxCardOpacity: StateFlow<Float> = themeManager.homeTxCardOpacity.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), 0.72f
+    )
+
+    fun setHomeBgImagePath(path: String?) {
+        viewModelScope.launch { themeManager.setHomeBgImagePath(path) }
+    }
+
+    fun setHomeBgOpacity(opacity: Float) {
+        viewModelScope.launch { themeManager.setHomeBgOpacity(opacity) }
+    }
+
+    fun setHomeTxCardOpacity(opacity: Float) {
+        viewModelScope.launch { themeManager.setHomeTxCardOpacity(opacity) }
+    }
+
+    /** 将用户选择的图片复制到应用私有目录，避免 content URI 失效 */
+    fun importHomeBackground(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            try {
+                val target = java.io.File(context.filesDir, "home_bg_image")
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        target.outputStream().use { output -> input.copyTo(output) }
+                    } ?: error("无法读取图片")
+                }
+                setHomeBgImagePath(target.absolutePath)
+            } catch (e: Exception) {
+                Log.e("HomeBg", "导入背景失败", e)
+            }
+        }
+    }
+
+    fun clearHomeBackground() {
+        viewModelScope.launch {
+            val path = homeBgImagePath.value
+            setHomeBgImagePath(null)
+            if (!path.isNullOrBlank()) {
+                runCatching { java.io.File(path).delete() }
+            }
+        }
+    }
 
     val autoRecordEnabled: StateFlow<Boolean> = themeManager.autoRecordEnabled.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), false
@@ -553,6 +644,32 @@ class TransactionViewModel(
         return albumPhotoDao.getPhotoById(id)
     }
 
+    /** 清空记账相册：删文件 + 清数据库 */
+    suspend fun clearAllAlbumPhotos(context: Context): Boolean = withContext(Dispatchers.IO) {
+        try {
+            com.inkqilin.ledger.util.StorageUsageManager.clearDir(
+                java.io.File(context.filesDir, "album_photos")
+            )
+            albumPhotoDao.deleteAllPhotos()
+            true
+        } catch (e: Exception) {
+            Log.e("TransactionVM", "clear album failed", e)
+            false
+        }
+    }
+
+    /** 清空本地备份目录（含 pre_restore） */
+    suspend fun clearLocalBackups(context: Context): Boolean = withContext(Dispatchers.IO) {
+        try {
+            com.inkqilin.ledger.util.StorageUsageManager.clearDir(
+                com.inkqilin.ledger.util.CloudBackupManager.localBackupDir(context)
+            )
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     val allUserAssets: StateFlow<List<UserAsset>> = userAssetDao.getAllAssets()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -679,6 +796,7 @@ class TransactionViewModel(
 
     fun deleteTransaction(transaction: Transaction) {
         viewModelScope.launch {
+            // Room @Delete 为硬删除；库已开启 PRAGMA secure_delete，行内容会被覆盖
             transactionDao.deleteTransaction(transaction)
             notifyWidgets()
         }
@@ -691,6 +809,32 @@ class TransactionViewModel(
     /** 搜索聚合：支出/收入合计（一次 SQL），供搜索结果头部展示 */
     fun searchSummary(query: String): Flow<SearchSummary> {
         return transactionDao.searchSummary(query)
+    }
+
+    /**
+     * 支持日期范围的搜索。
+     * @param start/end 为 null 时退化为纯关键词搜索；query 为空且有日期时只按日期筛选。
+     */
+    fun searchTransactionsFiltered(query: String, start: Long?, end: Long?): Flow<List<Transaction>> {
+        val q = query.trim()
+        return if (start != null && end != null) {
+            transactionDao.searchTransactionsFiltered(q, start, end)
+        } else if (q.isBlank()) {
+            flowOf(emptyList())
+        } else {
+            transactionDao.searchTransactions(q)
+        }
+    }
+
+    fun searchSummaryFiltered(query: String, start: Long?, end: Long?): Flow<SearchSummary> {
+        val q = query.trim()
+        return if (start != null && end != null) {
+            transactionDao.searchSummaryFiltered(q, start, end)
+        } else if (q.isBlank()) {
+            flowOf(SearchSummary(0.0, 0.0))
+        } else {
+            transactionDao.searchSummary(q)
+        }
     }
 
     fun getTransactionsByCategory(category: String): Flow<List<Transaction>> {
@@ -726,19 +870,41 @@ class TransactionViewModel(
         return start to end
     }
 
-    fun importTransactions(context: Context, uri: Uri) {
+    /** Excel 导入进度：fraction 0–1 + 描述；null = 未在导入 */
+    private val _excelProgress = MutableStateFlow<Pair<Float, String>?>(null)
+    val excelProgress: StateFlow<Pair<Float, String>?> = _excelProgress.asStateFlow()
+
+    fun importTransactions(
+        context: Context,
+        uri: Uri,
+        onDone: ((imported: Int, newCats: Int) -> Unit)? = null
+    ) {
         viewModelScope.launch {
-            val existingCategories = allCategories.first()
-            val result = ExcelImporter.importTransactionsFromUri(context, uri, existingCategories)
-            
-            result.newCategories.forEach { category ->
-                categoryDao.insertCategory(category)
+            _excelProgress.value = 0f to "开始导入…"
+            try {
+                val existingCategories = allCategories.first()
+                val result = withContext(Dispatchers.IO) {
+                    ExcelImporter.importTransactionsFromUri(context, uri, existingCategories) { fraction, msg ->
+                        _excelProgress.value = fraction.coerceIn(0f, 1f) to msg
+                    }
+                }
+                _excelProgress.value = 0.96f to "写入数据库…"
+                result.newCategories.forEach { category ->
+                    categoryDao.insertCategory(category)
+                }
+                result.transactions.forEach { transaction ->
+                    transactionDao.insertTransaction(transaction)
+                }
+                notifyWidgets()
+                _excelProgress.value = 1f to "导入完成"
+                onDone?.invoke(result.transactions.size, result.newCategories.size)
+                kotlinx.coroutines.delay(400)
+            } catch (e: Exception) {
+                Log.e("TransactionVM", "import failed", e)
+                onDone?.invoke(0, 0)
+            } finally {
+                _excelProgress.value = null
             }
-            
-            result.transactions.forEach { transaction ->
-                transactionDao.insertTransaction(transaction)
-            }
-            notifyWidgets()
         }
     }
 

@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Environment
 import android.provider.MediaStore
 import com.inkqilin.ledger.data.AssetFlow
+import com.inkqilin.ledger.data.Category
 import com.inkqilin.ledger.data.Transaction
 import com.inkqilin.ledger.data.UserAsset
 import org.apache.poi.ss.usermodel.CellStyle
@@ -21,21 +22,29 @@ object ExcelExporter {
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
     private val dateOnlyFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
 
+    /** 进度：0f–1f + 描述 */
+    data class Progress(val fraction: Float, val message: String)
+
     /**
      * 导出完整数据到 Excel
-     * Sheet1: 账单记录
-     * Sheet2: 资产总览 + 流转记录
+     * Sheet1: 账单记录（含分类、备注、币种、UUID）
+     * Sheet2: 资产与流转
+     * Sheet3: 自定义分类（名称/类型/图标/颜色/排序）
+     *
+     * @param onProgress 大数据量时周期性回调进度（约每 200 条一次）
      */
     fun exportToUri(
         context: Context,
         uri: Uri,
         transactions: List<Transaction>,
         assets: List<UserAsset>,
-        flows: List<AssetFlow>
+        flows: List<AssetFlow>,
+        categories: List<Category> = emptyList(),
+        onProgress: ((Progress) -> Unit)? = null
     ): Boolean {
         return try {
             context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-                writeWorkbook(outputStream, transactions, assets, flows)
+                writeWorkbook(outputStream, transactions, assets, flows, categories, onProgress)
             }
             true
         } catch (e: Exception) {
@@ -48,9 +57,24 @@ object ExcelExporter {
         outputStream: OutputStream,
         transactions: List<Transaction>,
         assets: List<UserAsset>,
-        flows: List<AssetFlow>
+        flows: List<AssetFlow>,
+        categories: List<Category>,
+        onProgress: ((Progress) -> Unit)? = null
     ) {
         val workbook = XSSFWorkbook()
+        val txCount = transactions.size
+        val assetCount = assets.size
+        val flowCount = flows.size
+        val catCount = categories.size
+        // 权重：账单写入是主要耗时
+        val totalUnits = (txCount + assetCount + flowCount + catCount).coerceAtLeast(1)
+
+        fun report(done: Int, message: String) {
+            val fraction = (done.toFloat() / totalUnits).coerceIn(0f, 1f)
+            onProgress?.invoke(Progress(fraction, message))
+        }
+
+        onProgress?.invoke(Progress(0f, "准备写入…"))
 
         // ===== Sheet1: 账单记录 =====
         val sheet1 = workbook.createSheet("账单记录")
@@ -83,28 +107,19 @@ object ExcelExporter {
 
         transactions.sortedByDescending { it.date }.forEachIndexed { index, tx ->
             val row = sheet1.createRow(index + 2)
-            row.createCell(0).apply {
-                setCellValue(dateFormat.format(Date(tx.date)))
-                cellStyle = centerStyle
-            }
-            row.createCell(1).apply {
-                setCellValue(if (tx.type == com.inkqilin.ledger.data.TransactionType.INCOME) "收入" else "支出")
-                cellStyle = centerStyle
-            }
-            row.createCell(2).apply {
-                setCellValue(tx.category)
-                cellStyle = centerStyle
-            }
-            row.createCell(3).apply {
-                setCellValue(tx.amount)
-                cellStyle = centerStyle
-            }
-            row.createCell(4).apply {
-                setCellValue(tx.currency)
-                cellStyle = centerStyle
-            }
+            // 避免 apply/重复 style 赋值带来的额外开销
+            row.createCell(0).setCellValue(dateFormat.format(Date(tx.date)))
+            row.createCell(1).setCellValue(if (tx.type == com.inkqilin.ledger.data.TransactionType.INCOME) "收入" else "支出")
+            row.createCell(2).setCellValue(tx.category)
+            row.createCell(3).setCellValue(tx.amount)
+            row.createCell(4).setCellValue(tx.currency)
             row.createCell(5).setCellValue(tx.note)
             row.createCell(6).setCellValue(tx.uuid ?: "")
+
+            val done = index + 1
+            if (done == txCount || done % 200 == 0) {
+                report(done, "写入账单 $done / $txCount")
+            }
         }
 
         // 设置列宽
@@ -149,6 +164,9 @@ object ExcelExporter {
                 cellStyle = centerStyle
             }
             row.createCell(5).setCellValue(asset.note)
+            if (index + 1 == assetCount || (index + 1) % 50 == 0) {
+                report(txCount + index + 1, "写入资产 ${index + 1} / $assetCount")
+            }
         }
 
         // -- 分割行 --
@@ -189,6 +207,12 @@ object ExcelExporter {
             }
             row.createCell(5).setCellValue(flow.note)
             row.createCell(6).setCellValue(flow.uuid ?: "")
+            val doneTx = txCount
+            val doneAsset = assetCount
+            val doneFlow = index + 1
+            if (doneFlow == flowCount || doneFlow % 100 == 0) {
+                report(doneTx + doneAsset + doneFlow, "写入流转 $doneFlow / $flowCount")
+            }
         }
 
         // 设置 Sheet2 列宽
@@ -199,8 +223,51 @@ object ExcelExporter {
         sheet2.setColumnWidth(4, 14 * 256)
         sheet2.setColumnWidth(5, 30 * 256)
 
+        // ===== Sheet3: 自定义分类 =====
+        val sheet3 = workbook.createSheet("自定义分类")
+        val catHeaders = arrayOf("名称", "类型", "图标", "颜色", "排序")
+        val catHeaderRow = sheet3.createRow(0)
+        catHeaders.forEachIndexed { i, h ->
+            val cell = catHeaderRow.createCell(i)
+            cell.setCellValue(h)
+            cell.cellStyle = headerStyle
+        }
+        val catNoteRow = sheet3.createRow(1)
+        catNoteRow.createCell(0).apply {
+            setCellValue("说明：导入时会按「名称+类型」去重，已存在的分类不会重复创建")
+            cellStyle = workbook.createCellStyle().apply {
+                val font = workbook.createFont().apply {
+                    italic = true
+                    color = IndexedColors.GREY_50_PERCENT.index
+                }
+                setFont(font)
+            }
+        }
+        categories.sortedWith(compareBy({ it.type.ordinal }, { it.sortOrder }, { it.name }))
+            .forEachIndexed { index, cat ->
+                val row = sheet3.createRow(index + 2)
+                row.createCell(0).setCellValue(cat.name)
+                row.createCell(1).apply {
+                    setCellValue(if (cat.type == com.inkqilin.ledger.data.TransactionType.INCOME) "收入" else "支出")
+                    cellStyle = centerStyle
+                }
+                row.createCell(2).setCellValue(cat.icon)
+                row.createCell(3).setCellValue(cat.color)
+                row.createCell(4).apply {
+                    setCellValue(cat.sortOrder.toDouble())
+                    cellStyle = centerStyle
+                }
+            }
+        sheet3.setColumnWidth(0, 16 * 256)
+        sheet3.setColumnWidth(1, 10 * 256)
+        sheet3.setColumnWidth(2, 10 * 256)
+        sheet3.setColumnWidth(3, 12 * 256)
+        sheet3.setColumnWidth(4, 8 * 256)
+
+        onProgress?.invoke(Progress(0.95f, "正在写入文件…"))
         workbook.write(outputStream)
         workbook.close()
+        onProgress?.invoke(Progress(1f, "完成"))
     }
 
     /**

@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.Color
@@ -38,8 +39,10 @@ import com.inkqilin.ledger.ui.motion.*
 import com.inkqilin.ledger.ui.theme.*
 import com.inkqilin.ledger.util.*
 import com.inkqilin.ledger.util.NotificationHelper
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -47,6 +50,16 @@ private enum class ExportTimeRange(val label: String) {
     ALL("全部"),
     THIS_YEAR("本年"),
     CUSTOM("自定义")
+}
+
+private enum class ExportFormat(val label: String) {
+    EXCEL("Excel"),
+    CSV("CSV")
+}
+
+/** 导出过程中的进度展示 */
+private sealed class ExportProgressState {
+    data class Running(val fraction: Float, val message: String) : ExportProgressState()
 }
 
 private fun isNotificationServiceEnabled(context: Context): Boolean {
@@ -91,7 +104,8 @@ fun SettingsScreen(
     onNavigateToCurrencyManagement: () -> Unit = {},
     onNavigateToAIConfig: () -> Unit = {},
     onNavigateToOCRConfig: () -> Unit = {},
-    onNavigateToBillImport: () -> Unit = {}
+    onNavigateToBillImport: () -> Unit = {},
+    onNavigateToCloudBackup: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -123,6 +137,10 @@ fun SettingsScreen(
     val expenseColorHex by viewModel.expenseColor.collectAsState()
     val customPrimaryColorHex by viewModel.customPrimaryColorHex.collectAsState()
     val homeCardColorHex by viewModel.homeCardColor.collectAsState()
+    // 导出进度（必须在 exportLauncher 之前声明）
+    var exportProgressState by remember { mutableStateOf<ExportProgressState.Running?>(null) }
+    val importProgress by viewModel.excelProgress.collectAsState()
+    var exportFormat by remember { mutableStateOf(ExportFormat.EXCEL) }
     val autoRecordEnabled by viewModel.autoRecordEnabled.collectAsState()
     val ocrEnabled by viewModel.ocrEnabled.collectAsState()
     val albumEnabled by viewModel.albumEnabled.collectAsState()
@@ -148,6 +166,42 @@ fun SettingsScreen(
     var showRenQingExportEndPicker by remember { mutableStateOf(false) }
 
     val sdf = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
+
+    suspend fun runExport(uri: Uri, format: ExportFormat) {
+        exportProgressState = ExportProgressState.Running(0f, "准备导出…")
+        val transactions = when (exportTimeRange) {
+            ExportTimeRange.ALL -> viewModel.allTransactions.first()
+            ExportTimeRange.THIS_YEAR -> {
+                val range = viewModel.getYearRange(Calendar.getInstance().get(Calendar.YEAR))
+                viewModel.getTransactionsByDateRange(range.first, range.second).first()
+            }
+            ExportTimeRange.CUSTOM -> {
+                val end = exportEndDate + 86400000L - 1
+                viewModel.getTransactionsByDateRange(exportStartDate, end).first()
+            }
+        }
+        val assets = viewModel.allUserAssets.value
+        val flows = viewModel.allAssetFlows.value
+        val categories = viewModel.allCategories.first()
+        val success = withContext(Dispatchers.IO) {
+            when (format) {
+                ExportFormat.EXCEL ->
+                    ExcelExporter.exportToUri(context, uri, transactions, assets, flows, categories) { p ->
+                        exportProgressState = ExportProgressState.Running(p.fraction, p.message)
+                    }
+                ExportFormat.CSV ->
+                    CsvExporter.exportTransactionsCsv(context, uri, transactions, assets, flows) { p ->
+                        exportProgressState = ExportProgressState.Running(p.fraction, p.message)
+                    }
+            }
+        }
+        exportProgressState = null
+        Toast.makeText(
+            context,
+            if (success) "导出成功！账单${transactions.size}条（${format.label}）" else "导出失败",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
 
     if (showExportStartPicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = exportStartDate)
@@ -212,29 +266,14 @@ fun SettingsScreen(
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
         onResult = { uri ->
-            uri?.let {
-                scope.launch {
-                    val transactions = when (exportTimeRange) {
-                        ExportTimeRange.ALL -> viewModel.allTransactions.first()
-                        ExportTimeRange.THIS_YEAR -> {
-                            val range = viewModel.getYearRange(Calendar.getInstance().get(Calendar.YEAR))
-                            viewModel.getTransactionsByDateRange(range.first, range.second).first()
-                        }
-                        ExportTimeRange.CUSTOM -> {
-                            val end = exportEndDate + 86400000L - 1
-                            viewModel.getTransactionsByDateRange(exportStartDate, end).first()
-                        }
-                    }
-                    val assets = viewModel.allUserAssets.value
-                    val flows = viewModel.allAssetFlows.value
-                    val success = ExcelExporter.exportToUri(context, it, transactions, assets, flows)
-                    if (success) {
-                        Toast.makeText(context, "导出成功！账单${transactions.size}条，资产${assets.size}项，流转${flows.size}条", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(context, "导出失败", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
+            uri?.let { scope.launch { runExport(it, ExportFormat.EXCEL) } }
+        }
+    )
+
+    val csvExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/csv"),
+        onResult = { uri ->
+            uri?.let { scope.launch { runExport(it, ExportFormat.CSV) } }
         }
     )
 
@@ -299,14 +338,20 @@ fun SettingsScreen(
         }
     )
 
-    var appSectionExpanded by remember { mutableStateOf(true) }
-    var displaySectionExpanded by remember { mutableStateOf(true) }
-    var categorySectionExpanded by remember { mutableStateOf(false) }
-    var featureSectionExpanded by remember { mutableStateOf(true) }
-    var currencySectionExpanded by remember { mutableStateOf(false) }
-    var updateSectionExpanded by remember { mutableStateOf(false) }
-    var dataSectionExpanded by remember { mutableStateOf(false) }
-    var widgetSectionExpanded by remember { mutableStateOf(false) }
+    // 使用 rememberSaveable：进入二级页（云备份等）返回后仍保持展开状态
+    var appSectionExpanded by rememberSaveable { mutableStateOf(true) }
+    var displaySectionExpanded by rememberSaveable { mutableStateOf(true) }
+    var categorySectionExpanded by rememberSaveable { mutableStateOf(false) }
+    var featureSectionExpanded by rememberSaveable { mutableStateOf(true) }
+    var currencySectionExpanded by rememberSaveable { mutableStateOf(false) }
+    var updateSectionExpanded by rememberSaveable { mutableStateOf(false) }
+    var dataSectionExpanded by rememberSaveable { mutableStateOf(false) }
+    var widgetSectionExpanded by rememberSaveable { mutableStateOf(false) }
+    var showAboutSheet by rememberSaveable { mutableStateOf(false) }
+    var showUsageGuide by rememberSaveable { mutableStateOf(false) }
+    var showHomeBgSheet by rememberSaveable { mutableStateOf(false) }
+    var showStorageSheet by rememberSaveable { mutableStateOf(false) }
+    // exportProgressState / importProgress 见函数开头（exportLauncher 需要先声明）
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 16.dp)) {
         // region 1. 应用版本
@@ -380,7 +425,7 @@ fun SettingsScreen(
         }
 
         // region 2. 显示设置
-        var displaySettingsExpanded by remember { mutableStateOf(false) }
+        var displaySettingsExpanded by rememberSaveable { mutableStateOf(false) }
         SettingsSectionHeader("显示设置", when (themeMode) {
             ThemeMode.AUTO -> "跟随系统"
             ThemeMode.LIGHT -> "浅色模式"
@@ -640,6 +685,24 @@ fun SettingsScreen(
                         }
                     }
                 }
+
+                // 显示设置一级项：首页背景图（不放在主题色展开区内）
+                Spacer(modifier = Modifier.height(0.5.dp))
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                val homeBgPathForRow by viewModel.homeBgImagePath.collectAsState()
+                val homeBgOpacityForRow by viewModel.homeBgOpacity.collectAsState()
+                ListItem(
+                    headlineContent = { Text("首页背景图") },
+                    supportingContent = {
+                        Text(
+                            if (homeBgPathForRow.isNullOrBlank()) "未设置 · 点击选择图片"
+                            else "已设置 · 不透明度 ${(homeBgOpacityForRow * 100).toInt()}%"
+                        )
+                    },
+                    leadingContent = { Icon(Icons.Default.Star, contentDescription = null) },
+                    trailingContent = { Icon(Icons.Default.KeyboardArrowRight, contentDescription = null) },
+                    modifier = Modifier.clickable { showHomeBgSheet = true }
+                )
             }
         }
 
@@ -738,10 +801,16 @@ fun SettingsScreen(
         }
         val checkUpdateEnabled by viewModel.checkUpdateEnabled.collectAsState()
         val updateProxyUrl by viewModel.updateProxyUrl.collectAsState()
+        val updateRepo by viewModel.updateRepo.collectAsState()
+        val githubRepo by viewModel.githubRepo.collectAsState()
         val proxyOptions = com.inkqilin.ledger.util.PROXY_SOURCES + "自定义"
         var showProxyDropdown by remember { mutableStateOf(false) }
         var showCustomProxyInput by remember { mutableStateOf(false) }
         var customProxyUrl by remember { mutableStateOf("") }
+        var showUpdateRepoDialog by remember { mutableStateOf(false) }
+        var updateRepoInput by remember { mutableStateOf(updateRepo) }
+        var showGithubRepoDialog by remember { mutableStateOf(false) }
+        var githubRepoInput by remember { mutableStateOf(githubRepo) }
 
         SettingsSectionHeader("更新检测", if (checkUpdateEnabled) "启动时自动检查" else "已关闭", updateSectionExpanded) { updateSectionExpanded = !updateSectionExpanded }
         AnimatedVisibility(visible = updateSectionExpanded) {
@@ -749,10 +818,37 @@ fun SettingsScreen(
             Column {
                 ListItem(
                     headlineContent = { Text("启动时检测新版本") },
-                    supportingContent = { Text(if (checkUpdateEnabled) "已启用，启动时自动检测 GitHub 新版本" else "已关闭") },
+                    supportingContent = { Text(if (checkUpdateEnabled) "已启用，启动时自动检测 Gitee 新版本" else "已关闭") },
                     trailingContent = {
                         Switch(checked = checkUpdateEnabled, onCheckedChange = { viewModel.setCheckUpdateEnabled(it) })
                     }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                ListItem(
+                    headlineContent = { Text("更新检测仓库") },
+                    supportingContent = { Text("Gitee: $updateRepo", maxLines = 2, fontSize = 12.sp) },
+                    leadingContent = { Icon(Icons.Default.Edit, contentDescription = null) },
+                    modifier = Modifier.clickable {
+                        updateRepoInput = updateRepo
+                        showUpdateRepoDialog = true
+                    }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                ListItem(
+                    headlineContent = { Text("GitHub 下载仓库") },
+                    supportingContent = { Text("GitHub: $githubRepo", maxLines = 2, fontSize = 12.sp) },
+                    leadingContent = { Icon(Icons.Default.Share, contentDescription = null) },
+                    modifier = Modifier.clickable {
+                        githubRepoInput = githubRepo
+                        showGithubRepoDialog = true
+                    }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                ListItem(
+                    headlineContent = { Text("检查更新") },
+                    supportingContent = { Text("立即检测是否有新版本，有则弹出更新") },
+                    leadingContent = { Icon(Icons.Default.Refresh, contentDescription = null) },
+                    modifier = Modifier.clickable { viewModel.triggerManualUpdateCheck() }
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 // 代理源选择
@@ -827,7 +923,101 @@ fun SettingsScreen(
             )
         }
 
-        var labExpanded by remember { mutableStateOf(false) }
+        // 更新检测仓库对话框
+        if (showUpdateRepoDialog) {
+            AlertDialog(
+                onDismissRequest = { showUpdateRepoDialog = false },
+                title = { Text("更新检测仓库") },
+                text = {
+                    Column {
+                        Text(
+                            "填写 Gitee 仓库路径，用于检测新版本。支持 owner/repo 或完整地址。",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "默认: ${com.inkqilin.ledger.util.DEFAULT_UPDATE_REPO}",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = updateRepoInput,
+                            onValueChange = { updateRepoInput = it },
+                            placeholder = { Text("Murchey/inkqinlin-ledger") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        val raw = updateRepoInput.trim()
+                        val normalized = com.inkqilin.ledger.util.normalizeGiteeRepo(raw)
+                        if (normalized.isBlank()) {
+                            Toast.makeText(context, "路径不能为空", Toast.LENGTH_SHORT).show()
+                        } else {
+                            viewModel.setUpdateRepo(normalized)
+                            Toast.makeText(context, "已保存: $normalized", Toast.LENGTH_SHORT).show()
+                            showUpdateRepoDialog = false
+                        }
+                    }) { Text("保存") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showUpdateRepoDialog = false }) { Text("取消") }
+                }
+            )
+        }
+
+        // GitHub 下载仓库对话框
+        if (showGithubRepoDialog) {
+            AlertDialog(
+                onDismissRequest = { showGithubRepoDialog = false },
+                title = { Text("GitHub 下载仓库") },
+                text = {
+                    Column {
+                        Text(
+                            "填写 GitHub 仓库路径，用于「GitHub 仓库」和「代理」下载源。",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "默认: ${com.inkqilin.ledger.util.DEFAULT_GITHUB_REPO}",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = githubRepoInput,
+                            onValueChange = { githubRepoInput = it },
+                            placeholder = { Text("Niriko-mu/InkQilin-ledger") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        val raw = githubRepoInput.trim()
+                        val normalized = com.inkqilin.ledger.util.normalizeGithubRepo(raw)
+                        if (normalized.isBlank()) {
+                            Toast.makeText(context, "路径不能为空", Toast.LENGTH_SHORT).show()
+                        } else {
+                            viewModel.setGithubRepo(normalized)
+                            Toast.makeText(context, "已保存: $normalized", Toast.LENGTH_SHORT).show()
+                            showGithubRepoDialog = false
+                        }
+                    }) { Text("保存") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showGithubRepoDialog = false }) { Text("取消") }
+                }
+            )
+        }
+
+        var labExpanded by rememberSaveable { mutableStateOf(false) }
         SettingsSectionHeader(
             title = "实验室功能",
             summary = if (autoRecordEnabled || ocrEnabled || albumEnabled) "部分功能已启用" else "未启用实验室功能",
@@ -871,13 +1061,29 @@ fun SettingsScreen(
     }
 
 
-        SettingsSectionHeader("数据管理", "导入、导出与人情账本数据", dataSectionExpanded) { dataSectionExpanded = !dataSectionExpanded }
+        SettingsSectionHeader("数据管理", "导入、导出与数据备份", dataSectionExpanded) { dataSectionExpanded = !dataSectionExpanded }
         AnimatedVisibility(visible = dataSectionExpanded) {
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
                 ListItem(
-                    headlineContent = { Text("导出账单为 Excel") },
-                    supportingContent = { Text("选择时间范围并导出记账记录") },
+                    headlineContent = { Text("数据备份") },
+                    supportingContent = { Text("本地备份 / 腾讯云 COS 云备份，可恢复账本") },
+                    leadingContent = { Icon(Icons.Default.Lock, contentDescription = null) },
+                    trailingContent = { Icon(Icons.Default.KeyboardArrowRight, contentDescription = null) },
+                    modifier = Modifier.clickable { onNavigateToCloudBackup() }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                ListItem(
+                    headlineContent = { Text("储存空间管理") },
+                    supportingContent = { Text("查看相册/备份/缓存占用并清理") },
+                    leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
+                    trailingContent = { Icon(Icons.Default.KeyboardArrowRight, contentDescription = null) },
+                    modifier = Modifier.clickable { showStorageSheet = true }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                ListItem(
+                    headlineContent = { Text("导出账单") },
+                    supportingContent = { Text("选择时间范围，导出 Excel 或 CSV") },
                     leadingContent = { Icon(Icons.Default.ExitToApp, contentDescription = null) },
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -890,6 +1096,24 @@ fun SettingsScreen(
                                 label = { Text(range.label) }
                             )
                         }
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ExportFormat.entries.forEach { fmt ->
+                            FilterChip(
+                                selected = exportFormat == fmt,
+                                onClick = { exportFormat = fmt },
+                                label = { Text(fmt.label) }
+                            )
+                        }
+                    }
+                    if (exportFormat == ExportFormat.CSV) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "CSV 更快，适合大数据量；可用 Excel/WPS 打开",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                     if (exportTimeRange == ExportTimeRange.CUSTOM) {
                         Spacer(modifier = Modifier.height(8.dp))
@@ -928,16 +1152,20 @@ fun SettingsScreen(
                                         viewModel.getTransactionsByDateRange(exportStartDate, end).first()
                                     }
                                 }
-                                if (transactions.isNotEmpty()) {
-                                    exportLauncher.launch("墨麒麟记账_${System.currentTimeMillis()}.xlsx")
-                                } else {
+                                if (transactions.isEmpty()) {
                                     Toast.makeText(context, "暂无数据可导出", Toast.LENGTH_SHORT).show()
+                                    return@launch
+                                }
+                                val ts = System.currentTimeMillis()
+                                when (exportFormat) {
+                                    ExportFormat.EXCEL -> exportLauncher.launch("墨麒麟记账_$ts.xlsx")
+                                    ExportFormat.CSV -> csvExportLauncher.launch("墨麒麟记账_$ts.csv")
                                 }
                             }
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("导出")
+                        Text("导出 ${exportFormat.label}")
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                 }
@@ -1061,21 +1289,436 @@ fun SettingsScreen(
                         }
                     )
                 }
-                Spacer(modifier = Modifier.height(0.5.dp))
-                ListItem(
-                    headlineContent = { Text("关于 墨麒麟记账") },
-                    supportingContent = { Text("版本 ${viewModel.getCurrentVersionName(context)} · GitHub 仓库") },
-                    leadingContent = { Icon(Icons.Default.Share, contentDescription = null) },
-                    modifier = Modifier.clickable {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Murchey/inkqilin-ledger"))
-                        context.startActivity(intent)
-                    }
-                )
             }
         }
         }
+
+        // 一级节点：关于（与数据管理等分区同级）
+        var aboutSectionExpanded by rememberSaveable { mutableStateOf(false) }
+        SettingsSectionHeader(
+            "关于 墨麒麟记账",
+            "版本 ${viewModel.getCurrentVersionName(context)} · 仓库与使用引导",
+            aboutSectionExpanded
+        ) { aboutSectionExpanded = !aboutSectionExpanded }
+        AnimatedVisibility(visible = aboutSectionExpanded) {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+                shape = RoundedCornerShape(18.dp),
+                elevation = CardDefaults.cardElevation(0.dp)
+            ) {
+                ListItem(
+                    headlineContent = { Text("关于 墨麒麟记账") },
+                    supportingContent = { Text("版本、开源仓库与使用引导") },
+                    leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
+                    trailingContent = { Icon(Icons.Default.KeyboardArrowRight, contentDescription = null) },
+                    modifier = Modifier.clickable { showAboutSheet = true }
+                )
+            }
+        }
+
         val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(6.dp)
         Spacer(modifier = Modifier.height(navBarBottomPadding + 76.dp))
+    }
+
+    // 关于抽屉
+    if (showAboutSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showAboutSheet = false },
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 8.dp)
+                    .padding(bottom = 32.dp)
+            ) {
+                Text(
+                    "关于 墨麒麟记账",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "版本 ${viewModel.getCurrentVersionName(context)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "一款基于 Jetpack Compose 的 Android 个人记账应用。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(Modifier.height(20.dp))
+                Text("开源仓库", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(8.dp))
+
+                ListItem(
+                    headlineContent = { Text("Gitee 仓库") },
+                    supportingContent = { Text("gitee.com/Murchey/inkqinlin-ledger", fontSize = 12.sp) },
+                    leadingContent = { Icon(Icons.Default.Share, contentDescription = null) },
+                    modifier = Modifier.clickable {
+                        runCatching {
+                            context.startActivity(
+                                Intent(Intent.ACTION_VIEW, Uri.parse("https://gitee.com/Murchey/inkqinlin-ledger"))
+                            )
+                        }
+                    }
+                )
+                HorizontalDivider()
+                ListItem(
+                    headlineContent = { Text("GitHub 仓库") },
+                    supportingContent = { Text("github.com/Niriko-mu/InkQilin-ledger", fontSize = 12.sp) },
+                    leadingContent = { Icon(Icons.Default.Share, contentDescription = null) },
+                    modifier = Modifier.clickable {
+                        runCatching {
+                            context.startActivity(
+                                Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Niriko-mu/InkQilin-ledger"))
+                            )
+                        }
+                    }
+                )
+
+                Spacer(Modifier.height(20.dp))
+                Button(
+                    onClick = {
+                        showAboutSheet = false
+                        showUsageGuide = true
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("使用引导")
+                }
+            }
+        }
+    }
+
+    // 首页背景图抽屉
+    if (showHomeBgSheet) {
+        val homeBgPath by viewModel.homeBgImagePath.collectAsState()
+        val savedOpacity by viewModel.homeBgOpacity.collectAsState()
+        // 预览与滑条用草稿值，点「确定」才写入
+        var draftOpacity by remember(showHomeBgSheet) { mutableFloatStateOf(savedOpacity) }
+        val bgPickerLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.GetContent()
+        ) { uri ->
+            uri?.let { viewModel.importHomeBackground(context, it) }
+        }
+
+        ModalBottomSheet(
+            onDismissRequest = { showHomeBgSheet = false },
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 8.dp)
+                    .padding(bottom = 32.dp)
+            ) {
+                Text(
+                    "首页背景图",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "从相册选择图片作为首页背景；账单列表会半透明显示，便于透出背景。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(16.dp))
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(160.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    val file = homeBgPath?.let { java.io.File(it) }
+                    if (file != null && file.exists()) {
+                        coil.compose.AsyncImage(
+                            model = file,
+                            contentDescription = "背景预览",
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                            alpha = draftOpacity.coerceIn(0.05f, 1f),
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Text(
+                            "尚未选择背景图",
+                            modifier = Modifier.align(Alignment.Center),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = { bgPickerLauncher.launch("image/*") },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(if (homeBgPath.isNullOrBlank()) "选择图片" else "更换图片")
+                    }
+                    if (!homeBgPath.isNullOrBlank()) {
+                        OutlinedButton(
+                            onClick = { viewModel.clearHomeBackground() },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("清除背景")
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    "不透明度 ${(draftOpacity * 100).toInt()}%",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Slider(
+                    value = draftOpacity,
+                    onValueChange = { draftOpacity = it },
+                    valueRange = 0.05f..1f
+                )
+                Text(
+                    "值越大背景越清晰；建议 20%–50% 以保证账单可读性。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(Modifier.height(12.dp))
+                val savedTxOpacity by viewModel.homeTxCardOpacity.collectAsState()
+                var draftTxOpacity by remember(showHomeBgSheet) { mutableFloatStateOf(savedTxOpacity) }
+                Text(
+                    "账单条目不透明度 ${(draftTxOpacity * 100).toInt()}%",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Slider(
+                    value = draftTxOpacity,
+                    onValueChange = { draftTxOpacity = it },
+                    valueRange = 0.08f..1f
+                )
+                Text(
+                    "左滑编辑/删除在未滑开时不会透出；滑开后操作区为近不透明底。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(Modifier.height(20.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { showHomeBgSheet = false },
+                        modifier = Modifier.weight(1f)
+                    ) { Text("取消") }
+                    Button(
+                        onClick = {
+                            viewModel.setHomeBgOpacity(draftOpacity)
+                            viewModel.setHomeTxCardOpacity(draftTxOpacity)
+                            showHomeBgSheet = false
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) { Text("确定") }
+                }
+            }
+        }
+    }
+
+    // 导出/导入 进度
+    exportProgressState?.let { state ->
+        AlertDialog(
+            onDismissRequest = { /* 导出中不允许关闭 */ },
+            title = { Text("正在导出") },
+            text = {
+                Column {
+                    Text(state.message, style = MaterialTheme.typography.bodySmall)
+                    Spacer(Modifier.height(12.dp))
+                    LinearProgressIndicator(
+                        progress = { state.fraction.coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "${(state.fraction * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {}
+        )
+    }
+
+    importProgress?.let { (fraction, message) ->
+        AlertDialog(
+            onDismissRequest = { },
+            title = { Text("正在导入") },
+            text = {
+                Column {
+                    Text(message, style = MaterialTheme.typography.bodySmall)
+                    Spacer(Modifier.height(12.dp))
+                    LinearProgressIndicator(
+                        progress = { fraction.coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "${(fraction * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {}
+        )
+    }
+
+    // 储存空间管理抽屉
+    if (showStorageSheet) {
+        var usageList by remember { mutableStateOf(emptyList<com.inkqilin.ledger.util.StorageUsageManager.UsageItem>()) }
+        var storageMsg by remember { mutableStateOf<String?>(null) }
+        var clearTarget by remember { mutableStateOf<String?>(null) } // album / backup / cache / update
+
+        LaunchedEffect(showStorageSheet) {
+            if (showStorageSheet) {
+                usageList = withContext(Dispatchers.IO) {
+                    com.inkqilin.ledger.util.StorageUsageManager.collectUsage(context)
+                }
+            }
+        }
+
+        val total = com.inkqilin.ledger.util.StorageUsageManager.totalBytes(usageList)
+
+        ModalBottomSheet(
+            onDismissRequest = { showStorageSheet = false },
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 8.dp)
+                    .padding(bottom = 32.dp)
+            ) {
+                Text("储存空间管理", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "本机占用合计 ${com.inkqilin.ledger.util.StorageUsageManager.formatSize(total)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                storageMsg?.let {
+                    Spacer(Modifier.height(8.dp))
+                    Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+                }
+                Spacer(Modifier.height(12.dp))
+
+                usageList.forEach { item ->
+                    ListItem(
+                        headlineContent = { Text(item.label) },
+                        supportingContent = {
+                            Text(
+                                buildString {
+                                    append(com.inkqilin.ledger.util.StorageUsageManager.formatSize(item.sizeBytes))
+                                    if (item.fileCount > 0) append(" · ${item.fileCount} 个文件")
+                                }
+                            )
+                        },
+                        trailingContent = {
+                            val clearable = item.key in setOf("album", "backup", "cache", "update")
+                            if (clearable && item.sizeBytes > 0) {
+                                TextButton(onClick = { clearTarget = item.key }) { Text("清理") }
+                            }
+                        }
+                    )
+                    HorizontalDivider()
+                }
+
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "清理后不可恢复；重要数据请先到「数据备份」导出。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+
+        clearTarget?.let { key ->
+            val label = usageList.find { it.key == key }?.label ?: "数据"
+            AlertDialog(
+                onDismissRequest = { clearTarget = null },
+                title = { Text("清理$label") },
+                text = { Text("将删除 $label 占用的文件，此操作不可撤销。") },
+                confirmButton = {
+                    Button(onClick = {
+                        clearTarget = null
+                        scope.launch {
+                            when (key) {
+                                "album" -> {
+                                    val ok = viewModel.clearAllAlbumPhotos(context)
+                                    storageMsg = if (ok) "已清空记账相册" else "清理失败"
+                                }
+                                "backup" -> {
+                                    val ok = viewModel.clearLocalBackups(context)
+                                    storageMsg = if (ok) "已清空本地备份" else "清理失败"
+                                }
+                                "cache" -> {
+                                    val ok = withContext(Dispatchers.IO) {
+                                        com.inkqilin.ledger.util.StorageUsageManager.clearCache(context)
+                                    }
+                                    storageMsg = if (ok) "已清空缓存" else "清理失败"
+                                }
+                                "update" -> {
+                                    val ok = withContext(Dispatchers.IO) {
+                                        com.inkqilin.ledger.util.StorageUsageManager.clearUpdatePackages(context)
+                                    }
+                                    storageMsg = if (ok) "已删除更新包" else "清理失败"
+                                }
+                            }
+                            usageList = withContext(Dispatchers.IO) {
+                                com.inkqilin.ledger.util.StorageUsageManager.collectUsage(context)
+                            }
+                        }
+                    }) { Text("清理") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { clearTarget = null }) { Text("取消") }
+                }
+            )
+        }
+    }
+
+    // 使用引导
+    if (showUsageGuide) {
+        AlertDialog(
+            onDismissRequest = { showUsageGuide = false },
+            title = { Text("使用引导") },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text("1. 首页底部「+」快速记一笔，可填金额、分类与备注。")
+                    Text("2. 金额键盘支持四则运算与括号，例如 (20+5)×2。")
+                    Text("3. 统计页按周/月/年查看收支，并可按分类钻取。")
+                    Text("4. 设置里可开关基础版/智能版、主题色、人情账本与桌面小组件。")
+                    Text("5. 数据管理支持 Excel 导入导出，以及本地/云端备份与恢复。")
+                    Text("6. 更新检测默认走 Gitee Release，可在设置中改检测仓库。")
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "更多说明见 Gitee / GitHub 仓库 README。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showUsageGuide = false }) { Text("知道了") }
+            }
+        )
     }
 }
 
@@ -1530,7 +2173,7 @@ private fun SettingsScreenPreview() {
                 Card(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
                     ListItem(
                         headlineContent = { Text("启动时检测新版本") },
-                        supportingContent = { Text("已启用，启动时自动检测 GitHub 新版本") },
+                        supportingContent = { Text("已启用，启动时自动检测 Gitee 新版本") },
                         trailingContent = { Switch(checked = true, onCheckedChange = {}) }
                     )
                 }

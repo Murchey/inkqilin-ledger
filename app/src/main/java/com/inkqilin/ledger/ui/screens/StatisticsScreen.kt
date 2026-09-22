@@ -767,7 +767,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
                         .frostedGlass(shape, isDark)
-                        .clickable { navController.navigate("asset_management") },
+                        .clickable { navController.navigateSingle("asset_management") },
                     shape = shape,
                     colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
@@ -1347,7 +1347,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                                 indication = null
                             ) {
                                 val dateRange = getDateRangeForPeriod(selectedPeriod, startDate, endDate)
-                                navController.navigate("category_transactions/$categoryName/${selectedType.name}?startDate=${dateRange.first}&endDate=${dateRange.second}")
+                                navController.navigateSingle("category_transactions/$categoryName/${selectedType.name}?startDate=${dateRange.first}&endDate=${dateRange.second}")
                             },
                         shape = RoundedCornerShape(18.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),

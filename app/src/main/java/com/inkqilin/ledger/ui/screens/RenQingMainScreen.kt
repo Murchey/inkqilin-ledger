@@ -5,6 +5,8 @@ package com.inkqilin.ledger.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.*
+import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -20,11 +22,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -33,18 +32,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.inkqilin.ledger.data.*
 import com.inkqilin.ledger.ui.RenQingViewModel
+import com.inkqilin.ledger.ui.motion.*
 import com.inkqilin.ledger.ui.theme.appButtonElevation
 import com.inkqilin.ledger.ui.theme.InkQilinLedgerTheme
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.math.roundToInt
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -95,7 +98,8 @@ fun RenQingMainScreen(
     onNavigateToContactDetail: (Long) -> Unit = {},
     onNavigateToMonthDetail: (Int, Int) -> Unit = { _, _ -> },
     onNavigateToTagStats: (Int) -> Unit = {},
-    onNavigateToContactAnalysis: (Int) -> Unit = {}
+    onNavigateToContactAnalysis: (Int) -> Unit = {},
+    onNavigateToRenQingStats: () -> Unit = {}
 ) {
     val allEvents by viewModel.allEvents.collectAsState()
     val allContacts by viewModel.allContacts.collectAsState()
@@ -105,8 +109,27 @@ fun RenQingMainScreen(
     var filterDirection by remember { mutableStateOf<RenQingDirection?>(null) }
     var filterTagId by remember { mutableStateOf<Long?>(null) }
     var showFilterDialog by remember { mutableStateOf(false) }
+    val currentYear = remember { Calendar.getInstance().get(Calendar.YEAR) }
+    var selectedYear by rememberSaveable { mutableIntStateOf(currentYear) }
 
     val contactsListState = rememberLazyListState()
+
+    val yearEvents = remember(allEvents, selectedYear) {
+        val cal = Calendar.getInstance().apply {
+            set(selectedYear, Calendar.JANUARY, 1, 0, 0, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val start = cal.timeInMillis
+        cal.set(selectedYear, Calendar.DECEMBER, 31, 23, 59, 59)
+        val end = cal.timeInMillis
+        allEvents.filter { it.date in start..end }
+    }
+    val yearReceived = remember(yearEvents) {
+        yearEvents.filter { it.direction == RenQingDirection.RECEIVED }.sumOf { it.amount }
+    }
+    val yearGiven = remember(yearEvents) {
+        yearEvents.filter { it.direction == RenQingDirection.GIVEN }.sumOf { it.amount }
+    }
 
     val filteredEvents = remember(allEvents, searchQuery, filterDirection, filterTagId) {
         allEvents.filter { event ->
@@ -134,11 +157,23 @@ fun RenQingMainScreen(
         )
     }
 
-    Scaffold(
-        containerColor = Color.Transparent
-    ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+    // 不用 Scaffold：外层 NavHost 已应用顶部内边距，再套 Scaffold 会重复加系统栏高度
+    Column(modifier = Modifier.fillMaxSize()) {
+            // 年度净额 Hero（事件 Tab 顶部），点击进入人情统计
+            if (selectedTab == 0) {
+                RenQingYearHero(
+                    year = selectedYear,
+                    received = yearReceived,
+                    given = yearGiven,
+                    onPrevYear = { selectedYear-- },
+                    onNextYear = { selectedYear++ },
+                    onOpenStats = onNavigateToRenQingStats
+                )
+            }
+
+            // 搜索/筛选仅事件 Tab 需要
+            if (selectedTab == 0) {
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -201,19 +236,95 @@ fun RenQingMainScreen(
                     }
                 }
             }
+            }
 
+            // 事件 / 联系人（统计并入 Hero 入口，不再单独 Tab）
             TabRow(selectedTabIndex = selectedTab) {
                 Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }, text = { Text("事件") })
                 Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }, text = { Text("联系人") })
-                Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 }, text = { Text("统计") })
             }
 
             Box(modifier = Modifier.fillMaxSize().weight(1f)) {
                 when (selectedTab) {
                     0 -> RenQingEventsList(filteredEvents, allTags, viewModel)
                     1 -> RenQingContactsList(allContacts, viewModel, onNavigateToContactDetail, contactsListState)
-                    2 -> RenQingStatsScreen(viewModel, allTags, onNavigateToMonthDetail, onNavigateToTagStats, onNavigateToContactAnalysis)
                 }
+            }
+        }
+}
+
+@Composable
+private fun RenQingYearHero(
+    year: Int,
+    received: Double,
+    given: Double,
+    onPrevYear: () -> Unit,
+    onNextYear: () -> Unit,
+    onOpenStats: () -> Unit
+) {
+    val net = received - given
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .padding(top = 0.dp, bottom = 8.dp)
+            .clickable { onOpenStats() },
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.cardElevation(0.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+        )
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onPrevYear, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "上一年")
+                }
+                Text(
+                    "$year 年人情净额",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                IconButton(onClick = onNextYear, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.KeyboardArrowRight, contentDescription = "下一年")
+                }
+            }
+            Text(
+                text = "${if (net >= 0) "+" else "-"}¥${String.format(Locale.US, "%.2f", kotlin.math.abs(net))}",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (net >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+            )
+            Spacer(Modifier.height(6.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(
+                    "收到 ¥${String.format(Locale.US, "%.2f", received)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "送出 ¥${String.format(Locale.US, "%.2f", given)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "查看统计",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Icon(
+                    Icons.Default.KeyboardArrowRight,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
             }
         }
     }
@@ -267,7 +378,14 @@ private fun FilterDialog(
                         FilterChip(
                             selected = tagId == tag.id,
                             onClick = { tagId = if (tagId == tag.id) null else tag.id },
-                            label = { Text("${tag.icon} ${tag.name}") }
+                            label = { Text(tag.name) },
+                            leadingIcon = {
+                                Icon(
+                                    RenQingIcons.iconForTagIconValue(tag.icon),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                         )
                     }
                 }
@@ -283,8 +401,30 @@ private fun FilterDialog(
 @Composable
 private fun RenQingEventsList(events: List<RenQingEvent>, tags: List<RenQingTag>, viewModel: RenQingViewModel) {
     if (events.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("暂无事件记录", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(
+            modifier = Modifier.fillMaxSize().padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                RenQingIcons.eventTypeIcon(RenQingEventType.OTHER),
+                contentDescription = null,
+                modifier = Modifier.size(36.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "还没有人情记录",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "点右上角「+」记一笔：选联系人、填金额即可。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
         }
     } else {
         val grouped = events.groupBy { SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date(it.date)) }
@@ -301,7 +441,7 @@ private fun RenQingEventsList(events: List<RenQingEvent>, tags: List<RenQingTag>
                 }
                 items(monthEvents, key = { it.id }) { event ->
                     val tag = tags.find { it.id == event.tagId }
-                    RenQingEventCard(event, tag, viewModel)
+                    SwipeableRenQingEventCard(event, tag, viewModel)
                     Spacer(modifier = Modifier.height(8.dp))
                 }
             }
@@ -309,8 +449,114 @@ private fun RenQingEventsList(events: List<RenQingEvent>, tags: List<RenQingTag>
     }
 }
 
+/** 左滑编辑/删除（与主账本交互一致） */
 @Composable
-private fun RenQingEventCard(event: RenQingEvent, tag: RenQingTag?, viewModel: RenQingViewModel) {
+private fun SwipeableRenQingEventCard(
+    event: RenQingEvent,
+    tag: RenQingTag?,
+    viewModel: RenQingViewModel
+) {
+    val density = LocalDensity.current
+    val menuWidth = 120.dp
+    val menuWidthPx = with(density) { menuWidth.toPx() }
+    var offsetX by remember(event.id) { mutableFloatStateOf(0f) }
+    val draggableState = rememberDraggableState { delta ->
+        val newOffset = (offsetX + delta).coerceIn(-menuWidthPx, 0f)
+        offsetX = newOffset
+    }
+    val menuProgress = if (menuWidthPx <= 0f) 0f else (-offsetX / menuWidthPx).coerceIn(0f, 1f)
+    var showEditDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    if (showEditDialog) {
+        EditRenQingEventDialog(
+            event,
+            viewModel.allContacts.collectAsState().value,
+            viewModel.allTags.collectAsState().value,
+            onDismiss = { showEditDialog = false }
+        ) { updated, _ ->
+            viewModel.updateEvent(updated)
+            showEditDialog = false
+        }
+    }
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("删除记录") },
+            text = { Text("确定删除「${event.contactName}」的这条人情记录？此操作不可撤销。") },
+            confirmButton = {
+                Button(onClick = {
+                    viewModel.deleteEvent(event)
+                    showDeleteConfirm = false
+                }) { Text("删除") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) { Text("取消") }
+            }
+        )
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+    ) {
+        if (menuProgress > 0.02f) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .width(menuWidth)
+                    .fillMaxHeight()
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.92f))
+                    .graphicsLayer { alpha = menuProgress },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                IconButton(onClick = {
+                    offsetX = 0f
+                    showEditDialog = true
+                }) {
+                    Icon(Icons.Default.Edit, contentDescription = "编辑", tint = MaterialTheme.colorScheme.primary)
+                }
+                IconButton(onClick = {
+                    offsetX = 0f
+                    showDeleteConfirm = true
+                }) {
+                    Icon(Icons.Default.Delete, contentDescription = "删除", tint = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+        Box(
+            modifier = Modifier
+                .offset { IntOffset(offsetX.roundToInt(), 0) }
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface)
+                .draggable(
+                    state = draggableState,
+                    orientation = Orientation.Horizontal,
+                    onDragStopped = {
+                        val target = if (offsetX < -menuWidthPx / 2) -menuWidthPx else 0f
+                        animate(
+                            initialValue = offsetX,
+                            targetValue = target,
+                            animationSpec = MotionSprings.interactive()
+                        ) { value, _ -> offsetX = value }
+                    }
+                )
+        ) {
+            RenQingEventCard(event, tag, viewModel, showMenuButton = false)
+        }
+    }
+}
+
+@Composable
+private fun RenQingEventCard(
+    event: RenQingEvent,
+    tag: RenQingTag?,
+    viewModel: RenQingViewModel,
+    showMenuButton: Boolean = true
+) {
     var showMenu by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
 
@@ -321,7 +567,11 @@ private fun RenQingEventCard(event: RenQingEvent, tag: RenQingTag?, viewModel: R
         }
     }
 
-    val icon = tag?.icon ?: event.eventType.icon
+    val iconVector = if (tag != null) {
+        RenQingIcons.iconForTagIconValue(tag.icon)
+    } else {
+        RenQingIcons.eventTypeIcon(event.eventType)
+    }
     val tagColor = try { Color(android.graphics.Color.parseColor(tag?.color ?: "#715CFF")) } catch (_: Exception) { MaterialTheme.colorScheme.primary }
     val isGiven = event.direction == RenQingDirection.GIVEN
 
@@ -334,7 +584,12 @@ private fun RenQingEventCard(event: RenQingEvent, tag: RenQingTag?, viewModel: R
                 modifier = Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(tagColor.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
-                Text(icon, fontSize = 20.sp)
+                Icon(
+                    iconVector,
+                    contentDescription = null,
+                    tint = tagColor,
+                    modifier = Modifier.size(22.dp)
+                )
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -354,12 +609,20 @@ private fun RenQingEventCard(event: RenQingEvent, tag: RenQingTag?, viewModel: R
                     }
                 }
                 Text(
-                    "${event.eventType.label}${if (event.tagName.isNotBlank() && event.tagName != event.eventType.label) " · ${event.tagName}" else ""} · ${SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(event.date))}",
+                    listOfNotNull(
+                        event.eventType.label.takeIf { it.isNotBlank() },
+                        SimpleDateFormat("MM-dd", Locale.getDefault()).format(Date(event.date))
+                    ).joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                if (event.note.isNotBlank()) {
-                    Text(event.note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val extraLine = listOf(
+                    event.giftDescription,
+                    event.location,
+                    event.note
+                ).filter { it.isNotBlank() }.joinToString(" · ")
+                if (extraLine.isNotBlank()) {
+                    Text(extraLine, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                 }
             }
             Text(
@@ -367,13 +630,15 @@ private fun RenQingEventCard(event: RenQingEvent, tag: RenQingTag?, viewModel: R
                 color = if (isGiven) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold
             )
-            Box {
-                IconButton(onClick = { showMenu = true }, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.MoreVert, contentDescription = "更多", modifier = Modifier.size(16.dp))
-                }
-                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                    DropdownMenuItem(text = { Text("编辑") }, onClick = { showMenu = false; showEditDialog = true }, leadingIcon = { Icon(Icons.Default.Edit, null) })
-                    DropdownMenuItem(text = { Text("删除") }, onClick = { showMenu = false; viewModel.deleteEvent(event) }, leadingIcon = { Icon(Icons.Default.Delete, null) })
+            if (showMenuButton) {
+                Box {
+                    IconButton(onClick = { showMenu = true }, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "更多", modifier = Modifier.size(16.dp))
+                    }
+                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        DropdownMenuItem(text = { Text("编辑") }, onClick = { showMenu = false; showEditDialog = true }, leadingIcon = { Icon(Icons.Default.Edit, null) })
+                        DropdownMenuItem(text = { Text("删除") }, onClick = { showMenu = false; viewModel.deleteEvent(event) }, leadingIcon = { Icon(Icons.Default.Delete, null) })
+                    }
                 }
             }
         }
@@ -417,8 +682,8 @@ private fun AddRenQingEventForm(
     var selectedTag by remember {
         mutableStateOf(
             if (initialEvent != null) tags.find { it.id == initialEvent.tagId }
-                ?: tags.firstOrNull() ?: RenQingTag(name = "其他", icon = "\uD83C\uDF81", color = "#715CFF")
-            else tags.firstOrNull() ?: RenQingTag(name = "其他", icon = "\uD83C\uDF81", color = "#715CFF")
+                ?: tags.firstOrNull() ?: RenQingTag(name = "其他", icon = "gift", color = "#715CFF")
+            else tags.firstOrNull() ?: RenQingTag(name = "其他", icon = "gift", color = "#715CFF")
         )
     }
     var direction by remember { mutableStateOf(initialEvent?.direction ?: RenQingDirection.GIVEN) }
@@ -430,9 +695,11 @@ private fun AddRenQingEventForm(
     var syncToTransaction by remember { mutableStateOf(true) }
     var showNewTagDialog by remember { mutableStateOf(false) }
     var newTagName by remember { mutableStateOf("") }
-    var newTagIcon by remember { mutableStateOf("\uD83C\uDF81") }
+    var newTagIcon by remember { mutableStateOf("gift") }
     var contactExpanded by remember { mutableStateOf(false) }
     var showAddContactDialog by remember { mutableStateOf(false) }
+    // 精简表单：默认折叠可选区；编辑模式展开
+    var showMoreOptions by remember { mutableStateOf(isEdit) }
 
     if (showAddContactDialog) {
         AddRenQingContactDialog(onDismiss = { showAddContactDialog = false }) { contact ->
@@ -454,13 +721,20 @@ private fun AddRenQingEventForm(
                         label = { Text("标签名称") },
                         singleLine = true
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = newTagIcon,
-                        onValueChange = { newTagIcon = it },
-                        label = { Text("图标 (emoji)") },
-                        singleLine = true
-                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text("图标", style = MaterialTheme.typography.titleSmall)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(RenQingIcons.tagIconOptions) { (key, vector) ->
+                            FilterChip(
+                                selected = newTagIcon == key,
+                                onClick = { newTagIcon = key },
+                                label = {
+                                    Icon(vector, contentDescription = null, modifier = Modifier.size(18.dp))
+                                }
+                            )
+                        }
+                    }
                 }
             },
             buttons = listOf(
@@ -470,7 +744,7 @@ private fun AddRenQingEventForm(
                         val newTag = RenQingTag(name = newTagName.trim(), icon = newTagIcon)
                         selectedTag = newTag
                         newTagName = ""
-                        newTagIcon = "\uD83C\uDF81"
+                        newTagIcon = "gift"
                         showNewTagDialog = false
                     }
                 }
@@ -478,7 +752,23 @@ private fun AddRenQingEventForm(
         )
     }
 
+    val canSave = selectedContact != null && (amount.toDoubleOrNull() ?: 0.0) > 0.0
+    val sortedContacts = remember(contacts) { contacts.sortedBy { it.name } }
+
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 16.dp)) {
+        Text(
+            if (isEdit) "编辑人情" else "记一笔人情",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            "选人 → 收/送 → 金额即可保存；更多细节可展开。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+
         ExposedDropdownMenuBox(
             expanded = contactExpanded,
             onExpandedChange = { contactExpanded = it }
@@ -487,7 +777,7 @@ private fun AddRenQingEventForm(
                 value = selectedContact?.name ?: "",
                 onValueChange = {},
                 readOnly = true,
-                label = { Text("联系人") },
+                label = { Text("联系人 *") },
                 placeholder = { Text("请选择联系人") },
                 modifier = Modifier.fillMaxWidth().menuAnchor(),
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = contactExpanded) }
@@ -496,7 +786,7 @@ private fun AddRenQingEventForm(
                 expanded = contactExpanded,
                 onDismissRequest = { contactExpanded = false }
             ) {
-                contacts.forEach { contact ->
+                sortedContacts.forEach { contact ->
                     DropdownMenuItem(
                         text = { Text("${contact.name} (${contact.relationship.label})") },
                         onClick = {
@@ -506,7 +796,7 @@ private fun AddRenQingEventForm(
                     )
                 }
                 if (contacts.isNotEmpty()) {
-                    Divider()
+                    HorizontalDivider()
                 }
                 DropdownMenuItem(
                     text = {
@@ -524,143 +814,182 @@ private fun AddRenQingEventForm(
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
-        Text("标签", style = MaterialTheme.typography.titleSmall)
-        Spacer(modifier = Modifier.height(4.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            LazyRow(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(tags) { tag ->
-                    FilterChip(
-                        selected = selectedTag.id == tag.id,
-                        onClick = { selectedTag = tag },
-                        label = { Text("${tag.icon} ${tag.name}") }
-                    )
-                }
-            }
-            IconButton(onClick = { showNewTagDialog = true }, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Default.Add, contentDescription = "添加标签", tint = MaterialTheme.colorScheme.primary)
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(14.dp))
         Text("方向", style = MaterialTheme.typography.titleSmall)
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(6.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             RenQingDirection.entries.forEach { d ->
                 FilterChip(selected = direction == d, onClick = { direction = d }, label = { Text(d.label) })
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(14.dp))
         OutlinedTextField(
             value = amount,
             onValueChange = { if (it.matches(Regex("^\\d*\\.?\\d{0,2}$"))) amount = it },
-            label = { Text("金额") },
+            label = { Text("金额 *") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
-        OutlinedTextField(
-            value = giftDesc,
-            onValueChange = { giftDesc = it },
-            label = { Text("礼物描述（可选）") },
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(
+            onClick = {
+                val amt = amount.toDoubleOrNull() ?: return@Button
+                val cid = selectedContact?.id ?: 0
+                val cname = selectedContact?.name ?: ""
+                val event = RenQingEvent(
+                    id = initialEvent?.id ?: 0,
+                    contactId = cid,
+                    contactName = cname,
+                    eventType = eventType,
+                    tagId = selectedTag.id,
+                    tagName = selectedTag.name,
+                    direction = direction,
+                    amount = amt,
+                    giftDescription = giftDesc,
+                    date = selectedDate,
+                    location = location,
+                    note = note,
+                    photoUri = initialEvent?.photoUri
+                )
+                if (onSaveEvent != null) {
+                    onSaveEvent(event, syncToTransaction)
+                } else {
+                    viewModel?.addEvent(event, syncToTransaction)
+                }
+                onSaved()
+            },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-        OutlinedTextField(
-            value = location,
-            onValueChange = { location = it },
-            label = { Text("地点（可选）") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-        var showDatePicker by remember { mutableStateOf(false) }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(
-                value = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(selectedDate)),
-                onValueChange = {},
-                readOnly = true,
-                label = { Text("日期") },
-                modifier = Modifier.weight(1f)
-            )
-            IconButton(onClick = { showDatePicker = true }) { Icon(Icons.Default.DateRange, contentDescription = "选择日期") }
-        }
-        if (showDatePicker) {
-            val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDate)
-            AppleDatePickerDialog(
-                onDismissRequest = { showDatePicker = false },
-                state = datePickerState,
-                confirmButton = {
-                    TextButton(onClick = {
-                        datePickerState.selectedDateMillis?.let { selectedDate = it }
-                        showDatePicker = false
-                    }) { Text("确定") }
-                },
-                dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("取消") } }
-            )
+            enabled = canSave,
+            elevation = appButtonElevation()
+        ) {
+            Text(if (isEdit) "保存" else "保存这一笔")
         }
 
         Spacer(modifier = Modifier.height(12.dp))
-        OutlinedTextField(
-            value = note,
-            onValueChange = { note = it },
-            label = { Text("备注（可选）") },
-            modifier = Modifier.fillMaxWidth(),
-            maxLines = 3
-        )
-
-        if (!isEdit) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = syncToTransaction, onCheckedChange = { syncToTransaction = it })
-                Text("同步添加到首页账单", style = MaterialTheme.typography.bodyMedium)
-            }
+        OutlinedButton(
+            onClick = { showMoreOptions = !showMoreOptions },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(if (showMoreOptions) "收起更多选项" else "更多选项（标签/日期/备注…）")
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(onClick = onBack, modifier = Modifier.weight(1f)) {
-                Text("取消")
-            }
-            Button(
-                onClick = {
-                    val amt = amount.toDoubleOrNull() ?: return@Button
-                    val cid = selectedContact?.id ?: 0
-                    val cname = selectedContact?.name ?: ""
-                    val event = RenQingEvent(
-                        id = initialEvent?.id ?: 0,
-                        contactId = cid,
-                        contactName = cname,
-                        eventType = eventType,
-                        tagId = selectedTag.id,
-                        tagName = selectedTag.name,
-                        direction = direction,
-                        amount = amt,
-                        giftDescription = giftDesc,
-                        date = selectedDate,
-                        location = location,
-                        note = note,
-                        photoUri = initialEvent?.photoUri
-                    )
-                    if (onSaveEvent != null) {
-                        onSaveEvent(event, syncToTransaction)
-                    } else {
-                        viewModel?.addEvent(event, syncToTransaction)
+        AnimatedVisibility(visible = showMoreOptions) {
+            Column {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text("标签", style = MaterialTheme.typography.titleSmall)
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    LazyRow(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(tags) { tag ->
+                            FilterChip(
+                                selected = selectedTag.id == tag.id,
+                                onClick = { selectedTag = tag },
+                                label = { Text(tag.name) },
+                                leadingIcon = {
+                                    Icon(
+                                        RenQingIcons.iconForTagIconValue(tag.icon),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            )
+                        }
                     }
-                    onSaved()
-                },
-                modifier = Modifier.weight(1f),
-                enabled = amount.toDoubleOrNull() != null,
-                elevation = appButtonElevation()
-            ) {
-                Text(if (isEdit) "保存" else "添加")
+                    IconButton(onClick = { showNewTagDialog = true }, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.Add, contentDescription = "添加标签", tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                Text("事件类型", style = MaterialTheme.typography.titleSmall)
+                Spacer(modifier = Modifier.height(4.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(RenQingEventType.entries) { t ->
+                        FilterChip(
+                            selected = eventType == t,
+                            onClick = { eventType = t },
+                            label = { Text(t.label) },
+                            leadingIcon = {
+                                Icon(
+                                    RenQingIcons.eventTypeIcon(t),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = giftDesc,
+                    onValueChange = { giftDesc = it },
+                    label = { Text("礼物描述（可选）") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = location,
+                    onValueChange = { location = it },
+                    label = { Text("地点（可选）") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+                var showDatePicker by remember { mutableStateOf(false) }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(selectedDate)),
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("日期") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = { showDatePicker = true }) { Icon(Icons.Default.DateRange, contentDescription = "选择日期") }
+                }
+                if (showDatePicker) {
+                    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDate)
+                    AppleDatePickerDialog(
+                        onDismissRequest = { showDatePicker = false },
+                        state = datePickerState,
+                        confirmButton = {
+                            TextButton(onClick = {
+                                datePickerState.selectedDateMillis?.let { selectedDate = it }
+                                showDatePicker = false
+                            }) { Text("确定") }
+                        },
+                        dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("取消") } }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    label = { Text("备注（可选）") },
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 3
+                )
+
+                if (!isEdit) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = syncToTransaction, onCheckedChange = { syncToTransaction = it })
+                        Text("同步添加到首页账单", style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
             }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
+            Text("取消")
         }
         Spacer(modifier = Modifier.height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(6.dp) + 76.dp))
     }
@@ -679,7 +1008,7 @@ private fun EditRenQingEventDialog(
     var eventType by remember { mutableStateOf(event.eventType) }
     var selectedTag by remember {
         mutableStateOf(tags.find { it.id == event.tagId }
-            ?: tags.firstOrNull() ?: RenQingTag(name = "其他", icon = "\uD83C\uDF81", color = "#715CFF"))
+            ?: tags.firstOrNull() ?: RenQingTag(name = "其他", icon = "gift", color = "#715CFF"))
     }
     var direction by remember { mutableStateOf(event.direction) }
     var amount by remember { mutableStateOf(String.format("%.2f", event.amount)) }
@@ -730,7 +1059,14 @@ private fun EditRenQingEventDialog(
                         FilterChip(
                             selected = selectedTag.id == tag.id,
                             onClick = { selectedTag = tag },
-                            label = { Text("${tag.icon} ${tag.name}") }
+                            label = { Text(tag.name) },
+                            leadingIcon = {
+                                Icon(
+                                    RenQingIcons.iconForTagIconValue(tag.icon),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                         )
                     }
                 }
@@ -859,8 +1195,32 @@ private fun RenQingContactsList(
             }
         }
         if (contacts.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("暂无联系人", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(
+                modifier = Modifier.fillMaxSize().padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                Icons.Filled.People,
+                contentDescription = null,
+                modifier = Modifier.size(36.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    "还没有联系人",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "先添加常来往的亲友，记一笔时选人更快。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+                Spacer(Modifier.height(16.dp))
+                Button(onClick = { showAddDialog = true }) { Text("添加联系人") }
             }
         } else {
             val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(6.dp)
@@ -984,12 +1344,17 @@ fun RenQingStatsScreen(
     val currentYear = Calendar.getInstance().get(Calendar.YEAR)
     var selectedYear by remember { mutableIntStateOf(currentYear) }
     val allEvents by viewModel.allEvents.collectAsState()
+    val allContacts by viewModel.allContacts.collectAsState()
     val yearRange = remember(selectedYear) { viewModel.getYearRange(selectedYear) }
-    val yearGivenFlow = remember(yearRange) { viewModel.getTotalGiven(yearRange.first, yearRange.second) }
-    val yearGiven by yearGivenFlow.collectAsState()
-    val yearReceivedFlow = remember(yearRange) { viewModel.getTotalReceived(yearRange.first, yearRange.second) }
-    val yearReceived by yearReceivedFlow.collectAsState()
-    val yearEvents = remember(allEvents, selectedYear) { allEvents.filter { it.date in yearRange.first..yearRange.second } }
+    val yearEvents = remember(allEvents, selectedYear) {
+        allEvents.filter { it.date in yearRange.first..yearRange.second }
+    }
+    val yearGiven = remember(yearEvents) {
+        yearEvents.filter { it.direction == RenQingDirection.GIVEN }.sumOf { it.amount }
+    }
+    val yearReceived = remember(yearEvents) {
+        yearEvents.filter { it.direction == RenQingDirection.RECEIVED }.sumOf { it.amount }
+    }
 
     if (!dataLoaded) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -998,132 +1363,280 @@ fun RenQingStatsScreen(
         return
     }
 
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 16.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { selectedYear-- }) { Icon(Icons.Default.KeyboardArrowLeft, "上一年") }
+    val navBarPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(6.dp)
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp)
+            .padding(bottom = navBarPadding + 76.dp)
+    ) {
+        // 年份切换
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = { selectedYear-- }) {
+                Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "上一年")
+            }
             Text("$selectedYear 年", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            IconButton(onClick = { selectedYear++ }) { Icon(Icons.Default.KeyboardArrowRight, "下一年") }
+            IconButton(onClick = { selectedYear++ }) {
+                Icon(Icons.Default.KeyboardArrowRight, contentDescription = "下一年")
+            }
         }
-        Spacer(modifier = Modifier.height(16.dp))
 
-        Text("${selectedYear}年来往总览", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            StatColumn("支出", String.format("%.2f", yearGiven), MaterialTheme.colorScheme.error)
-            StatColumn("收入", String.format("%.2f", yearReceived), MaterialTheme.colorScheme.primary)
-            val balance = yearReceived - yearGiven
-            StatColumn("结余", String.format("%.2f", balance), if (balance >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
-        }
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Text("按标签统计", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(8.dp))
+        // 总览
         Card(
-            modifier = Modifier.fillMaxWidth().clickable { onNavigateToTagStats(selectedYear) },
-            shape = RoundedCornerShape(18.dp),
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            elevation = CardDefaults.cardElevation(0.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+            )
+        ) {
+            Column(modifier = Modifier.padding(18.dp)) {
+                Text("年度总览", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(12.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    StatColumn("收到", yearReceived, MaterialTheme.colorScheme.primary)
+                    StatColumn("送出", yearGiven, MaterialTheme.colorScheme.error)
+                    val net = yearReceived - yearGiven
+                    StatColumn(
+                        "净额",
+                        net,
+                        if (net >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                        showSign = true
+                    )
+                }
+                if (yearEvents.isEmpty()) {
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        "该年还没有人情记录",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(20.dp))
+
+        // 月度趋势
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
             elevation = CardDefaults.cardElevation(0.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    val activeTags = tags.filter { tag -> yearEvents.any { it.tagId == tag.id } }
-                    if (activeTags.isNotEmpty()) {
-                        Text("${activeTags.size} 个标签", style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            activeTags.take(3).joinToString(" ") { it.icon },
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+            Column(modifier = Modifier.padding(18.dp)) {
+                Text("月度趋势", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "点柱状图看当月明细",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(12.dp))
+
+                val monthlyData = remember(yearEvents) {
+                    (0..11).map { month ->
+                        val mEvents = yearEvents.filter {
+                            Calendar.getInstance().apply { timeInMillis = it.date }.get(Calendar.MONTH) == month
+                        }
+                        Triple(
+                            month,
+                            mEvents.filter { it.direction == RenQingDirection.GIVEN }.sumOf { it.amount },
+                            mEvents.filter { it.direction == RenQingDirection.RECEIVED }.sumOf { it.amount }
                         )
-                    } else {
-                        Text("暂无数据", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-                Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Text("月度趋势", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(8.dp))
-        val monthlyData = remember(yearEvents) {
-            (0..11).map { month ->
-                val mEvents = yearEvents.filter {
-                    val cal = Calendar.getInstance().apply { timeInMillis = it.date }
-                    cal.get(Calendar.MONTH) == month
+                val maxAmount = remember(monthlyData) {
+                    monthlyData.maxOf { maxOf(it.second, it.third) }.coerceAtLeast(1.0)
                 }
-                Triple(month, mEvents.filter { it.direction == RenQingDirection.GIVEN }.sumOf { it.amount }, mEvents.filter { it.direction == RenQingDirection.RECEIVED }.sumOf { it.amount })
-            }
-        }
-        val maxAmount = remember(monthlyData) { monthlyData.maxOf { maxOf(it.second, it.third) }.coerceAtLeast(1.0) }
-        Row(modifier = Modifier.fillMaxWidth().height(150.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Bottom) {
-            monthlyData.forEach { (month, given, received) ->
-                Column(
-                    modifier = Modifier.weight(1f).clickable { onNavigateToMonthDetail(selectedYear, month) }.height(150.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Bottom
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(130.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.Bottom
                 ) {
-                    Box(modifier = Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.BottomCenter) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom, modifier = Modifier.fillMaxHeight()) {
-                            if (given > 0) {
-                                Box(modifier = Modifier.width(12.dp).height(((given / maxAmount) * 100).dp).background(MaterialTheme.colorScheme.error, RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)))
+                    monthlyData.forEach { (month, given, received) ->
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(130.dp)
+                                .clickable { onNavigateToMonthDetail(selectedYear, month) },
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Bottom
+                        ) {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().height(104.dp),
+                                contentAlignment = Alignment.BottomCenter
+                            ) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                    verticalAlignment = Alignment.Bottom,
+                                    modifier = Modifier.fillMaxHeight()
+                                ) {
+                                    if (given > 0) {
+                                        Box(
+                                            modifier = Modifier
+                                                .width(9.dp)
+                                                .height(((given / maxAmount) * 96).dp)
+                                                .background(MaterialTheme.colorScheme.error, RoundedCornerShape(3.dp))
+                                        )
+                                    }
+                                    if (received > 0) {
+                                        Box(
+                                            modifier = Modifier
+                                                .width(9.dp)
+                                                .height(((received / maxAmount) * 96).dp)
+                                                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(3.dp))
+                                        )
+                                    }
+                                }
                             }
-                            if (received > 0) {
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Box(modifier = Modifier.width(12.dp).height(((received / maxAmount) * 100).dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)))
-                            }
+                            Spacer(Modifier.height(4.dp))
+                            Text("${month + 1}", style = MaterialTheme.typography.labelSmall)
                         }
                     }
-                    Text("${month + 1}月", style = MaterialTheme.typography.labelSmall)
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(10.dp).background(MaterialTheme.colorScheme.error, RoundedCornerShape(3.dp)))
+                    Text("  送出", style = MaterialTheme.typography.labelSmall)
+                    Spacer(Modifier.width(16.dp))
+                    Box(modifier = Modifier.size(10.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(3.dp)))
+                    Text("  收到", style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-            Box(modifier = Modifier.size(10.dp).background(MaterialTheme.colorScheme.error, RoundedCornerShape(3.dp)))
-            Text(" 支出  ", style = MaterialTheme.typography.labelSmall)
-            Box(modifier = Modifier.size(10.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(3.dp)))
-            Text(" 收入", style = MaterialTheme.typography.labelSmall)
-        }
-        Spacer(modifier = Modifier.height(24.dp))
 
-        Text("关系分析", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(8.dp))
-        val allContacts by viewModel.allContacts.collectAsState()
+        Spacer(Modifier.height(20.dp))
+
+        // 标签 Top
+        val tagStats = remember(yearEvents, tags) {
+            tags.mapNotNull { tag ->
+                val list = yearEvents.filter { it.tagId == tag.id }
+                if (list.isEmpty()) null
+                else Triple(tag, list.size, list.sumOf { it.amount })
+            }.sortedByDescending { it.third }.take(5)
+        }
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            elevation = CardDefaults.cardElevation(0.dp)
+        ) {
+            Column(modifier = Modifier.padding(18.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("标签 Top 5", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    TextButton(onClick = { onNavigateToTagStats(selectedYear) }) { Text("全部") }
+                }
+                if (tagStats.isEmpty()) {
+                    Text("暂无数据", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    val maxAmount = tagStats.maxOf { it.third }.coerceAtLeast(1.0)
+                    tagStats.forEach { (tag, count, total) ->
+                        val tagColor = try {
+                            Color(android.graphics.Color.parseColor(tag.color))
+                        } catch (_: Exception) {
+                            MaterialTheme.colorScheme.primary
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                RenQingIcons.iconForTagIconValue(tag.icon),
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = tagColor
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(tag.name, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.width(72.dp), maxLines = 1)
+                            LinearProgressIndicator(
+                                progress = (total / maxAmount).toFloat().coerceIn(0f, 1f),
+                                modifier = Modifier.weight(1f).height(8.dp).clip(RoundedCornerShape(4.dp)),
+                                color = tagColor,
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "¥${String.format(Locale.US, "%.0f", total)}",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(20.dp))
+
+        // 联系人 Top
         val contactStats = remember(yearEvents, allContacts) {
             yearEvents.groupBy { it.contactName }.map { (name, events) ->
                 val contact = allContacts.find { it.name == name }
                 Triple(name, contact?.relationship?.label ?: "未知", events.sumOf { it.amount })
-            }.sortedByDescending { it.third }
+            }.sortedByDescending { it.third }.take(5)
         }
         Card(
-            modifier = Modifier.fillMaxWidth().clickable { onNavigateToContactAnalysis(selectedYear) },
-            shape = RoundedCornerShape(18.dp),
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
             elevation = CardDefaults.cardElevation(0.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    if (contactStats.isNotEmpty()) {
-                        Text("${contactStats.size} 位联系人", style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            "Top: ${contactStats.firstOrNull()?.first ?: ""}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    } else {
-                        Text("暂无数据", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(modifier = Modifier.padding(18.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("联系人 Top 5", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    TextButton(onClick = { onNavigateToContactAnalysis(selectedYear) }) { Text("全部") }
+                }
+                if (contactStats.isEmpty()) {
+                    Text("暂无数据", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    contactStats.forEach { (name, relation, total) ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    name.take(1),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(name, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                                Text(
+                                    relation,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Text(
+                                "¥${String.format(Locale.US, "%.0f", total)}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
                 }
-                Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        Spacer(modifier = Modifier.height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(6.dp) + 76.dp))
     }
 }
 
@@ -1131,8 +1644,31 @@ fun RenQingStatsScreen(
 private fun StatColumn(label: String, value: String, color: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("¥$value", style = MaterialTheme.typography.titleMedium, color = color, fontWeight = FontWeight.Bold)
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleMedium,
+            color = color,
+            fontWeight = FontWeight.Bold
+        )
     }
+}
+
+@Composable
+private fun StatColumn(
+    label: String,
+    value: Double,
+    color: Color,
+    showSign: Boolean = false
+) {
+    StatColumn(
+        label = label,
+        value = buildString {
+            if (showSign && value >= 0) append("+")
+            append("¥")
+            append(String.format(Locale.US, "%.2f", value))
+        },
+        color = color
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1290,7 +1826,12 @@ fun RenQingTagStatsScreen(viewModel: RenQingViewModel, year: Int) {
                                     modifier = Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(tag.icon, fontSize = 20.sp)
+                                    Icon(
+                                        RenQingIcons.iconForTagIconValue(tag.icon),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
                                 }
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column(modifier = Modifier.weight(1f)) {
@@ -1326,7 +1867,23 @@ fun RenQingTagStatsScreen(viewModel: RenQingViewModel, year: Int) {
                         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("${tag.icon} ${tag.name}", modifier = Modifier.width(80.dp), style = MaterialTheme.typography.bodySmall)
+                        Row(
+                            modifier = Modifier.width(96.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                RenQingIcons.iconForTagIconValue(tag.icon),
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                tag.name,
+                                style = MaterialTheme.typography.bodySmall,
+                                maxLines = 1
+                            )
+                        }
                         LinearProgressIndicator(
                             progress = ratio,
                             modifier = Modifier.weight(1f).height(12.dp).clip(RoundedCornerShape(6.dp)),
@@ -1577,7 +2134,16 @@ private fun RenQingMainScreenPreview() {
                                 Text(name, fontWeight = FontWeight.Medium, fontSize = 15.sp)
                                 Text(rel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            Text("🎁 随礼 ¥200", fontSize = 12.sp, color = Color(0xFFF44336))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Filled.CardGiftcard,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                    tint = Color(0xFFF44336)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text("随礼 ¥200", fontSize = 12.sp, color = Color(0xFFF44336))
+                            }
                         }
                     }
                 }

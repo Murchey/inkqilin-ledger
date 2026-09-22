@@ -53,13 +53,30 @@ import kotlin.math.abs
 /** 记账金额表达式计算器，仅支持安全的四则运算和括号。 */
 object AmountExpressionEvaluator {
     fun evaluate(expression: String): Double? {
-        val normalized = expression.replace('×', '*').replace('÷', '/').replace('，', '.')
+        val normalized = normalizeExpression(expression)
         if (normalized.isBlank()) return null
         return runCatching {
             Parser(normalized).parse().also {
                 if (!it.isFinite()) error("non-finite")
             }
         }.getOrNull()
+    }
+
+    /** 键盘/展示用符号 → 解析器可识别的 ASCII */
+    fun normalizeExpression(expression: String): String {
+        return expression
+            .replace('×', '*')
+            .replace('✕', '*')
+            .replace('x', '*')
+            .replace('X', '*')
+            .replace('＊', '*')
+            .replace('÷', '/')
+            .replace('／', '/')
+            .replace('−', '-') // U+2212
+            .replace('–', '-') // en dash
+            .replace('—', '-') // em dash
+            .replace('，', '.')
+            .replace('。', '.')
     }
 
     /** 千分位格式化，保留两位小数；非法输入返回原文。 */
@@ -73,6 +90,67 @@ object AmountExpressionEvaluator {
         val fracPart = absStr.substring(dot)
         val grouped = intPart.reversed().chunked(3).joinToString(",").reversed()
         return (if (negative) "-" else "") + grouped + fracPart
+    }
+
+    /** 入库/回填用：尽量短的数字串（去掉多余 .0） */
+    fun formatForField(amount: Double): String {
+        if (!amount.isFinite()) return "0"
+        val rounded = kotlin.math.round(amount * 100.0) / 100.0
+        return if (rounded == kotlin.math.floor(rounded) && abs(rounded) < 1e15) {
+            rounded.toLong().toString()
+        } else {
+            rounded.toString()
+        }
+    }
+
+    /**
+     * 智能追加：连续运算符则替换、小数点防重复、空表达式拒绝裸乘除。
+     */
+    fun appendToken(current: String, token: String): String {
+        if (token.isEmpty()) return current
+        val normalizedToken = when (token) {
+            "×", "✕", "x", "X", "＊" -> "*"
+            "÷", "／" -> "/"
+            "−", "–", "—" -> "-"
+            "。", "，" -> "."
+            else -> token
+        }
+
+        // 括号与数字直接拼
+        if (normalizedToken == "(" || normalizedToken == ")") {
+            return current + normalizedToken
+        }
+
+        if (normalizedToken == ".") {
+            val lastNumber = current.takeLastWhile { it.isDigit() || it == '.' }
+            if ('.' in lastNumber) return current
+            if (lastNumber.isEmpty()) return current + "0."
+            return current + "."
+        }
+
+        if (normalizedToken.length == 1 && normalizedToken[0] in charArrayOf('+', '-', '*', '/')) {
+            if (current.isBlank()) {
+                // 允许开头一元正负；不允许以 * / 开头
+                return if (normalizedToken == "+" || normalizedToken == "-") normalizedToken else current
+            }
+            val last = current.last()
+            // 连续运算符：替换最后一个（保留一元负号场景：`(-` 后可跟数字）
+            if (last in charArrayOf('+', '-', '*', '/', '×', '÷', '−')) {
+                // `(` 后允许一元 +/-
+                if (last == '(' && (normalizedToken == "+" || normalizedToken == "-")) {
+                    return current + normalizedToken
+                }
+                return current.dropLast(1) + normalizedToken
+            }
+            if (last == '.') {
+                // `1.` 后接运算符 → 补成 `1.0+`
+                return current + "0" + normalizedToken
+            }
+            return current + normalizedToken
+        }
+
+        // 数字
+        return current + normalizedToken
     }
 
     private class Parser(private val source: String) {
@@ -324,11 +402,12 @@ private fun AmountKeypadContent(
         listOf(KeypadKey("7", KeyKind.DIGIT, "7"), KeypadKey("8", KeyKind.DIGIT, "8"), KeypadKey("9", KeyKind.DIGIT, "9"), KeypadKey("÷", KeyKind.OPERATOR, "除")),
         listOf(KeypadKey("4", KeyKind.DIGIT, "4"), KeypadKey("5", KeyKind.DIGIT, "5"), KeypadKey("6", KeyKind.DIGIT, "6"), KeypadKey("×", KeyKind.OPERATOR, "乘")),
         listOf(KeypadKey("1", KeyKind.DIGIT, "1"), KeypadKey("2", KeyKind.DIGIT, "2"), KeypadKey("3", KeyKind.DIGIT, "3"), KeypadKey("−", KeyKind.OPERATOR, "减")),
-        listOf(KeypadKey("0", KeyKind.DIGIT, "0"), KeypadKey("00", KeyKind.DIGIT, "00"), KeypadKey(".", KeyKind.DIGIT, "小数点"), KeypadKey("+", KeyKind.OPERATOR, "加")),
+        listOf(KeypadKey("0", KeyKind.DIGIT, "0"), KeypadKey(".", KeyKind.DIGIT, "小数点"), KeypadKey("(", KeyKind.OPERATOR, "左括号"), KeypadKey(")", KeyKind.OPERATOR, "右括号")),
         listOf(
             KeypadKey("AC", KeyKind.ACTION, "清除", span = 1),
             KeypadKey("⌫", KeyKind.ACTION, "退格", span = 1),
-            KeypadKey("完成", KeyKind.CONFIRM, "完成", span = 2)
+            KeypadKey("+", KeyKind.OPERATOR, "加", span = 1),
+            KeypadKey("完成", KeyKind.CONFIRM, "完成", span = 1)
         )
     )
 
@@ -386,7 +465,8 @@ private fun KeyButton(
                     "AC" -> onValueChange("")
                     "⌫" -> onValueChange(value.dropLast(1))
                 }
-                KeyKind.OPERATOR, KeyKind.DIGIT -> onValueChange(value + key.label)
+                KeyKind.OPERATOR, KeyKind.DIGIT ->
+                    onValueChange(AmountExpressionEvaluator.appendToken(value, key.label))
             }
         },
         modifier = modifier

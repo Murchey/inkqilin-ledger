@@ -34,6 +34,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.activity.compose.BackHandler
 import java.math.BigDecimal
 import java.math.RoundingMode
 import kotlinx.coroutines.delay
@@ -100,6 +101,11 @@ fun CalculatorScreen(
         } catch (_: Exception) {
             // 忽略 top bar 更新失败，不影响页面渲染
         }
+    }
+
+    // 系统返回：计算器详情 → 计算器列表 → 再退出本页
+    BackHandler(enabled = selectedCalc != null) {
+        selectedCalc = null
     }
 
     AnimatedContent(

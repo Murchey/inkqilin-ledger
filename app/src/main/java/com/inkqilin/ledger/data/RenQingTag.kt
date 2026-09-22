@@ -8,6 +8,6 @@ data class RenQingTag(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val name: String,
-    val icon: String = "\uD83C\uDF81",
+    val icon: String = "gift",
     val color: String = "#715CFF"
 )
