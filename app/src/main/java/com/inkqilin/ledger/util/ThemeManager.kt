@@ -100,6 +100,25 @@ class ThemeManager(private val context: Context) {
     private val HOME_TX_CARD_OPACITY_KEY = doublePreferencesKey("home_tx_card_opacity")
 private val WIDGET_SHOW_AMOUNT_KEY = booleanPreferencesKey("widget_show_amount")
     private val WIDGET_QUICK_CATEGORIES_KEY = stringPreferencesKey("widget_quick_categories")
+    private val HARMONY_COMPAT_ASKED_KEY = booleanPreferencesKey("harmony_compat_asked")
+    private val HARMONY_COMPAT_MODE_KEY = booleanPreferencesKey("harmony_compat_mode")
+
+    /** 是否已完成「是否鸿蒙兼容环境」询问 */
+    val harmonyCompatAsked: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[HARMONY_COMPAT_ASKED_KEY] ?: false
+    }
+
+    /** true = 鸿蒙/卓易通兼容模式：自动记账降级（通知监听不可用） */
+    val harmonyCompatMode: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[HARMONY_COMPAT_MODE_KEY] ?: false
+    }
+
+    suspend fun setHarmonyCompatMode(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[HARMONY_COMPAT_MODE_KEY] = enabled
+            preferences[HARMONY_COMPAT_ASKED_KEY] = true
+        }
+    }
 
     val widgetShowAmount: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[WIDGET_SHOW_AMOUNT_KEY] ?: true

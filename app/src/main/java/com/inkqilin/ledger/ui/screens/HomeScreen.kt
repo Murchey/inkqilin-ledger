@@ -107,6 +107,8 @@ fun HomeScreen(
     }
     var showMonthPicker by remember { mutableStateOf(false) }
     var enableCardAnimations by remember { mutableStateOf(false) }
+    // 列表入场动画闸门：只在首次进入时打开，返回首页不重放
+    var hasPlayedListEntry by rememberSaveable { mutableStateOf(false) }
 
     val defaultAsset = remember(allAssets) { allAssets.firstOrNull { it.isDefault } }
 
@@ -114,6 +116,10 @@ fun HomeScreen(
         withFrameNanos { }
         enableCardAnimations = true
         viewModel.checkAndRunDailyAnalysis()
+        if (!hasPlayedListEntry) {
+            kotlinx.coroutines.delay(STAGGER_MAX_DELAY_MS + STAGGER_DURATION_MS + 80L)
+            hasPlayedListEntry = true
+        }
     }
 
     if (showMonthPicker) {
@@ -225,7 +231,11 @@ fun HomeScreen(
     val isDataLoading = false
     val maxTrendValue = remember(homeData.recentDays) { homeData.recentDays.maxOfOrNull { it.second } ?: 1.0 }
     val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+    // 共享 shimmer 进度：骨架块不再各自开无限动画
+    val shimmerProgress = rememberShimmerProgress()
+    val staggerGate = !hasPlayedListEntry
 
+    CompositionLocalProvider(LocalShimmerProgress provides shimmerProgress) {
     Box(modifier = Modifier.fillMaxSize()) {
         // 首页自定义背景（设置里导入，可调不透明度）
         val bgFile = homeBgImagePath?.let { java.io.File(it) }
@@ -413,14 +423,15 @@ fun HomeScreen(
                 val todayStart = todayCal.timeInMillis
                 val yesterdayStart = todayStart - 86400000L
                 val shortSdf = SimpleDateFormat("MM月dd日", Locale.getDefault())
+                // 跨日分组的全局条目序号
+                var globalTxIndex = 0
                 homeData.groupedTransactions.forEach { group ->
                     group.transactions.forEachIndexed { index, transaction ->
+                        // 全局列表序号：stagger 只作用于整表前 N 条，而不是每天分组内前 N 条
+                        val globalIndex = globalTxIndex
+                        globalTxIndex++
                         item(key = "tx_${transaction.id}") {
-                        // iOS-style staggered entry
-                        var itemVisible by remember { mutableStateOf(false) }
-                        LaunchedEffect(Unit) {
-                            itemVisible = true
-                        }
+                        // 首次进入对前 N 条 stagger；二级页返回/滚动复用不重放
                         Column {
                             if (index == 0) {
                                 val symbol = defaultAsset?.symbol ?: "¥"
@@ -450,7 +461,7 @@ fun HomeScreen(
                                     Text(balanceText, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Medium, color = balanceColor.copy(alpha = 0.75f))
                                 }
                             }
-                            Box(modifier = Modifier.staggeredAppearance(index, itemVisible)) {
+                            Box(modifier = Modifier.staggeredAppearance(globalIndex, visible = staggerGate)) {
                                 SwipeableTransactionItem(
                                     transaction = transaction,
                                     viewModel = viewModel,
@@ -467,6 +478,7 @@ fun HomeScreen(
             }
         }
         }
+    }
     }
 }
 
@@ -769,33 +781,11 @@ private fun OverviewCardSkeleton() {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
     ) {
         Column(modifier = Modifier.padding(24.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Box(modifier = Modifier.size(80.dp, 20.dp).clip(RoundedCornerShape(4.dp)).shimmer())
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Box(modifier = Modifier.size(120.dp, 14.dp).clip(RoundedCornerShape(4.dp)).shimmer())
-                }
-                Box(modifier = Modifier.size(100.dp, 32.dp).clip(RoundedCornerShape(12.dp)).shimmer())
-            }
-            Spacer(modifier = Modifier.height(24.dp))
-            Box(modifier = Modifier.size(180.dp, 40.dp).clip(RoundedCornerShape(8.dp)).shimmer())
-            Spacer(modifier = Modifier.height(24.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column {
-                    Box(modifier = Modifier.size(40.dp, 14.dp).clip(RoundedCornerShape(4.dp)).shimmer())
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Box(modifier = Modifier.size(100.dp, 20.dp).clip(RoundedCornerShape(4.dp)).shimmer())
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Box(modifier = Modifier.size(40.dp, 14.dp).clip(RoundedCornerShape(4.dp)).shimmer())
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Box(modifier = Modifier.size(100.dp, 20.dp).clip(RoundedCornerShape(4.dp)).shimmer())
-                }
-            }
+            Box(modifier = Modifier.fillMaxWidth(0.5f).height(20.dp).clip(RoundedCornerShape(4.dp)).shimmer())
+            Spacer(modifier = Modifier.height(16.dp))
+            Box(modifier = Modifier.fillMaxWidth(0.7f).height(40.dp).clip(RoundedCornerShape(8.dp)).shimmer())
+            Spacer(modifier = Modifier.height(16.dp))
+            Box(modifier = Modifier.fillMaxWidth().height(16.dp).clip(RoundedCornerShape(4.dp)).shimmer())
         }
     }
 }
@@ -813,29 +803,9 @@ private fun TrendChartSkeleton() {
     ) {
         Box(modifier = Modifier.fillMaxWidth().frostedGlass(RoundedCornerShape(24.dp), isDark)) {
             Column(modifier = Modifier.padding(20.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Box(modifier = Modifier.size(120.dp, 18.dp).clip(RoundedCornerShape(4.dp)).shimmer())
-                    Box(modifier = Modifier.size(60.dp, 14.dp).clip(RoundedCornerShape(4.dp)).shimmer())
-                }
+                Box(modifier = Modifier.fillMaxWidth(0.4f).height(18.dp).clip(RoundedCornerShape(4.dp)).shimmer())
                 Spacer(modifier = Modifier.height(24.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Bottom
-                ) {
-                    repeat(7) {
-                        Box(
-                            modifier = Modifier
-                                .width(12.dp)
-                                .height(48.dp)
-                                .clip(RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
-                                .shimmer()
-                        )
-                    }
-                }
+                Box(modifier = Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(8.dp)).shimmer())
             }
         }
     }
@@ -866,33 +836,8 @@ private fun TransactionItemSkeleton() {
             Column(modifier = Modifier.weight(1f)) {
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth(0.4f)
+                        .fillMaxWidth(0.5f)
                         .height(18.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .shimmer()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(0.6f)
-                        .height(14.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .shimmer()
-                )
-            }
-            Column(horizontalAlignment = Alignment.End) {
-                Box(
-                    modifier = Modifier
-                        .width(60.dp)
-                        .height(18.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .shimmer()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Box(
-                    modifier = Modifier
-                        .width(40.dp)
-                        .height(14.dp)
                         .clip(RoundedCornerShape(4.dp))
                         .shimmer()
                 )

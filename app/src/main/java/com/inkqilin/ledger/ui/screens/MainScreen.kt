@@ -19,12 +19,9 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -143,20 +140,29 @@ fun MainScreen(
         onExternalTargetHandled()
     }
 
-    val showBottomBar = currentRoute == "main" && !isAlbumInteracting
     val currentPageRoute = if (pagerState.currentPage < bottomItems.size) {
         bottomItems[pagerState.currentPage].route
     } else {
         "home"
     }
+    // 仅在「相册 Tab 且交互中」隐藏底栏，避免 isAlbumInteracting 卡死后无法恢复
+    val showBottomBar = currentRoute == "main" && !(currentPageRoute == "album" && isAlbumInteracting)
 
     // 主页非「首页」Tab 时，系统返回先回首页 Tab，而不是直接退出 App
     BackHandler(enabled = currentRoute == "main" && currentPageRoute != "home") {
+        viewModel.setAlbumInteracting(false)
         scope.launch {
             val homeIndex = bottomItems.indexOfFirst { it.route == "home" }
             if (homeIndex != -1) {
                 pagerState.animateScrollToPage(homeIndex)
             }
+        }
+    }
+
+    // 离开相册 Tab 后强制复位底栏隐藏标记
+    LaunchedEffect(currentPageRoute, currentRoute) {
+        if (currentRoute != "main" || currentPageRoute != "album") {
+            viewModel.setAlbumInteracting(false)
         }
     }
 
@@ -226,14 +232,14 @@ fun MainScreen(
             AnimatedVisibility(
                 visible = showTopBar,
                 enter = if (enableAnimations) {
-                    fadeIn(MotionSprings.appearance()) + slideInVertically(
-                        animationSpec = MotionSprings.appearance(),
+                    fadeIn(MotionSprings.appearanceTween()) + slideInVertically(
+                        animationSpec = MotionSprings.appearanceTween(),
                         initialOffsetY = { -it }
                     )
                 } else EnterTransition.None,
                 exit = if (enableAnimations) {
-                    fadeOut(MotionSprings.appearance()) + slideOutVertically(
-                        animationSpec = MotionSprings.appearance(),
+                    fadeOut(MotionSprings.appearanceTween()) + slideOutVertically(
+                        animationSpec = MotionSprings.appearanceTween(),
                         targetOffsetY = { -it }
                     )
                 } else ExitTransition.None
@@ -245,9 +251,8 @@ fun MainScreen(
                             targetState = customTopBarTitle ?: topBarTitle,
                             transitionSpec = {
                                 if (enableAnimations) {
-                                    (fadeIn(animationSpec = MotionSprings.appearance()) +
-                                            slideInVertically(animationSpec = MotionSprings.appearance()) { -it / 4 }) togetherWith
-                                            fadeOut(animationSpec = MotionSprings.appearance())
+                                    fadeIn(tween(MotionDurations.FAST)) togetherWith
+                                        fadeOut(tween(MotionDurations.FAST))
                                 } else {
                                     EnterTransition.None togetherWith ExitTransition.None
                                 }
@@ -322,17 +327,17 @@ fun MainScreen(
                 visible = showBottomBar,
                 enter = if (enableAnimations) {
                     slideInVertically(
-                        animationSpec = MotionSprings.appearance(),
+                        animationSpec = MotionSprings.appearanceTween(),
                         initialOffsetY = { it }
-                    ) + fadeIn(animationSpec = MotionSprings.appearance())
+                    ) + fadeIn(animationSpec = MotionSprings.appearanceTween())
                 } else {
                     EnterTransition.None
                 },
                 exit = if (enableAnimations) {
                     slideOutVertically(
-                        animationSpec = MotionSprings.appearance(),
+                        animationSpec = MotionSprings.appearanceTween(),
                         targetOffsetY = { it }
-                    ) + fadeOut(animationSpec = MotionSprings.appearance())
+                    ) + fadeOut(animationSpec = MotionSprings.appearanceTween())
                 } else {
                     ExitTransition.None
                 }
@@ -353,30 +358,30 @@ fun MainScreen(
                 // Compact container
                 val barRadius = 22.dp
                 val density = androidx.compose.ui.platform.LocalDensity.current
-                val barCornerPx = with(density) { barRadius.toPx() }
                 val fabSize = 44.dp
                 val fabRadius = 22.dp
 
                 val showFab = currentPageRoute == "home" || currentPageRoute == "album"
                 val navBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(6.dp)
 
-                // ── Smooth indicator position ──
+                // ── Smooth indicator position：只在值变化时写入，避免 layout 回环重组 ──
                 var indicatorCenterX by remember { mutableFloatStateOf(0f) }
                 var indicatorWidth by remember { mutableStateOf(0.dp) }
                 val animIndicatorX by animateFloatAsState(
                     targetValue = indicatorCenterX,
                     animationSpec = if (enableAnimations)
-                        spring(dampingRatio = 1f, stiffness = 200f)
+                        tween(durationMillis = MotionDurations.FAST, easing = MotionCurves.FastOutSlowIn)
                     else snap(),
                     label = "tabIndicatorX"
                 )
                 val animIndicatorW by animateDpAsState(
                     targetValue = indicatorWidth,
                     animationSpec = if (enableAnimations)
-                        spring(dampingRatio = 1f, stiffness = 200f)
+                        tween(durationMillis = MotionDurations.FAST, easing = MotionCurves.FastOutSlowIn)
                     else snap(),
                     label = "tabIndicatorW"
                 )
+                val selectedIndex by remember { derivedStateOf { pagerState.currentPage } }
 
                 Row(
                     modifier = Modifier
@@ -387,133 +392,96 @@ fun MainScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // ── Apple Music Tab Bar Container ──
+                    // 静态边框 + 填充，去掉 shadowElevation（低端机阴影渲染昂贵）
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .graphicsLayer {
-                                // 浅色模式需要更明显的抬升感，否则白底压在 #F5F5F7 上几乎看不见
-                                shadowElevation = if (isDarkMode) 3f else 6f
+                            .clip(RoundedCornerShape(barRadius))
+                            .background(
+                                if (isDarkMode) Color(0xFF1C1C1E).copy(alpha = 0.96f)
+                                else Color.White.copy(alpha = 0.98f)
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = if (isDarkMode) Color.White.copy(alpha = 0.16f)
+                                        else Color(0xFFD1D1D6).copy(alpha = 0.9f),
                                 shape = RoundedCornerShape(barRadius)
-                                clip = false
-                                ambientShadowColor = Color.Black.copy(alpha = if (isDarkMode) 0.12f else 0.14f)
-                                spotShadowColor = Color.Black.copy(alpha = if (isDarkMode) 0.08f else 0.18f)
-                            }
+                            )
+                            .padding(horizontal = 4.dp, vertical = 4.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(barRadius))
-                                .border(
-                                    width = 1.dp,
-                                    color = if (isDarkMode) Color.White.copy(alpha = 0.16f)
-                                            else Color(0xFFD1D1D6).copy(alpha = 0.9f),
-                                    shape = RoundedCornerShape(barRadius)
-                                )
-                                .drawBehind {
-                                    val cr = barCornerPx
-                                    // 浅色：更实的白底，叠一层极淡灰影，让条从背景里「浮」出来
-                                    val barFill = if (isDarkMode) {
-                                        Color(0xFF1C1C1E).copy(alpha = 0.96f)
-                                    } else {
-                                        Color.White.copy(alpha = 0.98f)
+                        // ── Apple Photos Style Indicator ──
+                        if (animIndicatorW > 0.dp) {
+                            Box(
+                                modifier = Modifier
+                                    .offset {
+                                        val centerXPx = animIndicatorX.toInt()
+                                        val halfW = animIndicatorW.roundToPx() / 2
+                                        IntOffset(centerXPx - halfW, 0)
                                     }
-                                    drawRoundRect(
-                                        color = barFill,
-                                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(cr)
+                                    .size(width = animIndicatorW, height = 34.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(
+                                        if (isDarkMode) Color.White.copy(alpha = 0.08f)
+                                        else Color.Black.copy(alpha = 0.08f)
                                     )
-                                    // 顶缘高光：浅色用灰线压住边缘，深色用白高光
-                                    drawLine(
-                                        color = if (isDarkMode) Color.White.copy(alpha = 0.12f)
-                                                else Color(0xFFE5E5EA).copy(alpha = 0.9f),
-                                        start = androidx.compose.ui.geometry.Offset(cr * 0.5f, 0.5f),
-                                        end = androidx.compose.ui.geometry.Offset(size.width - cr * 0.5f, 0.5f),
-                                        strokeWidth = 1f
-                                    )
-                                }
-                                .padding(horizontal = 4.dp, vertical = 4.dp)
+                            )
+                        }
+
+                        // ── Tab Items ──
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // ── Apple Photos Style Indicator ──
-                            if (animIndicatorW > 0.dp) {
-                                Box(
+                            bottomItems.forEachIndexed { index, item ->
+                                val selected = selectedIndex == index
+                                // 滑动/切页不再逐 tab 跑颜色弹簧，直接取色
+                                val iconColor = if (selected) selectedColor else unselectedColor
+
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
                                     modifier = Modifier
-                                        .offset {
-                                            val centerXPx = animIndicatorX.toInt()
-                                            val halfW = animIndicatorW.roundToPx() / 2
-                                            IntOffset(centerXPx - halfW, 0)
-                                        }
-                                        .size(width = animIndicatorW, height = 34.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(
-                                            if (isDarkMode) Color.White.copy(alpha = 0.08f)
-                                            else Color.Black.copy(alpha = 0.08f)
-                                        )
-                                )
-                            }
-
-                            // ── Tab Items ──
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceEvenly,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                bottomItems.forEachIndexed { index, item ->
-                                    val selected = pagerState.currentPage == index
-
-                                    val iconColor by animateColorAsState(
-                                        targetValue = if (selected) selectedColor else unselectedColor,
-                                        animationSpec = if (enableAnimations)
-                                            tween(durationMillis = 250, easing = FastOutSlowInEasing)
-                                        else snap(),
-                                        label = "tabColor_${item.route}"
-                                    )
-
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .onGloballyPositioned { coords ->
-                                                if (selected) {
-                                                    val parentCoords = coords.parentCoordinates
-                                                    if (parentCoords != null) {
-                                                        val localCenter = coords.size.width / 2
-                                                        val posInParent = parentCoords.localPositionOf(
-                                                            coords,
-                                                            androidx.compose.ui.geometry.Offset(localCenter.toFloat(), 0f)
-                                                        )
-                                                        indicatorCenterX = posInParent.x
-                                                        indicatorWidth = with(density) { (coords.size.width * 0.9f).toDp() }
-                                                    }
+                                        .weight(1f)
+                                        .onGloballyPositioned { coords ->
+                                            if (selected) {
+                                                val parentCoords = coords.parentCoordinates
+                                                if (parentCoords != null) {
+                                                    val localCenter = coords.size.width / 2
+                                                    val posInParent = parentCoords.localPositionOf(
+                                                        coords,
+                                                        androidx.compose.ui.geometry.Offset(localCenter.toFloat(), 0f)
+                                                    )
+                                                    val cx = posInParent.x
+                                                    val w = with(density) { (coords.size.width * 0.9f).toDp() }
+                                                    // 仅在变化时写 state，打断 onGloballyPositioned → recompose 回环
+                                                    if (cx != indicatorCenterX) indicatorCenterX = cx
+                                                    if (w != indicatorWidth) indicatorWidth = w
                                                 }
                                             }
-                                            .clickable(
-                                                interactionSource = remember { MutableInteractionSource() },
-                                                indication = null
-                                            ) {
-                                                scope.launch { pagerState.animateScrollToPage(index) }
-                                            }
-                                            .padding(vertical = 3.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = item.icon,
-                                            contentDescription = item.label,
-                                            modifier = Modifier
-                                                .size(21.dp)
-                                                .then(
-                                                    if (selected) Modifier.graphicsLayer { alpha = 1f }
-                                                    else Modifier.graphicsLayer { alpha = 0.9f }
-                                                ),
-                                            tint = iconColor
-                                        )
-                                        Spacer(modifier = Modifier.height(1.dp))
-                                        Text(
-                                            text = item.label,
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                fontSize = 9.sp,
-                                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
-                                            ),
-                                            color = iconColor
-                                        )
-                                    }
+                                        }
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null
+                                        ) {
+                                            scope.launch { pagerState.animateScrollToPage(index) }
+                                        }
+                                        .padding(vertical = 3.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = item.icon,
+                                        contentDescription = item.label,
+                                        modifier = Modifier.size(21.dp),
+                                        tint = iconColor
+                                    )
+                                    Spacer(modifier = Modifier.height(1.dp))
+                                    Text(
+                                        text = item.label,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontSize = 9.sp,
+                                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+                                        ),
+                                        color = iconColor
+                                    )
                                 }
                             }
                         }
@@ -522,6 +490,7 @@ fun MainScreen(
                     // ── Apple Music Style FAB ──
                     if (showFab) {
                         val fabInteractionSource = remember { MutableInteractionSource() }
+                        val fabScale = animatePressScale(fabInteractionSource)
                         val fabColor = remember(customPrimaryColorHex) {
                             val hex = customPrimaryColorHex ?: DEFAULT_PRIMARY_COLOR_HEX
                             try { Color(android.graphics.Color.parseColor(hex)) } catch (_: Exception) { Color(0xFF34C759) }
@@ -530,13 +499,6 @@ fun MainScreen(
                         Box(
                             modifier = Modifier
                                 .size(fabSize)
-                                .graphicsLayer {
-                                    shadowElevation = if (isDarkMode) 3f else 2f
-                                    shape = RoundedCornerShape(fabRadius)
-                                    clip = false
-                                    ambientShadowColor = Color.Black.copy(alpha = if (isDarkMode) 0.15f else 0.05f)
-                                    spotShadowColor = Color.Black.copy(alpha = if (isDarkMode) 0.10f else 0.03f)
-                                }
                                 .clip(RoundedCornerShape(fabRadius))
                                 .background(fabColor)
                                 .clickable(
@@ -548,7 +510,7 @@ fun MainScreen(
                                         "album" -> albumFabTrigger = true
                                     }
                                 }
-                                .pressScale(fabInteractionSource),
+                                .pressScale(fabScale),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
@@ -571,9 +533,9 @@ fun MainScreen(
             modifier = Modifier.padding(top = innerPadding.calculateTopPadding()),
             enterTransition = {
                 if (enableAnimations) {
-                    fadeIn(animationSpec = MotionSprings.appearance()) +
+                    fadeIn(animationSpec = MotionSprings.appearanceTween()) +
                         slideInHorizontally(
-                            animationSpec = MotionSprings.appearance(),
+                            animationSpec = MotionSprings.appearanceTween(),
                             initialOffsetX = { it }
                         )
                 } else {
@@ -582,10 +544,10 @@ fun MainScreen(
             },
             exitTransition = {
                 if (enableAnimations) {
-                    fadeOut(animationSpec = MotionSprings.appearance()) +
+                    fadeOut(animationSpec = MotionSprings.appearanceTween()) +
                         slideOutHorizontally(
-                            animationSpec = MotionSprings.appearance(),
-                            targetOffsetX = { -it / 3 }
+                            animationSpec = MotionSprings.appearanceTween(),
+                            targetOffsetX = { -it / 4 }
                         )
                 } else {
                     ExitTransition.None
@@ -593,10 +555,10 @@ fun MainScreen(
             },
             popEnterTransition = {
                 if (enableAnimations) {
-                    fadeIn(animationSpec = MotionSprings.appearance()) +
+                    fadeIn(animationSpec = MotionSprings.appearanceTween()) +
                         slideInHorizontally(
-                            animationSpec = MotionSprings.appearance(),
-                            initialOffsetX = { -it / 3 }
+                            animationSpec = MotionSprings.appearanceTween(),
+                            initialOffsetX = { -it / 4 }
                         )
                 } else {
                     EnterTransition.None
@@ -604,9 +566,9 @@ fun MainScreen(
             },
             popExitTransition = {
                 if (enableAnimations) {
-                    fadeOut(animationSpec = MotionSprings.appearance()) +
+                    fadeOut(animationSpec = MotionSprings.appearanceTween()) +
                         slideOutHorizontally(
-                            animationSpec = MotionSprings.appearance(),
+                            animationSpec = MotionSprings.appearanceTween(),
                             targetOffsetX = { it }
                         )
                 } else {
@@ -619,7 +581,7 @@ fun MainScreen(
                     state = pagerState,
                     modifier = Modifier.fillMaxSize(),
                     userScrollEnabled = !isAlbumInteracting,
-                    beyondBoundsPageCount = 1
+                    beyondBoundsPageCount = 0
                 ) { page ->
                     when (bottomItems[page].route) {
                         "home" -> HomeScreen(

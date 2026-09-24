@@ -135,10 +135,7 @@ private fun BouncyTabItem(
                     scale.snapTo(0.90f)
                     scale.animateTo(
                         1f,
-                        spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessMedium
-                        )
+                        tween(durationMillis = 160, easing = MotionCurves.FastOutSlowIn)
                     )
                 }
                 onClick()
@@ -627,16 +624,10 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
             AnimatedVisibility(
                 visible = selectedPeriod != TimePeriod.CUSTOM && showSubFilterBar,
                 enter = expandVertically(
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness = Spring.StiffnessLow
-                    )
-                ) + fadeIn(animationSpec = spring()),
+                    animationSpec = tween(MotionDurations.FAST)
+                ) + fadeIn(animationSpec = tween(MotionDurations.FAST)),
                 exit = shrinkVertically(
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness = Spring.StiffnessMedium
-                    )
+                    animationSpec = tween(MotionDurations.FAST)
                 ) + fadeOut()
             ) {
                 Column {
@@ -1488,7 +1479,7 @@ private fun AnimatedBarChart(
         animProgress.snapTo(0f)
         animProgress.animateTo(
             targetValue = 1f,
-            animationSpec = MotionSprings.appearance() // iOS-like smooth spring entry
+            animationSpec = MotionSprings.appearanceTween() // 短促出现，避免 StiffnessLow 弹簧拖帧
         )
     }
 

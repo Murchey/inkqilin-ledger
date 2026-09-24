@@ -418,6 +418,34 @@ class TransactionViewModel(
         viewModelScope, SharingStarted.WhileSubscribed(5000), false
     )
 
+    /** 鸿蒙/卓易通兼容模式：自动记账降级（拍照已统一系统相机） */
+    val harmonyCompatMode: StateFlow<Boolean> = themeManager.harmonyCompatMode.stateIn(
+        viewModelScope, SharingStarted.Eagerly, false
+    )
+
+    /** 是否已完成「是否鸿蒙」询问 */
+    val harmonyCompatAsked: StateFlow<Boolean> = themeManager.harmonyCompatAsked.stateIn(
+        viewModelScope, SharingStarted.Eagerly, false
+    )
+
+    /** DataStore 真值是否已读入（首帧假值防护） */
+    private val _harmonyAskedLoaded = MutableStateFlow(false)
+    val harmonyAskedLoaded: StateFlow<Boolean> = _harmonyAskedLoaded.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            themeManager.harmonyCompatAsked.collect {
+                _harmonyAskedLoaded.value = true
+            }
+        }
+    }
+
+    fun setHarmonyCompatMode(enabled: Boolean) {
+        viewModelScope.launch {
+            themeManager.setHarmonyCompatMode(enabled)
+        }
+    }
+
     val ocrEnabled: StateFlow<Boolean> = themeManager.ocrEnabled.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), false
     )
@@ -610,7 +638,11 @@ class TransactionViewModel(
 
     fun addAlbumPhoto(uri: String, note: String = "") {
         viewModelScope.launch {
-            albumPhotoDao.insertPhoto(AlbumPhoto(uri = uri, note = note))
+            try {
+                albumPhotoDao.insertPhoto(AlbumPhoto(uri = uri, note = note))
+            } catch (t: Throwable) {
+                Log.e("Album", "保存照片记录失败", t)
+            }
         }
     }
 

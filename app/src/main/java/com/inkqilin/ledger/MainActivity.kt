@@ -118,6 +118,52 @@ class MainActivity : ComponentActivity() {
                         viewModel.backfillAssetFlowUuids()
                     }
 
+                    // 首次启动询问运行环境（鸿蒙/卓易通 vs 标准 Android）。
+                    // 必须等 DataStore 真值再弹，避免 stateIn 初值 false 导致每次冷启动误弹并覆写用户选择。
+                    val harmonyAsked by viewModel.harmonyCompatAsked.collectAsState()
+                    val harmonyAskedLoaded by viewModel.harmonyAskedLoaded.collectAsState()
+                    var showHarmonyAsk by remember { mutableStateOf(false) }
+                    LaunchedEffect(harmonyAskedLoaded, harmonyAsked) {
+                        if (harmonyAskedLoaded && !harmonyAsked && !showHarmonyAsk) {
+                            showHarmonyAsk = true
+                        }
+                        if (harmonyAsked) {
+                            showHarmonyAsk = false
+                        }
+                    }
+                    if (showHarmonyAsk) {
+                        val defaultHarmony = remember { com.inkqilin.ledger.util.DeviceCompat.guessHarmonyOs() }
+                        com.inkqilin.ledger.ui.screens.AppleAlertDialog(
+                            onDismissRequest = {
+                                // 仅在「确实需要询问」时落盘；已问过则绝不改写 mode
+                                if (!harmonyAsked) {
+                                    viewModel.setHarmonyCompatMode(false)
+                                }
+                                showHarmonyAsk = false
+                            },
+                            title = "运行环境确认",
+                            message = "是否运行在鸿蒙系统上（例如通过卓易通等兼容层）？\n\n" +
+                                "选择「鸿蒙」后将关闭自动记账（通知监听在该环境不可用）。\n" +
+                                "相册拍照已统一使用系统相机，安卓/鸿蒙均可。\n（仅询问这一次）",
+                            buttons = listOf(
+                                com.inkqilin.ledger.ui.screens.AppleDialogButton(
+                                    if (defaultHarmony) "鸿蒙 / 兼容模式" else "标准 Android",
+                                    com.inkqilin.ledger.ui.screens.AppleDialogButtonStyle.DEFAULT
+                                ) {
+                                    viewModel.setHarmonyCompatMode(defaultHarmony)
+                                    showHarmonyAsk = false
+                                },
+                                com.inkqilin.ledger.ui.screens.AppleDialogButton(
+                                    if (defaultHarmony) "标准 Android" else "鸿蒙 / 兼容模式",
+                                    com.inkqilin.ledger.ui.screens.AppleDialogButtonStyle.CANCEL
+                                ) {
+                                    viewModel.setHarmonyCompatMode(!defaultHarmony)
+                                    showHarmonyAsk = false
+                                }
+                            )
+                        )
+                    }
+
                     // ── 下载状态 ──
                     var downloadState by remember { mutableStateOf<DownloadUiState>(DownloadUiState.Idle) }
 

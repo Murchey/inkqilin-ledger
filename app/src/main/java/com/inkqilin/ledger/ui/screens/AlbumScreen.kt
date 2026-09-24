@@ -1,23 +1,14 @@
 package com.inkqilin.ledger.ui.screens
 
-import android.Manifest
 import android.content.ContentValues
 import android.content.Context
-import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.camera.core.CameraSelector
-import androidx.camera.core.ImageCapture
-import androidx.camera.core.ImageCaptureException
-import androidx.camera.core.Preview
-import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.camera.view.PreviewView
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -46,6 +37,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -62,18 +54,16 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.inkqilin.ledger.data.AlbumPhoto
+import com.inkqilin.ledger.util.DeviceCompat
 import com.inkqilin.ledger.ui.TransactionViewModel
 import kotlinx.coroutines.launch
 import java.io.File
@@ -106,6 +96,11 @@ fun AlbumScreen(
     var selectedPhoto by remember { mutableStateOf<AlbumPhoto?>(null) }
     var showDeleteConfirm by remember { mutableStateOf<AlbumPhoto?>(null) }
 
+    // 离开相册（Tab 切走/导航/销毁）时必须复位，否则底栏永久隐藏
+    DisposableEffect(Unit) {
+        onDispose { viewModel.setAlbumInteracting(false) }
+    }
+
     var isSelectionMode by remember { mutableStateOf(false) }
     var selectedIds by remember { mutableStateOf(setOf<Long>()) }
     var showBatchDeleteConfirm by remember { mutableStateOf(false) }
@@ -126,39 +121,48 @@ fun AlbumScreen(
         }
     }
 
-    val hasCameraPermission = remember {
-        mutableStateOf(
-            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
-                    PackageManager.PERMISSION_GRANTED
-        )
-    }
-
-    var permissionRequestedThisDrag by remember { mutableStateOf(false) }
-
     var isDragging by remember { mutableStateOf(false) }
-    var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
-    var cameraXFailed by remember { mutableStateOf(false) }
-    var tempSystemCameraUri by remember { mutableStateOf<Uri?>(null) }
+    // 系统相机返回后进程可能被回收：URI 必须可恢复，否则 success 也会丢照
+    var tempSystemCameraUri by rememberSaveable { mutableStateOf<Uri?>(null) }
 
     val systemCameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
         if (success) {
-            tempSystemCameraUri?.let { uri ->
+            val uri = tempSystemCameraUri
+                ?: latestAlbumPhotoFile(context)?.let { Uri.fromFile(it) }
+            if (uri != null) {
                 try {
-                    val bitmap = BitmapFactory.decodeStream(
-                        context.contentResolver.openInputStream(uri)
-                    )
+                    val photoFile = uri.path?.let { File(it) }
+                    val bitmap = photoFile?.let { DeviceCompat.decodeBitmapSampled(it) }
+                        ?: DeviceCompat.decodeBitmapSampled(context, uri)
                     if (bitmap != null) {
                         saveToSystemGallery(context, bitmap)
                         polaroidBitmap = bitmap
                         capturedUri = uri
                         viewModel.addAlbumPhoto(uri.toString())
                         showFlash = true
+                    } else {
+                        Toast.makeText(context, "拍照失败", Toast.LENGTH_SHORT).show()
                     }
-                } catch (_: Exception) {
+                } catch (_: Throwable) {
                     Toast.makeText(context, "拍照失败", Toast.LENGTH_SHORT).show()
                 }
+            } else {
+                Toast.makeText(context, "未找到照片", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            // 取消：清理半截文件并收回胶囊
+            runCatching { tempSystemCameraUri?.path?.let { File(it).delete() } }
+            tempSystemCameraUri = null
+            scope.launch {
+                expansionProgress.animateTo(
+                    0f,
+                    spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessHigh
+                    )
+                )
             }
         }
     }
@@ -167,76 +171,46 @@ fun AlbumScreen(
         viewModel.setAlbumInteracting(selectedPhoto != null || isDragging || expansionProgress.value > 0.01f)
     }
 
+    // 系统相机启动（唯一拍照路径：避免卓易通上 CameraX native abort）
+    val launchSystemCamera: () -> Unit = {
+        val imageDir = File(context.filesDir, "album_photos")
+        if (!imageDir.exists()) imageDir.mkdirs()
+        val photoFile = File(imageDir, "IMG_${System.currentTimeMillis()}.jpg")
+        tempSystemCameraUri = Uri.fromFile(photoFile)
+        val contentUri = try {
+            FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                photoFile
+            )
+        } catch (_: Throwable) {
+            Toast.makeText(context, "无法打开相机（存储不可用）", Toast.LENGTH_SHORT).show()
+            null
+        }
+        scope.launch {
+            expansionProgress.animateTo(
+                0f,
+                spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessHigh
+                )
+            )
+        }
+        if (contentUri != null) {
+            try {
+                systemCameraLauncher.launch(contentUri)
+            } catch (_: Throwable) {
+                Toast.makeText(context, "无法打开系统相机", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     LaunchedEffect(isDragging) {
         if (!isDragging && expansionProgress.value > 0.01f) {
-            permissionRequestedThisDrag = false
             kotlinx.coroutines.delay(150)
             if (isDragging) return@LaunchedEffect
-            if (expansionProgress.value > 0.6f && imageCapture != null) {
-                val capture = imageCapture!!
-                val imageDir = File(context.filesDir, "album_photos")
-                if (!imageDir.exists()) imageDir.mkdirs()
-                val photoFile = File(imageDir, "IMG_${System.currentTimeMillis()}.jpg")
-                val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
-                capture.takePicture(
-                    outputOptions,
-                    ContextCompat.getMainExecutor(context),
-                    object : ImageCapture.OnImageSavedCallback {
-                        override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                            val uri = Uri.fromFile(photoFile)
-                            val bitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
-                            if (bitmap != null) {
-                                saveToSystemGallery(context, bitmap)
-                                polaroidBitmap = bitmap
-                                capturedUri = uri
-                                // 立刻入库，避免动画未完成时退出相册导致丢失
-                                viewModel.addAlbumPhoto(uri.toString())
-                                showFlash = true
-                            }
-                            scope.launch {
-                                expansionProgress.animateTo(
-                                    0f,
-                                    spring(
-                                        dampingRatio = Spring.DampingRatioNoBouncy,
-                                        stiffness = Spring.StiffnessHigh
-                                    )
-                                )
-                            }
-                        }
-                        override fun onError(exception: ImageCaptureException) {
-                            scope.launch {
-                                expansionProgress.animateTo(
-                                    0f,
-                                    spring(
-                                        dampingRatio = Spring.DampingRatioNoBouncy,
-                                        stiffness = Spring.StiffnessHigh
-                                    )
-                                )
-                            }
-                        }
-                    }
-                )
-            } else if (expansionProgress.value > 0.6f && cameraXFailed) {
-                // CameraX 不可用时使用系统相机
-                val imageDir = File(context.filesDir, "album_photos")
-                if (!imageDir.exists()) imageDir.mkdirs()
-                val photoFile = File(imageDir, "IMG_${System.currentTimeMillis()}.jpg")
-                val contentUri = FileProvider.getUriForFile(
-                    context,
-                    "${context.packageName}.fileprovider",
-                    photoFile
-                )
-                tempSystemCameraUri = Uri.fromFile(photoFile)
-                scope.launch {
-                    expansionProgress.animateTo(
-                        0f,
-                        spring(
-                            dampingRatio = Spring.DampingRatioNoBouncy,
-                            stiffness = Spring.StiffnessHigh
-                        )
-                    )
-                }
-                systemCameraLauncher.launch(contentUri)
+            if (expansionProgress.value > 0.6f) {
+                launchSystemCamera()
             } else {
                 expansionProgress.animateTo(
                     0f,
@@ -246,15 +220,6 @@ fun AlbumScreen(
                     )
                 )
             }
-        }
-    }
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        hasCameraPermission.value = granted
-        if (!granted) {
-            Toast.makeText(context, "需要相机权限才能拍照", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -303,10 +268,6 @@ fun AlbumScreen(
                                 val newValue = (expansionProgress.value + deltaY / dragThresholdPx)
                                     .coerceIn(0f, 1f)
                                 scope.launch { expansionProgress.snapTo(newValue) }
-                                if (!hasCameraPermission.value && newValue > 0.3f && !permissionRequestedThisDrag) {
-                                    permissionRequestedThisDrag = true
-                                    permissionLauncher.launch(Manifest.permission.CAMERA)
-                                }
                             }
                         }
                     }
@@ -325,11 +286,8 @@ fun AlbumScreen(
                     modifier = Modifier,
                     expansionProgress = expansionProgress,
                     isDragging = isDragging,
-                    hasPermission = hasCameraPermission.value,
                     showFlash = showFlash,
-                    isPrinting = isPrinting,
-                    onImageCaptureReady = { imageCapture = it },
-                    onCameraInitFailed = { cameraXFailed = true }
+                    isPrinting = isPrinting
                 )
             }
             }
@@ -455,11 +413,13 @@ fun AlbumScreen(
         }
 
         selectedPhoto?.let { photo ->
+            val startIndex = photos.indexOfFirst { it.id == photo.id }.coerceAtLeast(0)
             PhotoViewerScreen(
-                photo = photo,
+                photos = photos,
+                initialIndex = startIndex,
                 onUpdate = { updated -> viewModel.updateAlbumPhoto(updated) },
-                onDelete = {
-                    showDeleteConfirm = photo
+                onDelete = { toDelete ->
+                    showDeleteConfirm = toDelete
                     selectedPhoto = null
                 },
                 onBack = { selectedPhoto = null }
@@ -507,15 +467,9 @@ private fun DynamicIslandCapsule(
     modifier: Modifier,
     expansionProgress: Animatable<Float, AnimationVector1D>,
     isDragging: Boolean,
-    hasPermission: Boolean,
     showFlash: Boolean,
-    isPrinting: Boolean,
-    onImageCaptureReady: (ImageCapture) -> Unit,
-    onCameraInitFailed: () -> Unit = {}
+    isPrinting: Boolean
 ) {
-    val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
-
     val collapsedWidth = 150.dp
     val expandedWidth = 340.dp
     val printWidth = 184.dp
@@ -537,20 +491,8 @@ private fun DynamicIslandCapsule(
     } else {
         50.dp - (50.dp - 24.dp) * expansionProgress.value
     }
-    val shadowElevation = 4.dp + 12.dp * (if (isPrinting) 0f else expansionProgress.value)
-
-    val shouldBindCamera = expansionProgress.value > 0.15f
-    var cameraInitFailed by remember { mutableStateOf(false) }
-
-    // 摄像头解绑清理
-    DisposableEffect(lifecycleOwner) {
-        onDispose {
-            try {
-                val provider = ProcessCameraProvider.getInstance(context).get()
-                provider.unbindAll()
-            } catch (_: Throwable) {}
-        }
-    }
+    // 常量 elevation：阴影在展开动画中变化会在低端机上明显掉帧
+    val shadowElevation = 8.dp
 
     Box(modifier = modifier) {
         Box(
@@ -567,47 +509,16 @@ private fun DynamicIslandCapsule(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            if (shouldBindCamera && hasPermission && !cameraInitFailed) {
-                val cameraPreviewView = remember { mutableStateOf<PreviewView?>(null) }
-
-                LaunchedEffect(cameraPreviewView.value) {
-                    val pv = cameraPreviewView.value ?: return@LaunchedEffect
-                    try {
-                        val cameraProvider = ProcessCameraProvider.getInstance(context).get()
-                        val preview = Preview.Builder().build().also {
-                            it.setSurfaceProvider(pv.surfaceProvider)
+            // 纯系统相机：胶囊内不嵌 CameraX 预览，避免卓易通 native abort
+            if (expansionProgress.value > 0.35f) {
+                if (!(expansionProgress.value > 0.6f && isDragging)) {
+                    Text(
+                        "松手打开相机",
+                        color = Color.White.copy(alpha = 0.9f),
+                        fontSize = 14.sp,
+                        modifier = Modifier.graphicsLayer {
+                            alpha = ((expansionProgress.value - 0.35f) / 0.3f).coerceIn(0f, 1f)
                         }
-                        val capture = ImageCapture.Builder()
-                            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-                            .build()
-                        onImageCaptureReady(capture)
-                        cameraProvider.unbindAll()
-                        cameraProvider.bindToLifecycle(
-                            lifecycleOwner,
-                            CameraSelector.DEFAULT_BACK_CAMERA,
-                            preview,
-                            capture
-                        )
-                    } catch (_: Throwable) {
-                        cameraInitFailed = true
-                        onCameraInitFailed()
-                    }
-                }
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(RoundedCornerShape(cornerRadius))
-                        .graphicsLayer { alpha = ((expansionProgress.value - 0.15f) / 0.4f).coerceIn(0f, 1f) }
-                ) {
-                    AndroidView(
-                        factory = { ctx ->
-                            PreviewView(ctx).apply {
-                                scaleType = PreviewView.ScaleType.FILL_CENTER
-                                implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-                            }.also { cameraPreviewView.value = it }
-                        },
-                        modifier = Modifier.fillMaxSize()
                     )
                 }
             }
@@ -623,7 +534,7 @@ private fun DynamicIslandCapsule(
 
             if (expansionProgress.value > 0.6f && isDragging) {
                 Text(
-                    "松手拍摄",
+                    "松手打开相机",
                     color = Color.White.copy(alpha = 0.9f),
                     fontSize = 14.sp,
                     modifier = Modifier
@@ -758,10 +669,9 @@ private fun AlbumPhotoCard(
     val bitmap = remember(photo.id, photo.uri) {
         try {
             val uri = Uri.parse(photo.uri)
-            context.contentResolver.openInputStream(uri)?.use { stream ->
-                BitmapFactory.decodeStream(stream)
-            }?.takeIf { it.width > 0 && it.height > 0 }
-        } catch (_: Exception) {
+            DeviceCompat.decodeBitmapSampled(context, uri, maxDim = 512)
+                ?.takeIf { it.width > 0 && it.height > 0 }
+        } catch (_: Throwable) {
             null
         }
     }
@@ -864,51 +774,47 @@ private fun AlbumPhotoCard(
 }
 
 @Suppress("AssignedValueIsNeverRead")
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class,
+    androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun PhotoViewerScreen(
-    photo: AlbumPhoto,
+    photos: List<AlbumPhoto>,
+    initialIndex: Int,
     onUpdate: (AlbumPhoto) -> Unit,
-    onDelete: () -> Unit,
+    onDelete: (AlbumPhoto) -> Unit,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val bitmap = remember(photo.id, photo.uri) {
-        try {
-            val uri = Uri.parse(photo.uri)
-            context.contentResolver.openInputStream(uri)?.use { stream ->
-                BitmapFactory.decodeStream(stream)
-            }?.takeIf { it.width > 0 && it.height > 0 }
-        } catch (_: Exception) {
-            null
-        }
+    // 避免 composable 早期 return（部分编译链路会生成 NON_LOCAL_RETURN 导致 D8 失败）
+    if (photos.isEmpty()) {
+        onBack()
     }
-
-    var scale by remember { mutableFloatStateOf(1f) }
-    var offsetX by remember { mutableFloatStateOf(0f) }
-    var offsetY by remember { mutableFloatStateOf(0f) }
-
+    val startIndex = initialIndex.coerceIn(0, photos.lastIndex)
+    val pagerState = androidx.compose.foundation.pager.rememberPagerState(initialPage = startIndex) {
+        photos.size
+    }
+    val currentPage = pagerState.currentPage.coerceIn(0, photos.lastIndex)
+    var currentPhoto by remember { mutableStateOf(photos[startIndex]) }
+    var editNote by remember { mutableStateOf(currentPhoto.note) }
     var menuExpanded by remember { mutableStateOf(false) }
     var showNoteEditor by remember { mutableStateOf(false) }
     var showTimeEditor by remember { mutableStateOf(false) }
 
-    var currentPhoto by remember { mutableStateOf(photo) }
-    var editNote by remember { mutableStateOf(currentPhoto.note) }
-
-    val transformState = rememberTransformableState { zoomChange, offsetChange, _ ->
-        scale = (scale * zoomChange).coerceIn(0.5f, 5f)
-        if (scale > 1f) {
-            offsetX += offsetChange.x
-            offsetY += offsetChange.y
-        } else {
-            offsetX = 0f
-            offsetY = 0f
+    LaunchedEffect(currentPage, photos) {
+        photos.getOrNull(currentPage)?.let {
+            currentPhoto = it
+            editNote = it.note
         }
     }
 
-    LaunchedEffect(photo) {
-        currentPhoto = photo
-        editNote = photo.note
+    // 系统返回：先关弹层/查看器，避免 MainScreen 把返回劫去切 Tab 导致底栏卡死
+    androidx.activity.compose.BackHandler {
+        when {
+            showTimeEditor -> showTimeEditor = false
+            showNoteEditor -> showNoteEditor = false
+            menuExpanded -> menuExpanded = false
+            else -> onBack()
+        }
     }
 
     Box(
@@ -919,22 +825,57 @@ private fun PhotoViewerScreen(
         val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
         val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
-        if (bitmap != null) {
-            Image(
-                bitmap = bitmap.asImageBitmap(),
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = topInset + 48.dp, bottom = bottomInset + 48.dp)
-                    .transformable(state = transformState, lockRotationOnZoomPan = true)
-                    .graphicsLayer {
-                        scaleX = scale
-                        scaleY = scale
-                        translationX = offsetX
-                        translationY = offsetY
-                    },
-                contentScale = ContentScale.Fit
-            )
+        // 系统相册式：左右滑切换上一张/下一张
+        // 注意：key 内避免 return@key，会生成 NON_LOCAL_RETURN 导致 D8 无法 dex
+        androidx.compose.foundation.pager.HorizontalPager(
+            state = pagerState,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = topInset + 48.dp, bottom = bottomInset + 48.dp)
+        ) { page ->
+            key(page) {
+                val pagePhoto = photos.getOrNull(page)
+                if (pagePhoto != null) {
+                    val bitmap = remember(pagePhoto.id, pagePhoto.uri) {
+                        try {
+                            val uri = Uri.parse(pagePhoto.uri)
+                            DeviceCompat.decodeBitmapSampled(context, uri, maxDim = 2048)
+                                ?.takeIf { it.width > 0 && it.height > 0 }
+                        } catch (_: Throwable) {
+                            null
+                        }
+                    }
+                    var scale by remember { mutableFloatStateOf(1f) }
+                    var offsetX by remember { mutableFloatStateOf(0f) }
+                    var offsetY by remember { mutableFloatStateOf(0f) }
+                    val transformState = rememberTransformableState { zoomChange, offsetChange, _ ->
+                        scale = (scale * zoomChange).coerceIn(0.5f, 5f)
+                        if (scale > 1f) {
+                            offsetX += offsetChange.x
+                            offsetY += offsetChange.y
+                        } else {
+                            offsetX = 0f
+                            offsetY = 0f
+                        }
+                    }
+                    if (bitmap != null) {
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .transformable(state = transformState, lockRotationOnZoomPan = true)
+                                .graphicsLayer {
+                                    scaleX = scale
+                                    scaleY = scale
+                                    translationX = offsetX
+                                    translationY = offsetY
+                                },
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+                }
+            }
         }
 
         // Top bar
@@ -957,6 +898,15 @@ private fun PhotoViewerScreen(
                 Icon(Icons.Default.ArrowBack, contentDescription = "返回", tint = Color.White)
             }
 
+            if (photos.size > 1) {
+                Text(
+                    text = "${currentPage + 1}/${photos.size}",
+                    color = Color.White.copy(alpha = 0.85f),
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            }
+
             Box(modifier = Modifier.align(Alignment.CenterEnd)) {
                 IconButton(onClick = { menuExpanded = true }) {
                     Icon(Icons.Default.MoreVert, contentDescription = "更多", tint = Color.White)
@@ -977,7 +927,7 @@ private fun PhotoViewerScreen(
                     )
                     DropdownMenuItem(
                         text = { Text("删除", color = MaterialTheme.colorScheme.error) },
-                        onClick = { menuExpanded = false; onDelete() },
+                        onClick = { menuExpanded = false; onDelete(currentPhoto) },
                         leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) }
                     )
                 }
@@ -1158,6 +1108,16 @@ private fun PhotoViewerScreen(
     }
 }
 
+private fun latestAlbumPhotoFile(context: Context): File? {
+    return try {
+        File(context.filesDir, "album_photos")
+            .listFiles { f -> f.isFile && f.name.startsWith("IMG_") && f.length() > 0 }
+            ?.maxByOrNull { it.lastModified() }
+    } catch (_: Throwable) {
+        null
+    }
+}
+
 private fun copyUriToInternalStorage(context: Context, sourceUri: Uri): Uri? {
     return try {
         val imageDir = File(context.filesDir, "album_photos")
@@ -1169,7 +1129,7 @@ private fun copyUriToInternalStorage(context: Context, sourceUri: Uri): Uri? {
             }
         }
         Uri.fromFile(destFile)
-    } catch (_: Exception) {
+    } catch (_: Throwable) {
         null
     }
 }
@@ -1197,7 +1157,7 @@ private fun saveToSystemGallery(context: Context, bitmap: Bitmap): Uri? {
             }
         }
         uri
-    } catch (_: Exception) {
+    } catch (_: Throwable) {
         null
     }
 }

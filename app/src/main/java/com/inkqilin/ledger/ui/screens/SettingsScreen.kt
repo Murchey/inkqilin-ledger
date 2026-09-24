@@ -142,6 +142,7 @@ fun SettingsScreen(
     val importProgress by viewModel.excelProgress.collectAsState()
     var exportFormat by remember { mutableStateOf(ExportFormat.EXCEL) }
     val autoRecordEnabled by viewModel.autoRecordEnabled.collectAsState()
+    val harmonyCompatMode by viewModel.harmonyCompatMode.collectAsState()
     val ocrEnabled by viewModel.ocrEnabled.collectAsState()
     val albumEnabled by viewModel.albumEnabled.collectAsState()
     val aiApiKey by viewModel.aiApiKey.collectAsState()
@@ -756,7 +757,13 @@ fun SettingsScreen(
                     ListItem(
                         headlineContent = { Text("自动记账") },
                         supportingContent = {
-                            Text(if (autoRecordEnabled) "已启用；需要通知监听权限" else "未启用；需要时再开启")
+                            Text(
+                                when {
+                                    harmonyCompatMode -> "鸿蒙/兼容环境不支持自动记账"
+                                    autoRecordEnabled -> "已启用；需要通知监听权限"
+                                    else -> "未启用；需要时再开启"
+                                }
+                            )
                         },
                         trailingContent = {
                             Switch(
