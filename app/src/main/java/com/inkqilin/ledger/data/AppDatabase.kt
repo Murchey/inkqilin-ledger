@@ -330,8 +330,18 @@ abstract class AppDatabase : RoomDatabase() {
 
         private val MIGRATION_17_18 = object : Migration(17, 18) {
             override fun migrate(db: SupportSQLiteDatabase) {
+                // 仅增列（带 DEFAULT），不重建表，不删数据
                 db.execSQL("ALTER TABLE user_assets ADD COLUMN `currency` TEXT NOT NULL DEFAULT 'CNY'")
                 db.execSQL("ALTER TABLE asset_flows ADD COLUMN `currency` TEXT NOT NULL DEFAULT 'CNY'")
+                // 历史流转记录币种回填为所属资产币种，避免显示错误
+                db.execSQL(
+                    """
+                    UPDATE asset_flows SET currency = COALESCE(
+                        (SELECT user_assets.currency FROM user_assets WHERE user_assets.id = asset_flows.assetId),
+                        'CNY'
+                    )
+                    """.trimIndent()
+                )
             }
         }
 
