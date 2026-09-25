@@ -498,8 +498,12 @@ private fun SingleCurrencyOverviewCard(
     val symbol = defaultAsset?.symbol ?: "¥"
     val balance = periodIncome - periodExpense
     val assetAccent = if (customColorHex != null) {
-        try { Color(android.graphics.Color.parseColor(customColorHex)) } catch (_: Exception) { Color(0xFF6C63FF) }
-    } else if (defaultAsset != null) resolveCardColor(defaultAsset, true) else Color(0xFF6C63FF)
+        try { Color(android.graphics.Color.parseColor(customColorHex)) } catch (_: Exception) {
+            Color(android.graphics.Color.parseColor(com.inkqilin.ledger.util.DEFAULT_HOME_CARD_COLOR_HEX))
+        }
+    } else {
+        Color(android.graphics.Color.parseColor(com.inkqilin.ledger.util.DEFAULT_HOME_CARD_COLOR_HEX))
+    }
     val cardColor by animateColorAsState(
         targetValue = assetAccent,
         animationSpec = if (enableAnimations) MotionSprings.interactive() else snap(),

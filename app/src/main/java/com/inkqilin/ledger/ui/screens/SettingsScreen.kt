@@ -27,6 +27,7 @@ import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -522,65 +523,82 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.height(0.5.dp))
                         Spacer(modifier = Modifier.height(12.dp))
                         val currentPrimary = MaterialTheme.colorScheme.primary
-                        val presetThemeColors = listOf(
-                            "#5856D6" to "靛蓝",
-                            DEFAULT_PRIMARY_COLOR_HEX to "青翠绿",
-                            "#007AFF" to "深蓝",
-                            "#00897B" to "青绿",
-                            "#FF9500" to "深橙",
-                            "#FF3B30" to "苹果红",
-                            "#00838F" to "暗青",
-                            "#5C6BC0" to "蓝紫"
-                        )
+                        val currentHex = (customPrimaryColorHex ?: DEFAULT_PRIMARY_COLOR_HEX).lowercase()
                         var showThemeColorPicker by remember { mutableStateOf(false) }
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            items(presetThemeColors) { (hex, _) ->
-                                val parsed = try {
-                                    Color(android.graphics.Color.parseColor(hex))
-                                } catch (_: Exception) {
-                                    currentPrimary
-                                }
-                                val isSelected = (customPrimaryColorHex ?: DEFAULT_PRIMARY_COLOR_HEX).equals(hex, ignoreCase = true)
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(CircleShape)
-                                        .background(parsed)
-                                        .clickable { viewModel.setCustomPrimaryColor(hex) },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (isSelected) {
-                                        Icon(
-                                            Icons.Default.Check,
-                                            contentDescription = null,
-                                            tint = Color.White,
-                                            modifier = Modifier.size(20.dp)
-                                        )
+
+                        @Composable
+                        fun PresetSwatchRow(
+                            label: String,
+                            presets: List<com.inkqilin.ledger.util.ThemeColorPreset>,
+                            trailing: (@Composable () -> Unit)? = null
+                        ) {
+                            Text(
+                                label,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                items(presets) { preset ->
+                                    val parsed = try {
+                                        Color(android.graphics.Color.parseColor(preset.hex))
+                                    } catch (_: Exception) {
+                                        currentPrimary
+                                    }
+                                    val isSelected = currentHex == preset.hex.lowercase()
+                                    val checkTint = if (parsed.luminance() > 0.55f) {
+                                        MaterialTheme.colorScheme.onSurface
+                                    } else {
+                                        Color.White
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .clip(CircleShape)
+                                            .background(parsed)
+                                            .clickable { viewModel.setCustomPrimaryColor(preset.hex) },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (isSelected) {
+                                            Icon(
+                                                Icons.Default.Check,
+                                                contentDescription = preset.name,
+                                                tint = checkTint,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
                                     }
                                 }
-                            }
-                            item {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            Brush.sweepGradient(
-                                                listOf(Color.Red, Color.Yellow, Color.Green, Color.Cyan, Color.Blue, Color.Magenta, Color.Red)
-                                            )
-                                        )
-                                        .clickable { showThemeColorPicker = true },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        Icons.Default.Add,
-                                        contentDescription = "自定义颜色",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                                if (trailing != null) {
+                                    item { trailing() }
                                 }
                             }
+                            Spacer(Modifier.height(14.dp))
                         }
+
+                        PresetSwatchRow("亮色", com.inkqilin.ledger.util.BrightThemePresets) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        Brush.sweepGradient(
+                                            listOf(Color.Red, Color.Yellow, Color.Green, Color.Cyan, Color.Blue, Color.Magenta, Color.Red)
+                                        )
+                                    )
+                                    .clickable { showThemeColorPicker = true },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Add,
+                                    contentDescription = "自定义颜色",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+
+                        PresetSwatchRow("暗色（低饱和）", com.inkqilin.ledger.util.DarkThemePresets)
 
                         if (showThemeColorPicker) {
                             ColorPickerDialog(
@@ -593,8 +611,7 @@ fun SettingsScreen(
                             )
                         }
 
-                        if (customPrimaryColorHex != null && customPrimaryColorHex != DEFAULT_PRIMARY_COLOR_HEX) {
-                            Spacer(modifier = Modifier.height(8.dp))
+                        if (customPrimaryColorHex != null && !currentHex.equals(DEFAULT_PRIMARY_COLOR_HEX, ignoreCase = true)) {
                             TextButton(onClick = { viewModel.setCustomPrimaryColor(null) }) {
                                 Text("恢复默认主题色")
                             }
@@ -614,62 +631,79 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.height(10.dp))
 
                         var showHomeCardColorPicker by remember { mutableStateOf(false) }
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            val homeColorPresets = listOf(
-                                "#007AFF", "#FF9500", "#AF52DE", "#34C759", "#FF3B30",
-                                "#5856D6", "#FF2D55", "#00C7BE"
-                            )
-                            items(homeColorPresets) { hex ->
-                                val c = try {
-                                    Color(android.graphics.Color.parseColor(hex))
-                                } catch (_: Exception) {
-                                    MaterialTheme.colorScheme.primary
-                                }
-                                val isSelected = homeCardColorHex == hex
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(c)
-                                        .clickable { viewModel.setHomeCardColor(hex) },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (isSelected) {
-                                        Icon(
-                                            Icons.Default.Check,
-                                            contentDescription = null,
-                                            tint = Color.White,
-                                            modifier = Modifier.size(18.dp)
-                                        )
+
+                        @Composable
+                        fun HomeCardSwatchRow(
+                            label: String,
+                            hexes: List<String>,
+                            trailing: (@Composable () -> Unit)? = null
+                        ) {
+                            Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.height(8.dp))
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                items(hexes) { hex ->
+                                    val c = try {
+                                        Color(android.graphics.Color.parseColor(hex))
+                                    } catch (_: Exception) {
+                                        MaterialTheme.colorScheme.primary
+                                    }
+                                    val selectedHex = homeCardColorHex ?: DEFAULT_HOME_CARD_COLOR_HEX
+                                    val isSelected = selectedHex.equals(hex, true)
+                                    val checkTint = if (c.luminance() > 0.55f) {
+                                        MaterialTheme.colorScheme.onSurface
+                                    } else {
+                                        Color.White
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .background(c)
+                                            .clickable { viewModel.setHomeCardColor(hex) },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (isSelected) {
+                                            Icon(
+                                                Icons.Default.Check,
+                                                contentDescription = null,
+                                                tint = checkTint,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
                                     }
                                 }
-                            }
-                            // Custom color button
-                            item {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            Brush.sweepGradient(
-                                                listOf(Color.Red, Color.Yellow, Color.Green, Color.Cyan, Color.Blue, Color.Magenta, Color.Red)
-                                            )
-                                        )
-                                        .clickable { showHomeCardColorPicker = true },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        Icons.Default.Add,
-                                        contentDescription = "自定义颜色",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                                if (trailing != null) {
+                                    item { trailing() }
                                 }
+                            }
+                            Spacer(Modifier.height(14.dp))
+                        }
+
+                        HomeCardSwatchRow("亮色", com.inkqilin.ledger.ui.theme.BrightHomeCardPresets) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        Brush.sweepGradient(
+                                            listOf(Color.Red, Color.Yellow, Color.Green, Color.Cyan, Color.Blue, Color.Magenta, Color.Red)
+                                        )
+                                    )
+                                    .clickable { showHomeCardColorPicker = true },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Add,
+                                    contentDescription = "自定义颜色",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
                             }
                         }
 
+                        HomeCardSwatchRow("暗色（低饱和）", com.inkqilin.ledger.ui.theme.DarkHomeCardPresets)
+
                         if (homeCardColorHex != null) {
-                            Spacer(modifier = Modifier.height(8.dp))
                             TextButton(onClick = { viewModel.setHomeCardColor(null) }) {
                                 Text("恢复默认")
                             }
@@ -677,7 +711,7 @@ fun SettingsScreen(
 
                         if (showHomeCardColorPicker) {
                             ColorPickerDialog(
-                                initialColor = homeCardColorHex ?: "#34C759",
+                                initialColor = homeCardColorHex ?: DEFAULT_HOME_CARD_COLOR_HEX,
                                 onColorSelected = {
                                     viewModel.setHomeCardColor(it)
                                     showHomeCardColorPicker = false

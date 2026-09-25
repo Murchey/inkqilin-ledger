@@ -73,6 +73,8 @@ class TransactionViewModel(
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
+            // 本版配色改版：仅升级后首次启动重置一次默认色
+            themeManager.migrateColorPaletteOnce()
             if (categoryDao.getAllCategories().first().isEmpty()) {
                 initializeDefaultCategories()
             }

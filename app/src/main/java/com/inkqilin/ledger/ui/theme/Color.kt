@@ -94,16 +94,23 @@ val NeonPink = ApplePink
 
 data class CardColorPreset(val dark: String, val light: String, val label: String)
 
+/** 币种卡片预置：亮色更明快，暗色低饱和（用于深色界面/深色卡片） */
 val CardColorPresets = listOf(
-    CardColorPreset("#007AFF", "#5AC8FA", "蓝"),
-    CardColorPreset("#FF9500", "#FF9F0A", "橙"),
-    CardColorPreset("#AF52DE", "#BF5AF2", "紫"),
-    CardColorPreset("#34C759", "#30D158", "绿"),
-    CardColorPreset("#FF3B30", "#FF453A", "红"),
-    CardColorPreset("#5856D6", "#5E5CE6", "靛"),
-    CardColorPreset("#FF2D55", "#FF375F", "粉"),
-    CardColorPreset("#00C7BE", "#30B0C7", "青")
+    CardColorPreset("#2E6B52", "#2E9E6A", "青松"),
+    CardColorPreset("#2C4F7A", "#2F74D0", "晴蓝"),
+    CardColorPreset("#7A5A32", "#D8873E", "暖橙"),
+    CardColorPreset("#7A3E3A", "#D75B52", "珊瑚"),
+    CardColorPreset("#4A3F72", "#6B5CC4", "藤紫"),
+    CardColorPreset("#2A5E62", "#2A8A92", "湖青"),
+    CardColorPreset("#2C4864", "#3E6E9E", "藏青"),
+    CardColorPreset("#4E4262", "#7B6BA0", "黛紫")
 )
+
+/** 主页币种卡片亮色预置（卡片底，白字可读） */
+val BrightHomeCardPresets = CardColorPresets.map { it.light }
+
+/** 主页币种卡片暗色预置（低饱和，减轻视觉疲劳） */
+val DarkHomeCardPresets = CardColorPresets.map { it.dark }
 
 fun resolveCardColor(asset: CurrencyAsset, isDark: Boolean): Color {
     return try {

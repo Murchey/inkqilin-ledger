@@ -107,9 +107,13 @@ fun AddTransactionScreen(
         )
     }
 
+    val navBarBottom = WindowInsets.navigationBars.asPaddingValues()
+        .calculateBottomPadding()
+        .coerceAtLeast(16.dp)
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 32.dp)
+        // 避免保存按钮被三键导航栏遮挡
+        contentPadding = PaddingValues(bottom = navBarBottom + 32.dp)
     ) {
         item {
             Row(

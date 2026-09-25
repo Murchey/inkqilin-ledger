@@ -13,9 +13,34 @@ import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "settings")
 
-const val DEFAULT_PRIMARY_COLOR_HEX = "#34C759"
-const val DEFAULT_INCOME_COLOR_HEX = "#34C759"
-const val DEFAULT_EXPENSE_COLOR_HEX = "#FF9500"
+/** 主题预置色：亮色系偏明快，暗色系低饱和、减轻视觉疲劳 */
+data class ThemeColorPreset(val name: String, val hex: String)
+
+val BrightThemePresets = listOf(
+    ThemeColorPreset("青松", "#2E9E6A"),
+    ThemeColorPreset("晴蓝", "#2F74D0"),
+    ThemeColorPreset("暖橙", "#D8873E"),
+    ThemeColorPreset("珊瑚", "#D75B52"),
+    ThemeColorPreset("藤紫", "#6B5CC4"),
+    ThemeColorPreset("湖青", "#2A8A92")
+)
+
+/** 暗色预置：饱和度压低，长时间使用不易疲劳 */
+val DarkThemePresets = listOf(
+    ThemeColorPreset("墨绿", "#2E5C4A"),
+    ThemeColorPreset("藏青", "#2C4864"),
+    ThemeColorPreset("深青", "#2A5256"),
+    ThemeColorPreset("黛紫", "#4E4262"),
+    ThemeColorPreset("石墨", "#3F4854"),
+    ThemeColorPreset("茶褐", "#5A4838")
+)
+
+/** 默认主题色（青松）：兼顾识别度与耐看度 */
+const val DEFAULT_PRIMARY_COLOR_HEX = "#2E9E6A"
+const val DEFAULT_INCOME_COLOR_HEX = "#22965A"
+const val DEFAULT_EXPENSE_COLOR_HEX = "#D8793A"
+/** 主页币种卡片默认底色：暗色预置行第一枚（青松暗） */
+const val DEFAULT_HOME_CARD_COLOR_HEX = "#2E6B52"
 const val DEFAULT_UPDATE_REPO = "Murchey/inkqinlin-ledger"
 const val DEFAULT_GITHUB_REPO = "Murchey/inkqilin-ledger"
 
@@ -103,6 +128,22 @@ private val WIDGET_SHOW_AMOUNT_KEY = booleanPreferencesKey("widget_show_amount")
     private val HARMONY_COMPAT_ASKED_KEY = booleanPreferencesKey("harmony_compat_asked")
     private val HARMONY_COMPAT_MODE_KEY = booleanPreferencesKey("harmony_compat_mode")
     private val PRIVACY_ACCEPTED_KEY = booleanPreferencesKey("privacy_accepted")
+    private val COLORS_PALETTE_MIGRATED_KEY = booleanPreferencesKey("colors_palette_migrated_2026_09")
+
+    /**
+     * 配色方案改版：升级到本版时重置一次为新默认色；标记后今后版本不再重置。
+     * 仅清空用户自定义色（主题色/主页卡片色）并写回新收支默认色。
+     */
+    suspend fun migrateColorPaletteOnce() {
+        context.dataStore.edit { preferences ->
+            if (preferences[COLORS_PALETTE_MIGRATED_KEY] == true) return@edit
+            preferences.remove(CUSTOM_PRIMARY_COLOR_KEY)
+            preferences[HOME_CARD_COLOR_KEY] = DEFAULT_HOME_CARD_COLOR_HEX
+            preferences[INCOME_COLOR_KEY] = DEFAULT_INCOME_COLOR_HEX
+            preferences[EXPENSE_COLOR_KEY] = DEFAULT_EXPENSE_COLOR_HEX
+            preferences[COLORS_PALETTE_MIGRATED_KEY] = true
+        }
+    }
 
     /** 是否已同意隐私政策 */
     val privacyAccepted: Flow<Boolean> = context.dataStore.data.map { preferences ->
