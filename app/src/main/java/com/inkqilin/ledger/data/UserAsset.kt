@@ -22,6 +22,8 @@ data class UserAsset(
     val type: UserAssetType,
     val currentValue: Double,
     val note: String = "",
+    /** 资产计价币种 code，如 CNY/USD */
+    val currency: String = "CNY",
     val createdAt: Long = System.currentTimeMillis(),
     val lastUpdated: Long = System.currentTimeMillis()
 )

@@ -20,5 +20,7 @@ data class AssetFlow(
     val newValue: Double,
     val note: String = "",
     val date: Long = System.currentTimeMillis(),
-    val uuid: String? = null
+    val uuid: String? = null,
+    /** 与所属资产一致的计价币种 */
+    val currency: String = "CNY"
 )

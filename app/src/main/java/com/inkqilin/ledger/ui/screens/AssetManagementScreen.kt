@@ -7,9 +7,12 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -28,9 +31,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.activity.compose.BackHandler
 import com.inkqilin.ledger.data.AssetFlow
 import com.inkqilin.ledger.data.AssetFlowType
+import com.inkqilin.ledger.data.CurrencyAsset
 import com.inkqilin.ledger.data.UserAsset
 import com.inkqilin.ledger.data.UserAssetType
 import com.inkqilin.ledger.ui.TransactionViewModel
@@ -41,6 +47,11 @@ import kotlin.math.abs
 
 private val amountFormat = DecimalFormat("#,###.##")
 private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+
+/** 由币种 code 解析符号；未知 code 回退为 code 前缀 */
+private fun currencySymbolOf(code: String, currencies: List<CurrencyAsset>): String =
+    currencies.firstOrNull { it.code == code }?.symbol
+        ?: if (code.equals("CNY", ignoreCase = true)) "¥" else "$code "
 
 private enum class AssetSortMode(val label: String) {
     BY_VALUE("按总值排序"),
@@ -56,6 +67,7 @@ fun AssetManagementScreen(
 ) {
     val allAssets by viewModel.allUserAssets.collectAsState()
     val allFlows by viewModel.allAssetFlows.collectAsState()
+    val currencyList by viewModel.allAssets.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     var editingAsset by remember { mutableStateOf<UserAsset?>(null) }
     var selectedAssetForFlow by remember { mutableStateOf<UserAsset?>(null) }
@@ -149,9 +161,13 @@ fun AssetManagementScreen(
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 88.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                // 总资产卡片
+                // 总资产卡片（多币种分行汇总，不跨币种直接相加）
                 item {
-                    val total = allAssets.sumOf { it.currentValue }
+                    val symbolOf: (String) -> String = { code -> currencySymbolOf(code, currencyList) }
+                    val totalsByCurrency = allAssets.groupBy { it.currency }
+                        .mapValues { entry -> entry.value.sumOf { it.currentValue } }
+                        .toList()
+                        .sortedByDescending { it.second }
                     Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
@@ -166,18 +182,31 @@ fun AssetManagementScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                "总资产",
+                                if (totalsByCurrency.size > 1) "总资产（分币种）" else "总资产",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                "¥ ${amountFormat.format(total)}",
-                                style = MaterialTheme.typography.headlineMedium.copy(
-                                    fontWeight = FontWeight.Bold
-                                ),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
+                            if (totalsByCurrency.size <= 1) {
+                                val only = totalsByCurrency.firstOrNull()
+                                Text(
+                                    "${symbolOf(only?.first ?: "CNY")} ${amountFormat.format(only?.second ?: 0.0)}",
+                                    style = MaterialTheme.typography.headlineMedium.copy(
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            } else {
+                                totalsByCurrency.forEach { (code, sum) ->
+                                    Text(
+                                        "${symbolOf(code)} ${amountFormat.format(sum)}",
+                                        style = MaterialTheme.typography.titleLarge.copy(
+                                            fontWeight = FontWeight.Bold
+                                        ),
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 "共 ${allAssets.size} 项资产",
@@ -258,6 +287,7 @@ fun AssetManagementScreen(
                     items(assetsOfType, key = { it.id }) { asset ->
                         AssetCard(
                             asset = asset,
+                            currencies = currencyList,
                             onClick = { selectedAssetForFlow = asset },
                             onEdit = { editingAsset = it },
                             onDelete = { viewModel.deleteUserAsset(asset) }
@@ -284,13 +314,14 @@ fun AssetManagementScreen(
     if (showAddDialog || editingAsset != null) {
         AssetEditDialog(
             asset = editingAsset,
+            currencies = currencyList,
             onDismiss = {
                 showAddDialog = false
                 editingAsset = null
             },
             onSave = { asset ->
                 if (editingAsset != null) {
-                    viewModel.updateUserAsset(asset.copy(id = editingAsset!!.id))
+                    viewModel.updateUserAsset(asset.copy(id = editingAsset!!.id, createdAt = editingAsset!!.createdAt))
                 } else {
                     viewModel.addUserAsset(asset)
                 }
@@ -304,6 +335,7 @@ fun AssetManagementScreen(
 @Composable
 private fun AssetCard(
     asset: UserAsset,
+    currencies: List<CurrencyAsset>,
     onClick: () -> Unit,
     onEdit: (UserAsset) -> Unit,
     onDelete: () -> Unit
@@ -361,7 +393,7 @@ private fun AssetCard(
 
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    "¥ ${amountFormat.format(asset.currentValue)}",
+                    "${currencySymbolOf(asset.currency, currencies)} ${amountFormat.format(asset.currentValue)}",
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -420,120 +452,174 @@ private fun AssetCard(
 @Composable
 private fun AssetEditDialog(
     asset: UserAsset?,
+    currencies: List<CurrencyAsset>,
     onDismiss: () -> Unit,
     onSave: (UserAsset) -> Unit
 ) {
     var name by remember { mutableStateOf(asset?.name ?: "") }
     var selectedType by remember { mutableStateOf(asset?.type ?: UserAssetType.OTHER) }
+    var selectedCurrency by remember(asset?.id) {
+        mutableStateOf(asset?.currency ?: currencies.firstOrNull { it.isDefault }?.code ?: "CNY")
+    }
     var valueStr by remember { mutableStateOf(if (asset != null) asset.currentValue.toString() else "") }
     var note by remember { mutableStateOf(asset?.note ?: "") }
-    var typeDropdownExpanded by remember { mutableStateOf(false) }
 
+    val symbol = currencies.firstOrNull { it.code == selectedCurrency }?.symbol
+        ?: if (selectedCurrency == "CNY") "¥" else "$selectedCurrency "
     val value = AmountExpressionEvaluator.evaluate(valueStr) ?: 0.0
     val isValid = name.isNotBlank() && value >= 0
 
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (asset != null) "编辑资产" else "添加资产") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("资产名称") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .heightIn(max = 640.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f, fill = true)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp, vertical = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        if (asset != null) "编辑资产" else "添加资产",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
 
-                // 类型选择
-                Box {
                     OutlinedTextField(
-                        value = selectedType.label,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("资产类型") },
-                        trailingIcon = {
-                            Icon(
-                                if (typeDropdownExpanded) Icons.Default.KeyboardArrowUp
-                                else Icons.Default.ArrowDropDown,
-                                contentDescription = null
-                            )
-                        },
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("资产名称") },
+                        singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .clickable { typeDropdownExpanded = true }
-                    )
-                    DropdownMenu(
-                        expanded = typeDropdownExpanded,
-                        onDismissRequest = { typeDropdownExpanded = false }
-                    ) {
-                        UserAssetType.entries.forEach { type ->
-                            DropdownMenuItem(
-                                text = { Text(type.label) },
-                                onClick = {
-                                    selectedType = type
-                                    typeDropdownExpanded = false
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        iconForAssetType(type),
-                                        contentDescription = null
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        UserAssetType.entries.chunked(2).forEach { rowTypes ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                rowTypes.forEach { type ->
+                                    val selected = selectedType == type
+                                    FilterChip(
+                                        selected = selected,
+                                        onClick = { selectedType = type },
+                                        label = { Text(type.label) },
+                                        leadingIcon = {
+                                            Icon(
+                                                iconForAssetType(type),
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        },
+                                        modifier = Modifier.weight(1f)
                                     )
                                 }
-                            )
+                                if (rowTypes.size == 1) {
+                                    Spacer(Modifier.weight(1f))
+                                }
+                            }
                         }
                     }
-                }
 
-                Box(modifier = Modifier.fillMaxWidth()) {
+                    if (currencies.isNotEmpty()) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.horizontalScroll(rememberScrollState())
+                        ) {
+                            currencies.forEach { cur ->
+                                val selected = selectedCurrency == cur.code
+                                FilterChip(
+                                    selected = selected,
+                                    onClick = { selectedCurrency = cur.code },
+                                    label = { Text("${cur.symbol} ${cur.code}") },
+                                    modifier = Modifier.padding(end = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                    var showAmountKeypad by remember { mutableStateOf(false) }
+                    fun evaluateAmount() {
+                        AmountExpressionEvaluator.evaluate(valueStr)?.let { result ->
+                            if (result >= 0) valueStr = result.toString()
+                        }
+                    }
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = valueStr,
+                            onValueChange = { valueStr = it },
+                            label = { Text("当前估值") },
+                            singleLine = true,
+                            readOnly = true,
+                            prefix = { Text("$symbol ") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .zIndex(1f)
+                                .clickable { showAmountKeypad = true }
+                        )
+                    }
+                    if (showAmountKeypad) {
+                        AmountKeypad(
+                            value = valueStr,
+                            onValueChange = { valueStr = it },
+                            onEvaluate = ::evaluateAmount,
+                            onDismiss = { showAmountKeypad = false }
+                        )
+                    }
+
                     OutlinedTextField(
-                        value = valueStr,
-                        onValueChange = { valueStr = it },
-                        label = { Text("当前估值") },
-                        singleLine = true,
-                        prefix = { Text("¥ ") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        value = note,
+                        onValueChange = { note = it },
+                        label = { Text("备注") },
+                        minLines = 2,
+                        maxLines = 4,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
-                OutlinedTextField(
-                    value = note,
-                    onValueChange = { note = it },
-                    label = { Text("备注（可选）") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val now = System.currentTimeMillis()
-                    onSave(
-                        UserAsset(
-                            name = name.trim(),
-                            type = selectedType,
-                            currentValue = value,
-                            note = note.trim(),
-                            createdAt = asset?.createdAt ?: now,
-                            lastUpdated = now
-                        )
-                    )
-                },
-                enabled = isValid
-            ) {
-                Text("保存")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f)
+                    ) { Text("取消") }
+                    Button(
+                        onClick = {
+                            val now = System.currentTimeMillis()
+                            onSave(
+                                UserAsset(
+                                    name = name.trim(),
+                                    type = selectedType,
+                                    currentValue = value,
+                                    note = note.trim(),
+                                    currency = selectedCurrency,
+                                    createdAt = asset?.createdAt ?: now,
+                                    lastUpdated = now
+                                )
+                            )
+                        },
+                        enabled = isValid,
+                        modifier = Modifier.weight(1f)
+                    ) { Text("保存") }
+                }
             }
         }
-    )
+    }
 }
 
 // ========== 流转记录页面 ==========
@@ -551,6 +637,7 @@ private fun AssetFlowScreen(
 
     // 从 ViewModel 观察最新的资产数据，确保流转操作后价值实时更新
     val allAssets by viewModel.allUserAssets.collectAsState()
+    val currencyList by viewModel.allAssets.collectAsState()
     val currentAsset = allAssets.find { it.id == asset.id } ?: asset
     val netChange = flows.sumOf { flow ->
         when (flow.flowType) {
@@ -596,7 +683,7 @@ private fun AssetFlowScreen(
                         )
                     }
                     Text(
-                        "¥ ${amountFormat.format(currentAsset.currentValue)}",
+                        "${currencySymbolOf(currentAsset.currency, currencyList)} ${amountFormat.format(currentAsset.currentValue)}",
                         style = MaterialTheme.typography.headlineSmall.copy(
                             fontWeight = FontWeight.Bold
                         ),
@@ -609,7 +696,8 @@ private fun AssetFlowScreen(
                 currentValue = currentAsset.currentValue,
                 netChange = netChange,
                 flowCount = flows.size,
-                trendValues = flows.sortedBy { it.date }.map { it.newValue }
+                trendValues = flows.sortedBy { it.date }.map { it.newValue },
+                symbol = currencySymbolOf(currentAsset.currency, currencyList)
             )
 
             if (flows.isEmpty()) {
@@ -650,6 +738,7 @@ private fun AssetFlowScreen(
                     items(flows, key = { it.id }) { flow ->
                         FlowItem(
                             flow = flow,
+                            symbol = currencySymbolOf(flow.currency, currencyList),
                             onEdit = { editingFlow = it },
                             onDelete = { viewModel.deleteAssetFlow(flow) }
                         )
@@ -677,6 +766,8 @@ private fun AssetFlowScreen(
             assetId = asset.id,
             assetName = asset.name,
             currentValue = currentAsset.currentValue,
+            currency = currentAsset.currency,
+            symbol = currencySymbolOf(currentAsset.currency, currencyList),
             onDismiss = {
                 showAddFlowDialog = false
                 editingFlow = null
@@ -699,7 +790,8 @@ private fun AssetSummaryCard(
     currentValue: Double,
     netChange: Double,
     flowCount: Int,
-    trendValues: List<Double>
+    trendValues: List<Double>,
+    symbol: String = "¥"
 ) {
     val changeColor = when {
         netChange > 0 -> ComposeColor(0xFF34C759)
@@ -719,8 +811,8 @@ private fun AssetSummaryCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                SummaryMetric("当前估值", "¥ ${amountFormat.format(currentValue)}", MaterialTheme.colorScheme.onSurface)
-                SummaryMetric("累计变化", "${if (netChange >= 0) "+" else ""}¥ ${amountFormat.format(netChange)}", changeColor)
+                SummaryMetric("当前估值", "$symbol ${amountFormat.format(currentValue)}", MaterialTheme.colorScheme.onSurface)
+                SummaryMetric("累计变化", "${if (netChange >= 0) "+" else ""}$symbol ${amountFormat.format(netChange)}", changeColor)
                 SummaryMetric("流转次数", "$flowCount 次", MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (trendValues.size >= 2) {
@@ -760,6 +852,7 @@ private fun AssetTrendChart(values: List<Double>, lineColor: ComposeColor) {
 @Composable
 private fun FlowItem(
     flow: AssetFlow,
+    symbol: String = "¥",
     onEdit: (AssetFlow) -> Unit,
     onDelete: () -> Unit
 ) {
@@ -833,14 +926,14 @@ private fun FlowItem(
                     AssetFlowType.REVALUATION -> "±"
                 }
                 Text(
-                    "$prefix ¥ ${amountFormat.format(abs(flow.amount))}",
+                    "$prefix $symbol ${amountFormat.format(abs(flow.amount))}",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.Bold
                     ),
                     color = iconColor
                 )
                 Text(
-                    "余额 ¥ ${amountFormat.format(flow.newValue)}",
+                    "余额 $symbol ${amountFormat.format(flow.newValue)}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                 )
@@ -895,6 +988,8 @@ private fun AssetFlowEditDialog(
     assetId: Long,
     assetName: String,
     currentValue: Double,
+    currency: String,
+    symbol: String,
     onDismiss: () -> Unit,
     onSave: (AssetFlow) -> Unit
 ) {
@@ -956,23 +1051,46 @@ private fun AssetFlowEditDialog(
                     }
                 }
 
-                OutlinedTextField(
-                    value = amountStr,
-                    onValueChange = { amountStr = it },
-                    label = {
-                        Text(
-                            when (selectedType) {
-                                AssetFlowType.INCREASE -> "存入/增值金额"
-                                AssetFlowType.DECREASE -> "取出/减值金额"
-                                AssetFlowType.REVALUATION -> "新估值"
-                            }
-                        )
-                    },
-                    singleLine = true,
-                    prefix = { Text("¥ ") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth()
-                )
+                var showFlowAmountKeypad by remember { mutableStateOf(false) }
+                fun evaluateFlowAmount() {
+                    AmountExpressionEvaluator.evaluate(amountStr)?.let { result ->
+                        if (result >= 0) amountStr = result.toString()
+                    }
+                }
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = amountStr,
+                        onValueChange = { amountStr = it },
+                        label = {
+                            Text(
+                                when (selectedType) {
+                                    AssetFlowType.INCREASE -> "存入/增值金额"
+                                    AssetFlowType.DECREASE -> "取出/减值金额"
+                                    AssetFlowType.REVALUATION -> "新估值"
+                                }
+                            )
+                        },
+                        singleLine = true,
+                        readOnly = true,
+                        prefix = { Text("$symbol ") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .zIndex(1f)
+                            .clickable { showFlowAmountKeypad = true }
+                    )
+                }
+                if (showFlowAmountKeypad) {
+                    AmountKeypad(
+                        value = amountStr,
+                        onValueChange = { amountStr = it },
+                        onEvaluate = ::evaluateFlowAmount,
+                        onDismiss = { showFlowAmountKeypad = false }
+                    )
+                }
                 // 日期选择
                 Box {
                     OutlinedTextField(
@@ -1014,7 +1132,7 @@ private fun AssetFlowEditDialog(
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                             )
                             Text(
-                                "¥ ${amountFormat.format(newValue)}",
+                                "$symbol ${amountFormat.format(newValue)}",
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     fontWeight = FontWeight.Bold
                                 ),
@@ -1027,7 +1145,7 @@ private fun AssetFlowEditDialog(
                 OutlinedTextField(
                     value = note,
                     onValueChange = { note = it },
-                    label = { Text("备注（可选）") },
+                    label = { Text("备注") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1049,7 +1167,8 @@ private fun AssetFlowEditDialog(
                             amount = finalAmount,
                             newValue = newValue,
                             note = note.trim(),
-                            date = flowDate
+                            date = flowDate,
+                            currency = currency
                         )
                     )
                 },
