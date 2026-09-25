@@ -351,6 +351,7 @@ fun SettingsScreen(
     var showAboutSheet by rememberSaveable { mutableStateOf(false) }
     var showUsageGuide by rememberSaveable { mutableStateOf(false) }
     var showHomeBgSheet by rememberSaveable { mutableStateOf(false) }
+    var showPrivacyPolicy by rememberSaveable { mutableStateOf(false) }
     var showStorageSheet by rememberSaveable { mutableStateOf(false) }
     // exportProgressState / importProgress 见函数开头（exportLauncher 需要先声明）
 
@@ -999,7 +1000,7 @@ fun SettingsScreen(
                         OutlinedTextField(
                             value = githubRepoInput,
                             onValueChange = { githubRepoInput = it },
-                            placeholder = { Text("Niriko-mu/InkQilin-ledger") },
+                            placeholder = { Text("Murchey/inkqilin-ledger") },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -1376,12 +1377,12 @@ fun SettingsScreen(
                 HorizontalDivider()
                 ListItem(
                     headlineContent = { Text("GitHub 仓库") },
-                    supportingContent = { Text("github.com/Niriko-mu/InkQilin-ledger", fontSize = 12.sp) },
+                    supportingContent = { Text("github.com/Murchey/inkqilin-ledger", fontSize = 12.sp) },
                     leadingContent = { Icon(Icons.Default.Share, contentDescription = null) },
                     modifier = Modifier.clickable {
                         runCatching {
                             context.startActivity(
-                                Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Niriko-mu/InkQilin-ledger"))
+                                Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Murchey/inkqilin-ledger"))
                             )
                         }
                     }
@@ -1397,8 +1398,27 @@ fun SettingsScreen(
                 ) {
                     Text("使用引导")
                 }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = {
+                        showAboutSheet = false
+                        showPrivacyPolicy = true
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("隐私政策")
+                }
             }
         }
+    }
+
+    // 隐私政策（可再次查看）
+    if (showPrivacyPolicy) {
+        PrivacyPolicyDialog(
+            requireAccept = false,
+            onAccept = { showPrivacyPolicy = false },
+            onDismiss = { showPrivacyPolicy = false }
+        )
     }
 
     // 首页背景图抽屉
@@ -1407,6 +1427,8 @@ fun SettingsScreen(
         val savedOpacity by viewModel.homeBgOpacity.collectAsState()
         // 预览与滑条用草稿值，点「确定」才写入
         var draftOpacity by remember(showHomeBgSheet) { mutableFloatStateOf(savedOpacity) }
+        val savedTxOpacity by viewModel.homeTxCardOpacity.collectAsState()
+        var draftTxOpacity by remember(showHomeBgSheet) { mutableFloatStateOf(savedTxOpacity) }
         val bgPickerLauncher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.GetContent()
         ) { uri ->
@@ -1415,13 +1437,16 @@ fun SettingsScreen(
 
         ModalBottomSheet(
             onDismissRequest = { showHomeBgSheet = false },
+            sheetState = androidx.compose.material3.rememberModalBottomSheetState(
+                skipPartiallyExpanded = true
+            ),
             shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .navigationBarsPadding()
                     .padding(horizontal = 24.dp, vertical = 8.dp)
-                    .padding(bottom = 32.dp)
             ) {
                 Text(
                     "首页背景图",
@@ -1434,86 +1459,88 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(12.dp))
 
-                Box(
+                // 可滚动主体：内容足够显示时随内容收缩；超高才内部滚动，按钮固定可见
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(160.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState())
                 ) {
-                    val file = homeBgPath?.let { java.io.File(it) }
-                    if (file != null && file.exists()) {
-                        coil.compose.AsyncImage(
-                            model = file,
-                            contentDescription = "背景预览",
-                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                            alpha = draftOpacity.coerceIn(0.05f, 1f),
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        Text(
-                            "尚未选择背景图",
-                            modifier = Modifier.align(Alignment.Center),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(16.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = { bgPickerLauncher.launch("image/*") },
-                        modifier = Modifier.weight(1f)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(160.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
                     ) {
-                        Text(if (homeBgPath.isNullOrBlank()) "选择图片" else "更换图片")
-                    }
-                    if (!homeBgPath.isNullOrBlank()) {
-                        OutlinedButton(
-                            onClick = { viewModel.clearHomeBackground() },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("清除背景")
+                        val file = homeBgPath?.let { java.io.File(it) }
+                        if (file != null && file.exists()) {
+                            coil.compose.AsyncImage(
+                                model = file,
+                                contentDescription = "背景预览",
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                alpha = draftOpacity.coerceIn(0.05f, 1f),
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Text(
+                                "尚未选择背景图",
+                                modifier = Modifier.align(Alignment.Center),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
+
+                    Spacer(Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = { bgPickerLauncher.launch("image/*") },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(if (homeBgPath.isNullOrBlank()) "选择图片" else "更换图片")
+                        }
+                        if (!homeBgPath.isNullOrBlank()) {
+                            OutlinedButton(
+                                onClick = { viewModel.clearHomeBackground() },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("清除背景")
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        "不透明度 ${(draftOpacity * 100).toInt()}%",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Slider(
+                        value = draftOpacity,
+                        onValueChange = { draftOpacity = it },
+                        valueRange = 0.05f..1f
+                    )
+                    Text(
+                        "值越大背景越清晰；建议 20%–50% 以保证账单可读性。",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "账单条目不透明度 ${(draftTxOpacity * 100).toInt()}%",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Slider(
+                        value = draftTxOpacity,
+                        onValueChange = { draftTxOpacity = it },
+                        valueRange = 0.08f..1f
+                    )
+                    Spacer(Modifier.height(8.dp))
                 }
 
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    "不透明度 ${(draftOpacity * 100).toInt()}%",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Slider(
-                    value = draftOpacity,
-                    onValueChange = { draftOpacity = it },
-                    valueRange = 0.05f..1f
-                )
-                Text(
-                    "值越大背景越清晰；建议 20%–50% 以保证账单可读性。",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
                 Spacer(Modifier.height(12.dp))
-                val savedTxOpacity by viewModel.homeTxCardOpacity.collectAsState()
-                var draftTxOpacity by remember(showHomeBgSheet) { mutableFloatStateOf(savedTxOpacity) }
-                Text(
-                    "账单条目不透明度 ${(draftTxOpacity * 100).toInt()}%",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Slider(
-                    value = draftTxOpacity,
-                    onValueChange = { draftTxOpacity = it },
-                    valueRange = 0.08f..1f
-                )
-                Text(
-                    "左滑编辑/删除在未滑开时不会透出；滑开后操作区为近不透明底。",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Spacer(Modifier.height(20.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)

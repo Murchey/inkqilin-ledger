@@ -118,20 +118,40 @@ class MainActivity : ComponentActivity() {
                         viewModel.backfillAssetFlowUuids()
                     }
 
+                    // 首次启动：先展示隐私政策，确认后再问运行环境
+                    val privacyAccepted by viewModel.privacyAccepted.collectAsState()
+                    val privacyAcceptedLoaded by viewModel.privacyAcceptedLoaded.collectAsState()
+                    var showPrivacy by remember { mutableStateOf(false) }
+                    LaunchedEffect(privacyAcceptedLoaded, privacyAccepted) {
+                        if (privacyAcceptedLoaded && !privacyAccepted) {
+                            showPrivacy = true
+                        }
+                    }
+
                     // 首次启动询问运行环境（鸿蒙/卓易通 vs 标准 Android）。
                     // 必须等 DataStore 真值再弹，避免 stateIn 初值 false 导致每次冷启动误弹并覆写用户选择。
                     val harmonyAsked by viewModel.harmonyCompatAsked.collectAsState()
                     val harmonyAskedLoaded by viewModel.harmonyAskedLoaded.collectAsState()
                     var showHarmonyAsk by remember { mutableStateOf(false) }
-                    LaunchedEffect(harmonyAskedLoaded, harmonyAsked) {
-                        if (harmonyAskedLoaded && !harmonyAsked && !showHarmonyAsk) {
+                    LaunchedEffect(harmonyAskedLoaded, harmonyAsked, privacyAccepted) {
+                        if (privacyAccepted && harmonyAskedLoaded && !harmonyAsked && !showHarmonyAsk) {
                             showHarmonyAsk = true
                         }
                         if (harmonyAsked) {
                             showHarmonyAsk = false
                         }
                     }
-                    if (showHarmonyAsk) {
+                    if (showPrivacy) {
+                        com.inkqilin.ledger.ui.screens.PrivacyPolicyDialog(
+                            requireAccept = true,
+                            onAccept = {
+                                viewModel.acceptPrivacyPolicy()
+                                showPrivacy = false
+                            },
+                            onDismiss = { /* 首启不允许无确认关闭 */ }
+                        )
+                    }
+                    if (!showPrivacy && showHarmonyAsk) {
                         val defaultHarmony = remember { com.inkqilin.ledger.util.DeviceCompat.guessHarmonyOs() }
                         com.inkqilin.ledger.ui.screens.AppleAlertDialog(
                             onDismissRequest = {

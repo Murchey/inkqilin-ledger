@@ -423,6 +423,23 @@ class TransactionViewModel(
         viewModelScope, SharingStarted.Eagerly, false
     )
 
+    /** 隐私政策是否已确认 */
+    val privacyAccepted: StateFlow<Boolean> = themeManager.privacyAccepted.stateIn(
+        viewModelScope, SharingStarted.Eagerly, false
+    )
+    private val _privacyAcceptedLoaded = MutableStateFlow(false)
+    val privacyAcceptedLoaded: StateFlow<Boolean> = _privacyAcceptedLoaded.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            themeManager.privacyAccepted.collect { _privacyAcceptedLoaded.value = true }
+        }
+    }
+
+    fun acceptPrivacyPolicy() {
+        viewModelScope.launch { themeManager.setPrivacyAccepted() }
+    }
+
     /** 是否已完成「是否鸿蒙」询问 */
     val harmonyCompatAsked: StateFlow<Boolean> = themeManager.harmonyCompatAsked.stateIn(
         viewModelScope, SharingStarted.Eagerly, false

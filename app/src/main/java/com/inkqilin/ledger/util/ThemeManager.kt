@@ -17,7 +17,7 @@ const val DEFAULT_PRIMARY_COLOR_HEX = "#34C759"
 const val DEFAULT_INCOME_COLOR_HEX = "#34C759"
 const val DEFAULT_EXPENSE_COLOR_HEX = "#FF9500"
 const val DEFAULT_UPDATE_REPO = "Murchey/inkqinlin-ledger"
-const val DEFAULT_GITHUB_REPO = "Niriko-mu/InkQilin-ledger"
+const val DEFAULT_GITHUB_REPO = "Murchey/inkqilin-ledger"
 
 enum class ThemeMode {
     AUTO, LIGHT, DARK
@@ -102,6 +102,18 @@ private val WIDGET_SHOW_AMOUNT_KEY = booleanPreferencesKey("widget_show_amount")
     private val WIDGET_QUICK_CATEGORIES_KEY = stringPreferencesKey("widget_quick_categories")
     private val HARMONY_COMPAT_ASKED_KEY = booleanPreferencesKey("harmony_compat_asked")
     private val HARMONY_COMPAT_MODE_KEY = booleanPreferencesKey("harmony_compat_mode")
+    private val PRIVACY_ACCEPTED_KEY = booleanPreferencesKey("privacy_accepted")
+
+    /** 是否已同意隐私政策 */
+    val privacyAccepted: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[PRIVACY_ACCEPTED_KEY] ?: false
+    }
+
+    suspend fun setPrivacyAccepted() {
+        context.dataStore.edit { preferences ->
+            preferences[PRIVACY_ACCEPTED_KEY] = true
+        }
+    }
 
     /** 是否已完成「是否鸿蒙兼容环境」询问 */
     val harmonyCompatAsked: Flow<Boolean> = context.dataStore.data.map { preferences ->

@@ -3,7 +3,7 @@ package com.inkqilin.ledger.ui.theme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -162,14 +162,22 @@ fun ColorPickerDialog(
                         .height(180.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .onSizeChanged { svPanelSize = it }
-                        .pointerInput(hue) {
-                            detectTapGestures { offset ->
+                        .pointerInput(Unit) {
+                            // 按下即取色，拖动连续更新（detectTapGestures 无法拖拽）
+                            val applyOffset: (androidx.compose.ui.geometry.Offset) -> Unit = { offset ->
                                 if (svPanelSize.width > 0 && svPanelSize.height > 0) {
                                     saturation = (offset.x / svPanelSize.width).coerceIn(0f, 1f)
                                     brightness = (1f - offset.y / svPanelSize.height).coerceIn(0f, 1f)
                                     hexInput = hsvToHex(hue, saturation, brightness)
                                 }
                             }
+                            detectDragGestures(
+                                onDragStart = applyOffset,
+                                onDrag = { change, _ ->
+                                    change.consume()
+                                    applyOffset(change.position)
+                                }
+                            )
                         }
                         .drawBehind {
                             // White to hue horizontally
@@ -225,10 +233,17 @@ fun ColorPickerDialog(
                             )
                         }
                         .pointerInput(Unit) {
-                            detectTapGestures { offset ->
+                            val applyHue: (androidx.compose.ui.geometry.Offset) -> Unit = { offset ->
                                 hue = (offset.x / size.width * 360f).coerceIn(0f, 360f)
                                 hexInput = hsvToHex(hue, saturation, brightness)
                             }
+                            detectDragGestures(
+                                onDragStart = applyHue,
+                                onDrag = { change, _ ->
+                                    change.consume()
+                                    applyHue(change.position)
+                                }
+                            )
                         }
                 ) {
                     // Hue indicator
