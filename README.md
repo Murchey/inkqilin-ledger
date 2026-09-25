@@ -114,6 +114,47 @@ Or open the project in Android Studio and click **Run**.
 
 Income/expense display colors are customizable in Settings and apply globally to all transaction views and charts.
 
+## Privacy Policy
+
+> Full text in the app: **Settings → About → Privacy Policy** (also shown on first launch). Summary below matches the in-app policy.
+
+**Who we are** — An open-source Android ledger (GPL-3.0). Source is public and auditable; no ad SDK, no analytics, no account system.
+
+**Where data lives** — Transactions, social ledger, assets, categories, settings, and album photos stay **on your device** (app-private files / Room / DataStore). In **Basic Mode**, data never leaves the phone.
+
+**What we collect** — **Nothing** is collected, uploaded, or analyzed on developer servers—no personal identity data and no ledger contents.
+
+**Permissions & optional network** (all user-initiated; off means no network):
+
+| Capability | Purpose |
+|------------|---------|
+| Camera / storage | System camera capture, gallery pick, Excel export |
+| Notification listener | Auto-bookkeeping: parse Alipay/WeChat/UnionPay notifications into local entries; revoke anytime in system settings |
+| Network | ① App update check (Gitee/GitHub) ② Smart-mode AI/OCR (**your** API endpoint) ③ Cloud backup (**your** COS keys & bucket) |
+
+**AI & cloud backup** — Only when you enable and configure them; requests go to endpoints/buckets you own. Developers cannot access your keys or payloads. Backups support optional AES-256-GCM encryption.
+
+**Your control** — Export / import / restore / delete backups; hard-deleted bills (`SQLite secure_delete`); uninstall removes app data.
+
+**Contact** — File issues on the repos: [Gitee](https://gitee.com/Murchey/inkqinlin-ledger) · [GitHub](https://github.com/Murchey/inkqilin-ledger)
+
+## Recent Updates
+
+### 2026-09
+
+- **Privacy policy** — First-launch disclosure dialog (remembered after accept); re-readable under Settings → About
+- **HarmonyOS (ZhuoyiTong) album crash fix** — CameraX removed; pull-to-shoot uses the **system camera** only (avoids native abort on the compat layer); capture URI survives process death
+- **Auto-bookkeeping on HarmonyOS** — Full Throwable guards; safe disable + “not supported” hint in compat mode
+- **Album viewer** — Swipe left/right to change photos (system-gallery gesture), with page counter
+- **Bottom nav bar** — Fixed disappearing forever after system back from album
+- **Motion performance** — Lighter list entry, skeletons, nav transitions, tab indicator for low-end devices
+- **Amount keypad** — Live result preview, `00` key, grouped operators, invalid input keeps keypad open
+- **Edit-bill return** — Restores month + scroll position on the home list
+- **Color picker** — Drag to pick value/hue
+- **Home background sheet** — Height hugs content; action buttons visible on first open
+- **Repo links** — GitHub unified to [github.com/Murchey/inkqilin-ledger](https://github.com/Murchey/inkqilin-ledger)
+- **Home widgets** — Visual refresh (ink cards / segmented actions)
+
 ## License
 
 This project is licensed under the [GNU General Public License v3.0](LICENSE).
