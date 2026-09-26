@@ -136,6 +136,14 @@ private val WIDGET_SHOW_AMOUNT_KEY = booleanPreferencesKey("widget_show_amount")
     private val CLOUD_BACKUP_LAST_RUN_KEY = longPreferencesKey("cloud_backup_last_run")
     private val AUTO_BACKUP_ERROR_KEY = stringPreferencesKey("auto_backup_error")
 
+    /** 备份导出时必须排除的敏感键（密钥、令牌等） */
+    private val SENSITIVE_PREF_KEYS = setOf(
+        "cos_secret_id",
+        "cos_secret_key",
+        "ai_api_key",
+        "ocr_api_key"
+    )
+
     /** 自动备份失败信息；首页弹窗提示后清除 */
     val autoBackupError: Flow<String?> = context.dataStore.data.map { p ->
         p[AUTO_BACKUP_ERROR_KEY]
@@ -149,15 +157,22 @@ private val WIDGET_SHOW_AMOUNT_KEY = booleanPreferencesKey("widget_show_amount")
         context.dataStore.edit { it.remove(AUTO_BACKUP_ERROR_KEY) }
     }
 
-    /** 导出全部应用设置为 JSON（用于备份包 app_settings.json） */
+    /** 导出全部应用设置为 JSON（用于备份包 app_settings.json）；**不包含任何密钥** */
     suspend fun exportSettingsJson(): String {
         val map = context.dataStore.data.first().asMap()
         val json = org.json.JSONObject()
         map.forEach { (key, value) ->
+            // 安全：密钥 / 令牌 / 自动备份密码一律不进备份包
+            if (key.name in SENSITIVE_PREF_KEYS) return@forEach
             val obj = org.json.JSONObject()
             when (value) {
                 is String -> {
-                    obj.put("t", "s"); obj.put("v", value as Any)
+                    val safeValue =
+                        if (key.name.endsWith("_backup_schedule")) {
+                            BackupSchedule.decode(value).copy(autoPassword = "").encode()
+                        } else value
+                    obj.put("t", "s")
+                    obj.put("v", safeValue as Any)
                 }
                 is Boolean -> {
                     obj.put("t", "b"); obj.put("v", value as Any)
