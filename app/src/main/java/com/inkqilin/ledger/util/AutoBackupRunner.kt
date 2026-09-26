@@ -39,6 +39,11 @@ object AutoBackupRunner {
             Log.d(TAG, "Local auto backup ok: ${file.name}")
         } catch (t: Throwable) {
             Log.w(TAG, "Local auto backup failed", t)
+            runCatching {
+                tm.setAutoBackupError(
+                    "本地自动备份失败：${t.message ?: t.javaClass.simpleName}"
+                )
+            }
         }
     }
 
@@ -53,6 +58,9 @@ object AutoBackupRunner {
         val config = tm.cosConfig.first()
         if (!config.isConfigured) {
             Log.w(TAG, "Cloud auto backup skipped: COS not configured")
+            runCatching {
+                tm.setAutoBackupError("云端自动备份失败：未配置腾讯云 COS，请到数据备份中配置")
+            }
             return
         }
         try {
@@ -65,6 +73,11 @@ object AutoBackupRunner {
             Log.d(TAG, "Cloud auto backup ok")
         } catch (t: Throwable) {
             Log.w(TAG, "Cloud auto backup failed", t)
+            runCatching {
+                tm.setAutoBackupError(
+                    "云端自动备份失败：${t.message ?: t.javaClass.simpleName}"
+                )
+            }
         }
     }
 

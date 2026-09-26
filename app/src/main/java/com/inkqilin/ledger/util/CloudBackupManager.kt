@@ -16,6 +16,7 @@ import java.util.zip.ZipOutputStream
 /** 个人账本云备份：导出 Room 库 zip → COS 私有桶 */
 object CloudBackupManager {
     private const val DB_NAME = "ledger_database"
+    private const val SETTINGS_ENTRY = "app_settings.json"
 
     private fun prefixOf(config: CosConfig): String =
         config.prefix.trim().trimEnd('/').ifBlank { "backups/v1" }
@@ -75,6 +76,13 @@ object CloudBackupManager {
                 putFile(dbFile, DB_NAME)
                 putFile(wal, "$DB_NAME-wal")
                 putFile(shm, "$DB_NAME-shm")
+                // 应用设置（主题、备份计划、COS 配置等）
+                runCatching {
+                    val settings = ThemeManager(context).exportSettingsJson()
+                    zos.putNextEntry(ZipEntry(SETTINGS_ENTRY))
+                    zos.write(settings.toByteArray(Charsets.UTF_8))
+                    zos.closeEntry()
+                }
             }
             val raw = bos.toByteArray()
             val bytes = if (encrypted) BackupCrypto.encrypt(raw, password!!) else raw
@@ -221,6 +229,14 @@ object CloudBackupManager {
             shm.delete()
             dbFile.outputStream().use { it.write(mainDb) }
             // 不恢复包内 wal/shm，避免与新主库不一致；下次打开会重建
+            // 恢复应用设置（主题/备份计划/COS 等）；旧备份无此文件则跳过
+            files[SETTINGS_ENTRY]?.toString(Charsets.UTF_8)?.let { settingsJson ->
+                runCatching {
+                    kotlinx.coroutines.runBlocking {
+                        ThemeManager(context).importSettingsJson(settingsJson)
+                    }
+                }
+            }
         } catch (e: Exception) {
             // 回滚到恢复前
             runCatching {

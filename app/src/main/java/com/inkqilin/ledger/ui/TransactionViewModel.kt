@@ -360,6 +360,14 @@ class TransactionViewModel(
             com.inkqilin.ledger.util.BackupSchedule()
         )
 
+    val autoBackupError: StateFlow<String?> = themeManager.autoBackupError.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), null
+    )
+
+    fun clearAutoBackupError() {
+        viewModelScope.launch { themeManager.clearAutoBackupError() }
+    }
+
     fun setLocalBackupSchedule(schedule: com.inkqilin.ledger.util.BackupSchedule) {
         viewModelScope.launch {
             themeManager.setLocalBackupSchedule(schedule)

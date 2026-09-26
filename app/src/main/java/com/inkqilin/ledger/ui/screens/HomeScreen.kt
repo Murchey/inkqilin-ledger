@@ -96,6 +96,21 @@ fun HomeScreen(
     val homeBgImagePath by viewModel.homeBgImagePath.collectAsState()
     val homeBgOpacity by viewModel.homeBgOpacity.collectAsState()
     val homeTxCardOpacity by viewModel.homeTxCardOpacity.collectAsState()
+    val autoBackupError by viewModel.autoBackupError.collectAsState()
+
+    // 自动备份失败：首页弹窗提醒（看过即清）
+    if (!autoBackupError.isNullOrBlank()) {
+        AppleAlertDialog(
+            onDismissRequest = { viewModel.clearAutoBackupError() },
+            title = "自动备份失败",
+            message = autoBackupError,
+            buttons = listOf(
+                AppleDialogButton("知道了", AppleDialogButtonStyle.DEFAULT) {
+                    viewModel.clearAutoBackupError()
+                }
+            )
+        )
+    }
 
     var selectedYearMonth by rememberSaveable(
         stateSaver = listSaver(

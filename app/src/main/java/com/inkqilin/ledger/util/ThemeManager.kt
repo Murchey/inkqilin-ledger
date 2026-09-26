@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "settings")
@@ -133,6 +134,73 @@ private val WIDGET_SHOW_AMOUNT_KEY = booleanPreferencesKey("widget_show_amount")
     private val CLOUD_BACKUP_SCHEDULE_KEY = stringPreferencesKey("cloud_backup_schedule")
     private val LOCAL_BACKUP_LAST_RUN_KEY = longPreferencesKey("local_backup_last_run")
     private val CLOUD_BACKUP_LAST_RUN_KEY = longPreferencesKey("cloud_backup_last_run")
+    private val AUTO_BACKUP_ERROR_KEY = stringPreferencesKey("auto_backup_error")
+
+    /** 自动备份失败信息；首页弹窗提示后清除 */
+    val autoBackupError: Flow<String?> = context.dataStore.data.map { p ->
+        p[AUTO_BACKUP_ERROR_KEY]
+    }
+
+    suspend fun setAutoBackupError(message: String) {
+        context.dataStore.edit { it[AUTO_BACKUP_ERROR_KEY] = message }
+    }
+
+    suspend fun clearAutoBackupError() {
+        context.dataStore.edit { it.remove(AUTO_BACKUP_ERROR_KEY) }
+    }
+
+    /** 导出全部应用设置为 JSON（用于备份包 app_settings.json） */
+    suspend fun exportSettingsJson(): String {
+        val map = context.dataStore.data.first().asMap()
+        val json = org.json.JSONObject()
+        map.forEach { (key, value) ->
+            val obj = org.json.JSONObject()
+            when (value) {
+                is String -> {
+                    obj.put("t", "s"); obj.put("v", value as Any)
+                }
+                is Boolean -> {
+                    obj.put("t", "b"); obj.put("v", value as Any)
+                }
+                is Int -> {
+                    obj.put("t", "i"); obj.put("v", value as Any)
+                }
+                is Long -> {
+                    obj.put("t", "l"); obj.put("v", value as Any)
+                }
+                is Float -> {
+                    obj.put("t", "f"); obj.put("v", value.toDouble() as Any)
+                }
+                is Double -> {
+                    obj.put("t", "d"); obj.put("v", value as Any)
+                }
+                else -> return@forEach
+            }
+            json.put(key.name, obj)
+        }
+        return json.toString()
+    }
+
+    /** 从备份 JSON 恢复应用设置（先清后写） */
+    suspend fun importSettingsJson(raw: String) {
+        val json = org.json.JSONObject(raw)
+        context.dataStore.edit { p ->
+            p.clear()
+            val keys = json.keys()
+            while (keys.hasNext()) {
+                val name = keys.next()
+                val obj = json.optJSONObject(name) ?: continue
+                when (obj.optString("t")) {
+                    "s" -> p[androidx.datastore.preferences.core.stringPreferencesKey(name)] = obj.optString("v")
+                    "b" -> p[androidx.datastore.preferences.core.booleanPreferencesKey(name)] = obj.optBoolean("v")
+                    "i" -> p[androidx.datastore.preferences.core.intPreferencesKey(name)] = obj.optInt("v")
+                    "l" -> p[androidx.datastore.preferences.core.longPreferencesKey(name)] = obj.optLong("v")
+                    "f" -> p[androidx.datastore.preferences.core.floatPreferencesKey(name)] = obj.optDouble("v").toFloat()
+                    "d" -> p[androidx.datastore.preferences.core.doublePreferencesKey(name)] = obj.optDouble("v")
+                }
+            }
+        }
+    }
 
     val localBackupSchedule: Flow<BackupSchedule> = context.dataStore.data.map { p ->
         BackupSchedule.decode(p[LOCAL_BACKUP_SCHEDULE_KEY])
