@@ -37,8 +37,13 @@ object CloudBackupManager {
 
     /**
      * 导出数据库；若 [password] 非空则 AES-GCM 加密整包。
+     * [auto] 为 true 时使用自动备份文件名（与手动备份区分）。
      */
-    suspend fun exportDatabaseZip(context: Context, password: CharArray? = null): LocalExport =
+    suspend fun exportDatabaseZip(
+        context: Context,
+        password: CharArray? = null,
+        auto: Boolean = false
+    ): LocalExport =
         withContext(Dispatchers.IO) {
             val db = AppDatabase.getDatabase(context)
             runCatching {
@@ -52,7 +57,12 @@ object CloudBackupManager {
 
             val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
             val encrypted = password != null && password.isNotEmpty()
-            val fileName = if (encrypted) "ledger_${ts}_enc.zip" else "ledger_$ts.zip"
+            val fileName = when {
+                auto && encrypted -> "auto_backup_${ts}_enc.zip"
+                auto -> "auto_backup_$ts.zip"
+                encrypted -> "ledger_${ts}_enc.zip"
+                else -> "ledger_$ts.zip"
+            }
 
             val bos = ByteArrayOutputStream()
             ZipOutputStream(bos).use { zos ->
@@ -75,9 +85,10 @@ object CloudBackupManager {
     suspend fun uploadBackup(
         context: Context,
         config: CosConfig,
-        password: CharArray? = null
+        password: CharArray? = null,
+        auto: Boolean = false
     ): CosObjectMeta {
-        val export = exportDatabaseZip(context, password)
+        val export = exportDatabaseZip(context, password, auto)
         val key = "${prefixOf(config)}/${export.fileName}"
         CosClient.putObject(
             config = config,
@@ -90,6 +101,13 @@ object CloudBackupManager {
             size = export.size,
             lastModified = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).format(Date())
         )
+    }
+
+    /** 删除云端 auto_backup*（仅自动备份，不动手动备份） */
+    suspend fun deletePreviousAutoCloudBackups(config: CosConfig) {
+        listBackups(config)
+            .filter { it.key.substringAfterLast('/').startsWith("auto_backup") }
+            .forEach { runCatching { deleteBackup(config, it.key) } }
     }
 
     /** 列出云端备份 */
@@ -240,13 +258,26 @@ object CloudBackupManager {
         File(context.filesDir, "backups").apply { mkdirs() }
 
     /** 生成备份写入应用私有 backups 目录；password 非空则加密 */
-    suspend fun createLocalBackup(context: Context, password: CharArray? = null): File =
+    suspend fun createLocalBackup(
+        context: Context,
+        password: CharArray? = null,
+        auto: Boolean = false
+    ): File =
         withContext(Dispatchers.IO) {
-            val export = exportDatabaseZip(context, password)
+            val export = exportDatabaseZip(context, password, auto)
             val target = File(localBackupDir(context), export.fileName)
             target.outputStream().use { it.write(export.bytes) }
             target
         }
+
+    /** 自动备份文件（文件名以 auto_backup 开头） */
+    fun listAutoLocalBackups(context: Context): List<File> =
+        listLocalBackups(context).filter { it.name.startsWith("auto_backup") }
+
+    /** 删除上一次自动备份（仅 auto_backup*，不动手动备份） */
+    fun deletePreviousAutoLocalBackups(context: Context) {
+        listAutoLocalBackups(context).forEach { runCatching { deleteLocalBackup(it) } }
+    }
 
     fun listLocalBackups(context: Context): List<File> {
         val dir = localBackupDir(context)

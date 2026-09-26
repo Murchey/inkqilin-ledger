@@ -200,6 +200,7 @@ fun MainScreen(
         currentRoute == "keyword_category_management" -> "关键词管理"
         currentRoute == "ai_config" -> "AI API 配置"
         currentRoute == "cloud_backup" -> "数据备份"
+        currentRoute?.startsWith("backup_auto_schedule") == true -> "自动备份设置"
         currentRoute == "ocr_batch_recognition" -> "OCR 批量识别"
         currentRoute == "asset_management" -> "资产管理"
         currentRoute?.startsWith("cycle_bill_edit") == true -> {
@@ -682,11 +683,24 @@ fun MainScreen(
                 CloudBackupScreen(
                     viewModel = viewModel,
                     openSettings = cloudBackupOpenSettings,
-                    onOpenSettingsConsumed = { cloudBackupOpenSettings = false }
+                    onOpenSettingsConsumed = { cloudBackupOpenSettings = false },
+                    onNavigateAutoBackup = { target ->
+                        navController.navigateSingle("backup_auto_schedule/$target")
+                    }
                 )
                 DisposableEffect(Unit) {
                     onDispose { cloudBackupOpenSettings = false }
                 }
+            }
+            composable(
+                route = "backup_auto_schedule/{target}",
+                arguments = listOf(navArgument("target") {
+                    type = NavType.StringType
+                    defaultValue = "local"
+                })
+            ) { entry ->
+                val target = entry.arguments?.getString("target") ?: "local"
+                BackupAutoScheduleScreen(viewModel = viewModel, target = target)
             }
             composable("asset_management") {
                 AssetManagementScreen(

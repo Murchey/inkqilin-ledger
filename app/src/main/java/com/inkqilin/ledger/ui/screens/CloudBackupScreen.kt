@@ -2,6 +2,8 @@ package com.inkqilin.ledger.ui.screens
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +38,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -93,7 +96,8 @@ private sealed class PendingBackup {
 fun CloudBackupScreen(
     viewModel: TransactionViewModel,
     openSettings: Boolean,
-    onOpenSettingsConsumed: () -> Unit
+    onOpenSettingsConsumed: () -> Unit,
+    onNavigateAutoBackup: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -236,6 +240,20 @@ fun CloudBackupScreen(
 
         if (selectedTab == 0) {
             val hasSafety = remember(localBackups) { CloudBackupManager.hasSafetyCopy(context) }
+            val localSchedule by viewModel.localBackupSchedule.collectAsState()
+            ListItem(
+                headlineContent = { Text("自动备份设置") },
+                supportingContent = {
+                    Text(
+                        if (localSchedule.frequency.name == "OFF") "未开启"
+                        else localSchedule.frequency.label,
+                        fontSize = 12.sp
+                    )
+                },
+                modifier = Modifier.clickable { onNavigateAutoBackup("local") }
+            )
+            HorizontalDivider()
+            Spacer(Modifier.height(8.dp))
             LocalBackupSection(
                 lastInfo = lastLocalBackupInfo,
                 backups = localBackups,
@@ -266,6 +284,20 @@ fun CloudBackupScreen(
                 }
             )
         } else {
+            val cloudSchedule by viewModel.cloudBackupSchedule.collectAsState()
+            ListItem(
+                headlineContent = { Text("自动备份设置") },
+                supportingContent = {
+                    Text(
+                        if (cloudSchedule.frequency.name == "OFF") "未开启"
+                        else cloudSchedule.frequency.label,
+                        fontSize = 12.sp
+                    )
+                },
+                modifier = Modifier.clickable { onNavigateAutoBackup("cloud") }
+            )
+            HorizontalDivider()
+            Spacer(Modifier.height(8.dp))
             CloudBackupSection(
                 cosConfig = cosConfig,
                 lastInfo = lastCloudBackupInfo,
@@ -972,4 +1004,119 @@ private fun BackupPasswordDialog(
             TextButton(onClick = onDismiss) { Text("取消") }
         }
     )
+}
+
+/** 自动备份计划卡片：本地 / 云端各一份 */
+@Composable
+private fun ColumnScope.AutoBackupScheduleCard(
+    title: String,
+    schedule: com.inkqilin.ledger.util.BackupSchedule,
+    onChange: (com.inkqilin.ledger.util.BackupSchedule) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        elevation = CardDefaults.cardElevation(0.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "自动备份文件名以 auto_backup 开头，与手动备份区分；不会覆盖手动备份。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(12.dp))
+            Text("备份时机", style = MaterialTheme.typography.labelMedium)
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                com.inkqilin.ledger.util.BackupFrequency.entries.take(3).forEach { freq ->
+                    FilterChip(
+                        selected = schedule.frequency == freq,
+                        onClick = { onChange(schedule.copy(frequency = freq)) },
+                        label = { Text(freq.label, fontSize = 11.sp) }
+                    )
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                com.inkqilin.ledger.util.BackupFrequency.entries.drop(3).forEach { freq ->
+                    FilterChip(
+                        selected = schedule.frequency == freq,
+                        onClick = { onChange(schedule.copy(frequency = freq)) },
+                        label = { Text(freq.label, fontSize = 11.sp) }
+                    )
+                }
+            }
+
+            if (schedule.frequency == com.inkqilin.ledger.util.BackupFrequency.WEEKLY) {
+                Spacer(Modifier.height(10.dp))
+                Text("每周", style = MaterialTheme.typography.labelMedium)
+                Spacer(Modifier.height(6.dp))
+                val weekLabels = listOf("日", "一", "二", "三", "四", "五", "六")
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    weekLabels.forEachIndexed { i, label ->
+                        val dow = i + 1
+                        FilterChip(
+                            selected = schedule.weekday == dow,
+                            onClick = { onChange(schedule.copy(weekday = dow)) },
+                            label = { Text(label, fontSize = 11.sp) }
+                        )
+                    }
+                }
+            }
+
+            if (schedule.frequency == com.inkqilin.ledger.util.BackupFrequency.MONTHLY) {
+                Spacer(Modifier.height(10.dp))
+                Text("每月日期（超出当月天数则月末）", style = MaterialTheme.typography.labelMedium)
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.horizontalScroll(rememberScrollState())
+                ) {
+                    (1..28).forEach { day ->
+                        FilterChip(
+                            selected = schedule.dayOfMonth == day,
+                            onClick = { onChange(schedule.copy(dayOfMonth = day)) },
+                            label = { Text("$day", fontSize = 11.sp) }
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("删除上次自动备份", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "仅删除 auto_backup 文件，手动备份保留",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = schedule.deletePreviousAuto,
+                    onCheckedChange = { onChange(schedule.copy(deletePreviousAuto = it)) }
+                )
+            }
+
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = schedule.autoPassword,
+                onValueChange = { onChange(schedule.copy(autoPassword = it)) },
+                label = { Text("自动备份密钥（可选）") },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                supportingText = {
+                    Text("填入后自动备份将加密；留空则不加密", style = MaterialTheme.typography.labelSmall)
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+    Spacer(Modifier.height(12.dp))
 }

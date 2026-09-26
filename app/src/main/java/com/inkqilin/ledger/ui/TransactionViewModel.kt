@@ -347,6 +347,44 @@ class TransactionViewModel(
         viewModelScope.launch { themeManager.setCosConfig(config) }
     }
 
+    // ── 自动备份计划 ──
+    val localBackupSchedule: StateFlow<com.inkqilin.ledger.util.BackupSchedule> =
+        themeManager.localBackupSchedule.stateIn(
+            viewModelScope, SharingStarted.WhileSubscribed(5000),
+            com.inkqilin.ledger.util.BackupSchedule()
+        )
+
+    val cloudBackupSchedule: StateFlow<com.inkqilin.ledger.util.BackupSchedule> =
+        themeManager.cloudBackupSchedule.stateIn(
+            viewModelScope, SharingStarted.WhileSubscribed(5000),
+            com.inkqilin.ledger.util.BackupSchedule()
+        )
+
+    fun setLocalBackupSchedule(schedule: com.inkqilin.ledger.util.BackupSchedule) {
+        viewModelScope.launch {
+            themeManager.setLocalBackupSchedule(schedule)
+            com.inkqilin.ledger.util.AutoBackupRunner.scheduleAutoBackupWorker(LedgerApplication.instance)
+        }
+    }
+
+    fun setCloudBackupSchedule(schedule: com.inkqilin.ledger.util.BackupSchedule) {
+        viewModelScope.launch {
+            themeManager.setCloudBackupSchedule(schedule)
+            com.inkqilin.ledger.util.AutoBackupRunner.scheduleAutoBackupWorker(LedgerApplication.instance)
+        }
+    }
+
+    /** 启动时：调度周期任务 + 执行「打开 APP 时」备份 */
+    fun kickAutoBackupsOnAppOpen() {
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                val app = LedgerApplication.instance
+                com.inkqilin.ledger.util.AutoBackupRunner.scheduleAutoBackupWorker(app)
+                com.inkqilin.ledger.util.AutoBackupRunner.runAppOpenBackups(app)
+            }
+        }
+    }
+
     /** 设置页「检查更新」→ MainActivity 弹出更新对话框 */
     private val _manualUpdateCheckTrigger = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val manualUpdateCheckTrigger: SharedFlow<Unit> = _manualUpdateCheckTrigger.asSharedFlow()

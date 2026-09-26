@@ -129,6 +129,42 @@ private val WIDGET_SHOW_AMOUNT_KEY = booleanPreferencesKey("widget_show_amount")
     private val HARMONY_COMPAT_MODE_KEY = booleanPreferencesKey("harmony_compat_mode")
     private val PRIVACY_ACCEPTED_KEY = booleanPreferencesKey("privacy_accepted")
     private val COLORS_PALETTE_MIGRATED_KEY = booleanPreferencesKey("colors_palette_migrated_2026_09")
+    private val LOCAL_BACKUP_SCHEDULE_KEY = stringPreferencesKey("local_backup_schedule")
+    private val CLOUD_BACKUP_SCHEDULE_KEY = stringPreferencesKey("cloud_backup_schedule")
+    private val LOCAL_BACKUP_LAST_RUN_KEY = longPreferencesKey("local_backup_last_run")
+    private val CLOUD_BACKUP_LAST_RUN_KEY = longPreferencesKey("cloud_backup_last_run")
+
+    val localBackupSchedule: Flow<BackupSchedule> = context.dataStore.data.map { p ->
+        BackupSchedule.decode(p[LOCAL_BACKUP_SCHEDULE_KEY])
+    }
+
+    val cloudBackupSchedule: Flow<BackupSchedule> = context.dataStore.data.map { p ->
+        BackupSchedule.decode(p[CLOUD_BACKUP_SCHEDULE_KEY])
+    }
+
+    val localBackupLastRun: Flow<Long> = context.dataStore.data.map { p ->
+        p[LOCAL_BACKUP_LAST_RUN_KEY] ?: 0L
+    }
+
+    val cloudBackupLastRun: Flow<Long> = context.dataStore.data.map { p ->
+        p[CLOUD_BACKUP_LAST_RUN_KEY] ?: 0L
+    }
+
+    suspend fun setLocalBackupSchedule(schedule: BackupSchedule) {
+        context.dataStore.edit { it[LOCAL_BACKUP_SCHEDULE_KEY] = schedule.encode() }
+    }
+
+    suspend fun setCloudBackupSchedule(schedule: BackupSchedule) {
+        context.dataStore.edit { it[CLOUD_BACKUP_SCHEDULE_KEY] = schedule.encode() }
+    }
+
+    suspend fun markLocalBackupRun(timeMs: Long = System.currentTimeMillis()) {
+        context.dataStore.edit { it[LOCAL_BACKUP_LAST_RUN_KEY] = timeMs }
+    }
+
+    suspend fun markCloudBackupRun(timeMs: Long = System.currentTimeMillis()) {
+        context.dataStore.edit { it[CLOUD_BACKUP_LAST_RUN_KEY] = timeMs }
+    }
 
     /**
      * 配色方案改版：升级到本版时重置一次为新默认色；标记后今后版本不再重置。

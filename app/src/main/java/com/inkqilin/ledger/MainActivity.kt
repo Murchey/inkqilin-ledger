@@ -116,6 +116,8 @@ class MainActivity : ComponentActivity() {
                         viewModel.backfillTransactionUuids()
                         // 为存量流转自动生成 UUID
                         viewModel.backfillAssetFlowUuids()
+                        // 自动备份：调度 + 打开 APP 计划
+                        viewModel.kickAutoBackupsOnAppOpen()
                     }
 
                     // 首次启动：先展示隐私政策，确认后再问运行环境
