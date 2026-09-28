@@ -382,6 +382,21 @@ class TransactionViewModel(
         }
     }
 
+    /** 串行更新单个字段，避免输入过程中状态回写导致光标跳动 */
+    fun updateLocalBackupSchedule(transform: (com.inkqilin.ledger.util.BackupSchedule) -> com.inkqilin.ledger.util.BackupSchedule) {
+        viewModelScope.launch {
+            themeManager.updateLocalBackupSchedule(transform)
+            com.inkqilin.ledger.util.AutoBackupRunner.scheduleAutoBackupWorker(LedgerApplication.instance)
+        }
+    }
+
+    fun updateCloudBackupSchedule(transform: (com.inkqilin.ledger.util.BackupSchedule) -> com.inkqilin.ledger.util.BackupSchedule) {
+        viewModelScope.launch {
+            themeManager.updateCloudBackupSchedule(transform)
+            com.inkqilin.ledger.util.AutoBackupRunner.scheduleAutoBackupWorker(LedgerApplication.instance)
+        }
+    }
+
     /** 启动时：调度周期任务 + 执行「打开 APP 时」备份 */
     fun kickAutoBackupsOnAppOpen() {
         viewModelScope.launch(Dispatchers.IO) {

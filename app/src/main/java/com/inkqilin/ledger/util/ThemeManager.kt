@@ -11,6 +11,8 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 private val Context.dataStore by preferencesDataStore(name = "settings")
 
@@ -144,6 +146,9 @@ private val WIDGET_SHOW_AMOUNT_KEY = booleanPreferencesKey("widget_show_amount")
         "ocr_api_key"
     )
 
+    private val localScheduleMutex = Mutex()
+    private val cloudScheduleMutex = Mutex()
+
     /** 自动备份失败信息；首页弹窗提示后清除 */
     val autoBackupError: Flow<String?> = context.dataStore.data.map { p ->
         p[AUTO_BACKUP_ERROR_KEY]
@@ -239,6 +244,27 @@ private val WIDGET_SHOW_AMOUNT_KEY = booleanPreferencesKey("widget_show_amount")
 
     suspend fun setCloudBackupSchedule(schedule: BackupSchedule) {
         context.dataStore.edit { it[CLOUD_BACKUP_SCHEDULE_KEY] = schedule.encode() }
+    }
+
+    /**
+     * 读-改-写串行更新，避免并发改不同字段时互相覆盖（导致输入框光标回跳/丢字）。
+     */
+    suspend fun updateLocalBackupSchedule(transform: (BackupSchedule) -> BackupSchedule) {
+        localScheduleMutex.withLock {
+            val current = BackupSchedule.decode(context.dataStore.data.first()[LOCAL_BACKUP_SCHEDULE_KEY])
+            context.dataStore.edit {
+                it[LOCAL_BACKUP_SCHEDULE_KEY] = transform(current).encode()
+            }
+        }
+    }
+
+    suspend fun updateCloudBackupSchedule(transform: (BackupSchedule) -> BackupSchedule) {
+        cloudScheduleMutex.withLock {
+            val current = BackupSchedule.decode(context.dataStore.data.first()[CLOUD_BACKUP_SCHEDULE_KEY])
+            context.dataStore.edit {
+                it[CLOUD_BACKUP_SCHEDULE_KEY] = transform(current).encode()
+            }
+        }
     }
 
     suspend fun markLocalBackupRun(timeMs: Long = System.currentTimeMillis()) {

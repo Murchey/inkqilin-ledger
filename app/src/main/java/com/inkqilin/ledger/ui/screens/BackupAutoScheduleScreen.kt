@@ -26,6 +26,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -79,9 +82,9 @@ fun BackupAutoScheduleScreen(
 
         AutoBackupScheduleForm(
             schedule = schedule,
-            onChange = {
-                if (isLocal) viewModel.setLocalBackupSchedule(it)
-                else viewModel.setCloudBackupSchedule(it)
+            onChange = { transform ->
+                if (isLocal) viewModel.updateLocalBackupSchedule(transform)
+                else viewModel.updateCloudBackupSchedule(transform)
             }
         )
     }
@@ -169,12 +172,14 @@ fun WheelPicker(
 @Composable
 fun AutoBackupScheduleForm(
     schedule: BackupSchedule,
-    onChange: (BackupSchedule) -> Unit
+    onChange: ((BackupSchedule) -> BackupSchedule) -> Unit
 ) {
     val frequencyLabels = BackupFrequency.entries.map { it.label }
     val frequencyIndex = BackupFrequency.entries.indexOf(schedule.frequency).coerceAtLeast(0)
     val weekLabels = listOf("周日", "周一", "周二", "周三", "周四", "周五", "周六")
     val dayLabels = (1..31).map { " $it 日" }
+    // 密钥用本地草稿：避免 DataStore 异步回写导致光标前移/丢字
+    var passwordDraft by remember { mutableStateOf(schedule.autoPassword) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -189,7 +194,7 @@ fun AutoBackupScheduleForm(
                 selectedIndex = frequencyIndex,
                 onSelected = { idx ->
                     val freq = BackupFrequency.entries.getOrNull(idx) ?: BackupFrequency.OFF
-                    onChange(schedule.copy(frequency = freq))
+                    onChange { it.copy(frequency = freq) }
                 },
                 modifier = Modifier.fillMaxWidth()
             )
@@ -202,7 +207,7 @@ fun AutoBackupScheduleForm(
                     WheelPicker(
                         items = weekLabels,
                         selectedIndex = (schedule.weekday - 1).coerceIn(0, 6),
-                        onSelected = { onChange(schedule.copy(weekday = it + 1)) },
+                        onSelected = { dowIndex -> onChange { it.copy(weekday = dowIndex + 1) } },
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -213,7 +218,7 @@ fun AutoBackupScheduleForm(
                     WheelPicker(
                         items = dayLabels,
                         selectedIndex = (schedule.dayOfMonth - 1).coerceIn(0, 30),
-                        onSelected = { onChange(schedule.copy(dayOfMonth = it + 1)) },
+                        onSelected = { dayIndex -> onChange { it.copy(dayOfMonth = dayIndex + 1) } },
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -235,14 +240,19 @@ fun AutoBackupScheduleForm(
                 }
                 Switch(
                     checked = schedule.deletePreviousAuto,
-                    onCheckedChange = { onChange(schedule.copy(deletePreviousAuto = it)) }
+                    onCheckedChange = { checked ->
+                        onChange { it.copy(deletePreviousAuto = checked) }
+                    }
                 )
             }
 
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(
-                value = schedule.autoPassword,
-                onValueChange = { onChange(schedule.copy(autoPassword = it)) },
+                value = passwordDraft,
+                onValueChange = { new ->
+                    passwordDraft = new
+                    onChange { it.copy(autoPassword = new) }
+                },
                 label = { Text("自动备份密钥（可选）") },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
