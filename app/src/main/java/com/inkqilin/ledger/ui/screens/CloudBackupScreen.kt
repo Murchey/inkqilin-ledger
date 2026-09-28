@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -653,6 +654,7 @@ private fun ColumnScope.LocalBackupSection(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(min = 360.dp)
                 .weight(1f),
             shape = RoundedCornerShape(14.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
@@ -668,6 +670,7 @@ private fun ColumnScope.LocalBackupSection(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(min = 360.dp)
                 .weight(1f),
             shape = RoundedCornerShape(14.dp),
             elevation = CardDefaults.cardElevation(0.dp)
@@ -786,6 +789,7 @@ private fun ColumnScope.CloudBackupSection(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(min = 360.dp)
                 .weight(1f),
             shape = RoundedCornerShape(14.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
@@ -801,6 +805,7 @@ private fun ColumnScope.CloudBackupSection(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(min = 360.dp)
                 .weight(1f),
             shape = RoundedCornerShape(14.dp),
             elevation = CardDefaults.cardElevation(0.dp)
