@@ -676,11 +676,22 @@ private fun ColumnScope.LocalBackupSection(
                 items(backups, key = { it.absolutePath }) { file ->
                     ListItem(
                         headlineContent = {
-                            Text(file.name, maxLines = 1, fontSize = 14.sp)
+                            Text(
+                                file.name,
+                                fontSize = 13.sp,
+                                softWrap = true
+                            )
                         },
                         supportingContent = {
                             Text(
-                                "${CloudBackupManager.formatSize(file.length())} · ${SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(file.lastModified()))}",
+                                buildString {
+                                    append(CloudBackupManager.formatSize(file.length()))
+                                    append(" · ")
+                                    append(SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(file.lastModified())))
+                                    if (file.name.contains("_enc")) {
+                                        append(" · 已加密")
+                                    }
+                                },
                                 fontSize = 12.sp
                             )
                         },
@@ -798,11 +809,22 @@ private fun ColumnScope.CloudBackupSection(
                 items(backups, key = { it.key }) { item ->
                     ListItem(
                         headlineContent = {
-                            Text(item.key.substringAfterLast('/'), maxLines = 1, fontSize = 14.sp)
+                            Text(
+                                item.key.substringAfterLast('/'),
+                                fontSize = 13.sp,
+                                softWrap = true
+                            )
                         },
                         supportingContent = {
                             Text(
-                                "${CloudBackupManager.formatSize(item.size)} · ${item.lastModified.take(19).replace('T', ' ')}",
+                                buildString {
+                                    append(CloudBackupManager.formatSize(item.size))
+                                    append(" · ")
+                                    append(item.lastModified.take(19).replace('T', ' '))
+                                    if (item.key.contains("_enc")) {
+                                        append(" · 已加密")
+                                    }
+                                },
                                 fontSize = 12.sp
                             )
                         },
