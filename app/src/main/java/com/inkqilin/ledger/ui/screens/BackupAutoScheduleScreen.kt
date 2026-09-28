@@ -1,6 +1,7 @@
 package com.inkqilin.ledger.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,13 +29,13 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -44,6 +45,7 @@ import com.inkqilin.ledger.ui.TransactionViewModel
 import com.inkqilin.ledger.util.BackupFrequency
 import com.inkqilin.ledger.util.BackupSchedule
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 
 /**
  * 自动备份计划二级页：本地 / 云端各一份。
@@ -90,7 +92,12 @@ fun BackupAutoScheduleScreen(
     }
 }
 
-/** 滚轮选择器：中项高亮，滚动停稳即生效 */
+/**
+ * 滚轮选择器：中项高亮。
+ *
+ * 选中在滚动停稳后上报，避免 fling 中被 [androidx.compose.foundation.lazy.LazyListState.scrollToItem]
+ * 打断手势导致「滚不动 / 选不中」；另支持点选作为可靠兜底。
+ */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun WheelPicker(
@@ -101,31 +108,58 @@ fun WheelPicker(
     visibleCount: Int = 5
 ) {
     val itemHeight = 36.dp
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = selectedIndex.coerceIn(0, items.lastIndex))
+    val lastIndex = (items.size - 1).coerceAtLeast(0)
+    val listState = rememberLazyListState(
+        initialFirstVisibleItemIndex = selectedIndex.coerceIn(0, lastIndex)
+    )
     val fling = rememberSnapFlingBehavior(lazyListState = listState)
+    val scope = rememberCoroutineScope()
+    val currentOnSelected by rememberUpdatedState(onSelected)
+
     val centerIndex by remember {
         derivedStateOf {
+            val visible = listState.layoutInfo.visibleItemsInfo
+            if (visible.isEmpty()) return@derivedStateOf 0
             val layout = listState.layoutInfo
             val viewport = layout.viewportEndOffset - layout.viewportStartOffset
             val center = layout.viewportStartOffset + viewport / 2
-            layout.visibleItemsInfo.minByOrNull {
+            visible.minByOrNull {
                 kotlin.math.abs((it.offset + it.size / 2) - center)
-            }?.index ?: selectedIndex
+            }?.index ?: 0
         }
     }
 
+    // 本组件滚动/点选已提交的下标：外部回写同一值时不要再 scrollToItem，以免打断手势
+    var committedIndex by remember { mutableStateOf(selectedIndex) }
+
+    // 仅当选中值从外部被改掉（如 DataStore 异步加载完成）才对齐列表位置
     LaunchedEffect(selectedIndex) {
-        if (selectedIndex in items.indices && selectedIndex != centerIndex) {
+        if (selectedIndex != committedIndex && selectedIndex in items.indices) {
+            committedIndex = selectedIndex
             listState.scrollToItem(selectedIndex)
         }
     }
 
-    LaunchedEffect(listState) {
-        snapshotFlow { centerIndex }
+    // 滚动停稳后再上报选中，避免拖拽/惯性过程中被程序化滚动抢走手势
+    LaunchedEffect(listState, items.size) {
+        snapshotFlow { listState.isScrollInProgress }
             .distinctUntilChanged()
-            .collect { idx ->
-                if (idx in items.indices && idx != selectedIndex) onSelected(idx)
+            .collect { scrolling ->
+                if (!scrolling) {
+                    val idx = centerIndex
+                    if (idx in items.indices && idx != committedIndex) {
+                        committedIndex = idx
+                        currentOnSelected(idx)
+                    }
+                }
             }
+    }
+
+    // 滚动中高亮跟随中心项，停稳后与 selectedIndex 一致
+    val visualIndex = if (listState.isScrollInProgress) {
+        centerIndex.coerceIn(0, lastIndex)
+    } else {
+        selectedIndex.coerceIn(0, lastIndex)
     }
 
     Box(modifier = modifier.height(itemHeight * visibleCount)) {
@@ -149,11 +183,17 @@ fun WheelPicker(
             modifier = Modifier.fillMaxSize()
         ) {
             items(items.size) { i ->
-                val selected = i == selectedIndex
+                val selected = i == visualIndex
                 Box(
                     modifier = Modifier
                         .height(itemHeight)
-                        .fillMaxWidth(),
+                        .fillMaxWidth()
+                        .clickable {
+                            // 点选：不依赖滚动结果，立即生效
+                            committedIndex = i
+                            currentOnSelected(i)
+                            scope.launch { listState.animateScrollToItem(i) }
+                        },
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
