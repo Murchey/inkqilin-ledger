@@ -66,25 +66,6 @@ enum class TimePeriod(val label: String) {
     WEEK("本周"), MONTH("本月"), YEAR("本年"), CUSTOM("自定义")
 }
 
-private fun Modifier.frostedGlass(
-    shape: RoundedCornerShape,
-    isDark: Boolean
-): Modifier = this
-    /*.then(
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-            Modifier.blur(20.dp) // iOS-style deep blur on Android 12+
-        } else Modifier
-    )*/
-    .background(
-        color = if (isDark) FrostedDark.copy(alpha = 0.8f) else FrostedLight.copy(alpha = 0.75f),
-        shape = shape
-    )
-    .border(
-        width = 0.5.dp, // Thinner iOS-style border
-        color = if (isDark) FrostedBorderDark.copy(alpha = 0.4f) else FrostedBorderLight.copy(alpha = 0.25f),
-        shape = shape
-    )
-
 private val FilterListIcon: ImageVector by lazy {
     ImageVector.Builder(
         name = "FilterList",

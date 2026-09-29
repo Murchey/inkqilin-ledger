@@ -56,9 +56,6 @@ data class BottomNavItem(
 )
 
 /** 二级页导航：避免同一路由重复压栈，导致系统返回需要连按多次 */
-fun androidx.navigation.NavController.navigateSingle(route: String) {
-    navigate(route) { launchSingleTop = true }
-}
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -792,7 +789,7 @@ fun MainScreen(
                     onNavigateRecycleBin = { navController.navigateSingle("recycle_bin") },
                     onCreateTransaction = { bill ->
                         val txDate = System.currentTimeMillis()
-                        val nextCycleEnd = cycleBoundary(txDate, bill.cycleType)
+                        val nextCycleEnd = CycleBoundary(txDate, bill.cycleType)
                         val updatedBill = bill.copy(
                             lastGeneratedDate = txDate,
                             currentCycleStart = txDate,
@@ -1120,3 +1117,4 @@ fun MainScreen(
         }
     }
 }
+

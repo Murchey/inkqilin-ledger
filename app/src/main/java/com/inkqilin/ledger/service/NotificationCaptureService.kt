@@ -66,7 +66,7 @@ class NotificationCaptureService : NotificationListenerService() {
                     val combinedText = "$text $bigText $infoText $subText"
                     Log.d("NotificationCapture", "Full contents: Title=$title, CombinedText=$combinedText")
 
-                    NotificationParser.parse(packageName, title, combinedText)?.let { parsed ->
+                    com.inkqilin.ledger.service.parser.NotificationParser.Parse(packageName, title, combinedText)?.let { parsed ->
                         Log.d("NotificationCapture", "Successfully parsed: $parsed")
                         processAndSave(parsed)
                     } ?: run {
@@ -81,7 +81,7 @@ class NotificationCaptureService : NotificationListenerService() {
         }
     }
 
-    private suspend fun processAndSave(parsed: NotificationParser.ParsedNotification) {
+    private suspend fun processAndSave(parsed: com.inkqilin.ledger.service.parser.ParsedNotification) {
         val now = System.currentTimeMillis()
         val key = "${parsed.amount}_${parsed.category}_${parsed.isIncome}"
 
