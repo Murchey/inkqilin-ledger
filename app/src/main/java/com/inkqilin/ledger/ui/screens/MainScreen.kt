@@ -99,10 +99,28 @@ fun MainScreen(
 
     val pagerState = rememberPagerState { bottomItems.size }
 
-    LaunchedEffect(bottomItems.size) {
-        if (pagerState.currentPage >= bottomItems.size) {
-            pagerState.scrollToPage(0)
+    // 以路由而非下标记录当前 Tab：开关人情/相册会增减底部项，下标会错位
+    var selectedTabRoute by rememberSaveable { mutableStateOf("home") }
+    var aligningPagerToRoute by remember { mutableStateOf(false) }
+
+    // Tab 集合变化后把 pager 对齐到当前路由，避免停留在错误页（跳转走）
+    LaunchedEffect(renQingEnabled, albumEnabled) {
+        val target = bottomItems.indexOfFirst { it.route == selectedTabRoute }
+        val page = if (target >= 0) target else 0
+        if (pagerState.currentPage != page || pagerState.settledPage != page) {
+            aligningPagerToRoute = true
+            try {
+                pagerState.scrollToPage(page)
+            } finally {
+                aligningPagerToRoute = false
+            }
         }
+    }
+
+    // 用户滑动停稳后记录路由；对齐过程中不回写，防止选中项被错位下标覆盖
+    LaunchedEffect(pagerState.settledPage) {
+        if (aligningPagerToRoute) return@LaunchedEffect
+        bottomItems.getOrNull(pagerState.settledPage)?.let { selectedTabRoute = it.route }
     }
 
     // 桌面小部件外部导航目标（冷启动/热启动均可到达）
@@ -120,6 +138,7 @@ fun MainScreen(
             target == "settings" -> {
                 val index = bottomItems.indexOfFirst { it.route == "settings" }
                 if (index != -1) {
+                    selectedTabRoute = "settings"
                     scope.launch {
                         pagerState.animateScrollToPage(index)
                         if (navController.currentDestination?.route != "main") {
@@ -147,6 +166,7 @@ fun MainScreen(
     // 主页非「首页」Tab 时，系统返回先回首页 Tab，而不是直接退出 App
     BackHandler(enabled = currentRoute == "main" && currentPageRoute != "home") {
         viewModel.setAlbumInteracting(false)
+        selectedTabRoute = "home"
         scope.launch {
             val homeIndex = bottomItems.indexOfFirst { it.route == "home" }
             if (homeIndex != -1) {
@@ -353,7 +373,8 @@ fun MainScreen(
                 val selectedColor = if (isDarkMode) Color.White else Color(0xFF1D1D1F)
 
                 // Compact container
-                val barRadius = 22.dp
+                // 外框与选中指示器共用胶囊圆角，避免「大方角 bar + 小圆角选中块」形状打架
+                val capsuleShape = RoundedCornerShape(percent = 50)
                 val density = androidx.compose.ui.platform.LocalDensity.current
                 val fabSize = 44.dp
                 val fabRadius = 22.dp
@@ -392,7 +413,7 @@ fun MainScreen(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .clip(RoundedCornerShape(barRadius))
+                            .clip(capsuleShape)
                             .background(
                                 if (isDarkMode) Color(0xFF1C1C1E).copy(alpha = 0.96f)
                                 else Color.White.copy(alpha = 0.98f)
@@ -401,83 +422,92 @@ fun MainScreen(
                                 width = 1.dp,
                                 color = if (isDarkMode) Color.White.copy(alpha = 0.16f)
                                         else Color(0xFFD1D1D6).copy(alpha = 0.9f),
-                                shape = RoundedCornerShape(barRadius)
+                                shape = capsuleShape
                             )
                             .padding(horizontal = 4.dp, vertical = 4.dp)
                     ) {
-                        // ── Apple Photos Style Indicator ──
-                        if (animIndicatorW > 0.dp) {
-                            Box(
-                                modifier = Modifier
-                                    .offset {
-                                        val centerXPx = animIndicatorX.toInt()
-                                        val halfW = animIndicatorW.roundToPx() / 2
-                                        IntOffset(centerXPx - halfW, 0)
-                                    }
-                                    .size(width = animIndicatorW, height = 34.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(
-                                        if (isDarkMode) Color.White.copy(alpha = 0.08f)
-                                        else Color.Black.copy(alpha = 0.08f)
-                                    )
-                            )
-                        }
-
-                        // ── Tab Items ──
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                            verticalAlignment = Alignment.CenterVertically
+                        // 内容高度由 Tab 行决定；指示器用 IntrinsicSize.Min 对齐同高，再 clip 成胶囊
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(IntrinsicSize.Min)
                         ) {
-                            bottomItems.forEachIndexed { index, item ->
-                                val selected = selectedIndex == index
-                                // 滑动/切页不再逐 tab 跑颜色弹簧，直接取色
-                                val iconColor = if (selected) selectedColor else unselectedColor
-
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
+                            // ── Apple Photos Style Indicator ──
+                            if (animIndicatorW > 0.dp) {
+                                Box(
                                     modifier = Modifier
-                                        .weight(1f)
-                                        .onGloballyPositioned { coords ->
-                                            if (selected) {
-                                                val parentCoords = coords.parentCoordinates
-                                                if (parentCoords != null) {
-                                                    val localCenter = coords.size.width / 2
-                                                    val posInParent = parentCoords.localPositionOf(
-                                                        coords,
-                                                        androidx.compose.ui.geometry.Offset(localCenter.toFloat(), 0f)
-                                                    )
-                                                    val cx = posInParent.x
-                                                    val w = with(density) { (coords.size.width * 0.9f).toDp() }
-                                                    // 仅在变化时写 state，打断 onGloballyPositioned → recompose 回环
-                                                    if (cx != indicatorCenterX) indicatorCenterX = cx
-                                                    if (w != indicatorWidth) indicatorWidth = w
+                                        .offset {
+                                            val centerXPx = animIndicatorX.toInt()
+                                            val halfW = animIndicatorW.roundToPx() / 2
+                                            IntOffset(centerXPx - halfW, 0)
+                                        }
+                                        .fillMaxHeight()
+                                        .width(animIndicatorW)
+                                        .clip(capsuleShape)
+                                        .background(
+                                            if (isDarkMode) Color.White.copy(alpha = 0.08f)
+                                            else Color.Black.copy(alpha = 0.08f)
+                                        )
+                                )
+                            }
+
+                            // ── Tab Items ──
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                bottomItems.forEachIndexed { index, item ->
+                                    val selected = selectedIndex == index
+                                    // 滑动/切页不再逐 tab 跑颜色弹簧，直接取色
+                                    val iconColor = if (selected) selectedColor else unselectedColor
+
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .onGloballyPositioned { coords ->
+                                                if (selected) {
+                                                    val parentCoords = coords.parentCoordinates
+                                                    if (parentCoords != null) {
+                                                        val localCenter = coords.size.width / 2
+                                                        val posInParent = parentCoords.localPositionOf(
+                                                            coords,
+                                                            androidx.compose.ui.geometry.Offset(localCenter.toFloat(), 0f)
+                                                        )
+                                                        val cx = posInParent.x
+                                                        val w = with(density) { (coords.size.width * 0.9f).toDp() }
+                                                        // 仅在变化时写 state，打断 onGloballyPositioned → recompose 回环
+                                                        if (cx != indicatorCenterX) indicatorCenterX = cx
+                                                        if (w != indicatorWidth) indicatorWidth = w
+                                                    }
                                                 }
                                             }
-                                        }
-                                        .clickable(
-                                            interactionSource = remember { MutableInteractionSource() },
-                                            indication = null
-                                        ) {
-                                            scope.launch { pagerState.animateScrollToPage(index) }
-                                        }
-                                        .padding(vertical = 3.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = item.icon,
-                                        contentDescription = item.label,
-                                        modifier = Modifier.size(21.dp),
-                                        tint = iconColor
-                                    )
-                                    Spacer(modifier = Modifier.height(1.dp))
-                                    Text(
-                                        text = item.label,
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            fontSize = 9.sp,
-                                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
-                                        ),
-                                        color = iconColor
-                                    )
+                                            .clickable(
+                                                interactionSource = remember { MutableInteractionSource() },
+                                                indication = null
+                                            ) {
+                                                selectedTabRoute = item.route
+                                                scope.launch { pagerState.animateScrollToPage(index) }
+                                            }
+                                            .padding(vertical = 3.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = item.icon,
+                                            contentDescription = item.label,
+                                            modifier = Modifier.size(21.dp),
+                                            tint = iconColor
+                                        )
+                                        Spacer(modifier = Modifier.height(1.dp))
+                                        Text(
+                                            text = item.label,
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontSize = 9.sp,
+                                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+                                            ),
+                                            color = iconColor
+                                        )
+                                    }
                                 }
                             }
                         }

@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -121,13 +122,18 @@ internal fun MainNavGraph(
             }
         ) {
             composable("main") {
+                // 按路由保存各 Tab 的 rememberSaveable（如设置抽屉展开态），
+                // 开关人情/相册导致页下标变化时不丢失
+                val saveableStateHolder = rememberSaveableStateHolder()
                 HorizontalPager(
                     state = pagerState,
                     modifier = Modifier.fillMaxSize(),
                     userScrollEnabled = !isAlbumInteracting,
                     beyondBoundsPageCount = 0
                 ) { page ->
-                    when (bottomItems[page].route) {
+                    val pageRoute = bottomItems[page].route
+                    saveableStateHolder.SaveableStateProvider(key = pageRoute) {
+                    when (pageRoute) {
                         "home" -> HomeScreen(
                             viewModel = viewModel,
                             onNavigateToAddTransaction = {
@@ -206,6 +212,7 @@ internal fun MainNavGraph(
                                 navController.navigateSingle("cloud_backup")
                             }
                         )
+                    }
                     }
                 }
             }
