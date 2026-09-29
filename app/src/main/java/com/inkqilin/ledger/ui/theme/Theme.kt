@@ -70,13 +70,13 @@ private fun dynamicLightColorScheme(primary: Color) = lightColorScheme(
     inverseOnSurface = OnSurfaceDark,
 )
 
-// Apple HIG Rounded Corner System
+// Apple HIG Rounded Corner System（与 UiTokens.Corners 一致）
 private val AppShapes = Shapes(
-    extraSmall = RoundedCornerShape(8.dp),
-    small = RoundedCornerShape(12.dp),
-    medium = RoundedCornerShape(18.dp),
-    large = RoundedCornerShape(24.dp),
-    extraLarge = RoundedCornerShape(32.dp),
+    extraSmall = Corners.Xs,
+    small = Corners.Sm,
+    medium = Corners.Md,
+    large = Corners.Lg,
+    extraLarge = Corners.Xl,
 )
 
 @Composable

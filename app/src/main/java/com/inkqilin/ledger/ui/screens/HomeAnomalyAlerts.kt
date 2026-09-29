@@ -58,7 +58,7 @@ internal fun AnomalyAlertCard(
 
     if (anomalies.isEmpty()) return
 
-    val shape = RoundedCornerShape(24.dp)
+    val shape = com.inkqilin.ledger.ui.theme.Corners.Lg
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
     Card(
@@ -138,7 +138,7 @@ internal fun AnomalyAlertCard(
     isLoading: Boolean = false,
     onRefresh: () -> Unit = {}
 ) {
-    val shape = RoundedCornerShape(24.dp)
+    val shape = com.inkqilin.ledger.ui.theme.Corners.Lg
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
     Card(

@@ -74,7 +74,7 @@ fun LazyListScope.StatisticsAssetSummaryItem(
 ) {
             item(key = "asset_summary") {
                 Spacer(modifier = Modifier.height(16.dp))
-                val shape = RoundedCornerShape(24.dp)
+                val shape = com.inkqilin.ledger.ui.theme.Corners.Lg
                 val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
                 Card(
                     modifier = Modifier

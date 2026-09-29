@@ -593,10 +593,16 @@ class TransactionViewModel(
     val allAlbumPhotos: StateFlow<List<AlbumPhoto>> = albumPhotoDao.getAllPhotos()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun addAlbumPhoto(uri: String, note: String = "") {
+    fun addAlbumPhoto(uri: String, note: String = "", context: Context? = null) {
         viewModelScope.launch {
             try {
-                albumPhotoDao.insertPhoto(AlbumPhoto(uri = uri, note = note))
+                // 优先存「文件名」，避免绝对路径在恢复/换目录后失效
+                val stable = if (context != null) {
+                    com.inkqilin.ledger.util.AlbumStorage.normalizeUriString(context, uri)
+                } else {
+                    uri.substringAfterLast('/').ifBlank { uri }
+                }
+                albumPhotoDao.insertPhoto(AlbumPhoto(uri = stable, note = note))
             } catch (t: Throwable) {
                 Log.e("Album", "保存照片记录失败", t)
             }
@@ -609,18 +615,14 @@ class TransactionViewModel(
         }
     }
 
-    fun deleteAlbumPhoto(photo: AlbumPhoto) {
+    fun deleteAlbumPhoto(photo: AlbumPhoto, context: Context? = null) {
         viewModelScope.launch {
-            // 先删除数据库记录
             albumPhotoDao.deletePhoto(photo)
-            // 同步删除磁盘文件
             try {
-                val path = Uri.parse(photo.uri).path
-                if (path != null) {
-                    val file = File(path)
-                    if (file.exists()) {
-                        file.delete()
-                        Log.d("TransactionVM", "Deleted photo file: $path")
+                if (context != null) {
+                    val file = com.inkqilin.ledger.util.AlbumStorage.resolvePhotoFile(context, photo.uri)
+                    if (file != null && file.delete()) {
+                        Log.d("TransactionVM", "Deleted photo file: ${file.name}")
                     }
                 }
             } catch (e: Exception) {

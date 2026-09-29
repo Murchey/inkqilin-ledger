@@ -53,7 +53,7 @@ internal fun FinancialScoreCard(
     monthlyBudget: Double
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(24.dp)
+    val shape = com.inkqilin.ledger.ui.theme.Corners.Lg
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
     val savingsRate = if (income > 0) ((income - expense) / income * 100).coerceIn(0.0, 100.0) else 0.0
@@ -148,7 +148,7 @@ internal fun FinancialScoreCard(
 
             AnimatedVisibility(visible = expanded) {
                 Column(modifier = Modifier.padding(top = 16.dp)) {
-                    Divider(color = MaterialTheme.colorScheme.outlineVariant)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Spacer(modifier = Modifier.height(12.dp))
                     ScoreDetailRow("储蓄率", "${String.format("%.1f", savingsRate)}%", savingsRate >= 20)
                     Spacer(modifier = Modifier.height(8.dp))

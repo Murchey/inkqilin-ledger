@@ -111,7 +111,7 @@ fun CompoundInterestScreen() {
 
             // 对比开关
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                Surface(onClick = { showCompare = !showCompare }, shape = RoundedCornerShape(24.dp), color = if (showCompare) Color(0xFFFF6D00) else MaterialTheme.colorScheme.surfaceVariant) {
+                Surface(onClick = { showCompare = !showCompare }, shape = com.inkqilin.ledger.ui.theme.Corners.Lg, color = if (showCompare) Color(0xFFFF6D00) else MaterialTheme.colorScheme.surfaceVariant) {
                     Text(text = if (showCompare) "关闭对比" else "添加对比组 B", modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp), color = if (showCompare) Color.White else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                 }
             }

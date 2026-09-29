@@ -73,7 +73,7 @@ internal fun AssetEditDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Surface(
-            shape = RoundedCornerShape(24.dp),
+            shape = com.inkqilin.ledger.ui.theme.Corners.Lg,
             color = MaterialTheme.colorScheme.surface,
             modifier = Modifier
                 .fillMaxWidth()

@@ -277,7 +277,7 @@ fun LazyListScope.StatisticsBodyItems(
                 var tooltipIndex by remember { mutableStateOf<Int?>(null) }
                 val hasAnyData = barChartData.any { it.second > 0 }
 
-                val chartShape = RoundedCornerShape(24.dp)
+                val chartShape = com.inkqilin.ledger.ui.theme.Corners.Lg
                 val isDarkChart = MaterialTheme.colorScheme.background.luminance() < 0.5f
                 val chartInteractionSource = remember { MutableInteractionSource() }
                 Card(
@@ -426,7 +426,7 @@ fun LazyListScope.StatisticsBodyItems(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp, vertical = 4.dp)
-                        .clip(RoundedCornerShape(18.dp))
+                        .clip(com.inkqilin.ledger.ui.theme.Corners.Md)
                 ) {
                     // 滑动展示的编辑按钮
                     Box(
@@ -472,7 +472,7 @@ fun LazyListScope.StatisticsBodyItems(
                                 val dateRange = getDateRangeForPeriod(selectedPeriod, startDate, endDate)
                                 navController.navigateSingle("category_transactions/$categoryName/${selectedType.name}?startDate=${dateRange.first}&endDate=${dateRange.second}")
                             },
-                        shape = RoundedCornerShape(18.dp),
+                        shape = com.inkqilin.ledger.ui.theme.Corners.Md,
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {

@@ -81,7 +81,7 @@ fun SwipeableTransactionItem(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp)
-            .clip(RoundedCornerShape(18.dp))
+            .clip(com.inkqilin.ledger.ui.theme.Corners.Md)
             .background(MaterialTheme.colorScheme.surface.copy(alpha = trackAlpha))
     ) {
         if (menuProgress > 0.02f) {
@@ -180,7 +180,7 @@ fun TransactionItem(
         modifier = Modifier
             .fillMaxWidth()
             .pressScale(interactionSource),
-        shape = RoundedCornerShape(18.dp),
+        shape = com.inkqilin.ledger.ui.theme.Corners.Md,
         colors = CardDefaults.cardColors(
             containerColor = cardContainer,
             disabledContainerColor = cardContainer

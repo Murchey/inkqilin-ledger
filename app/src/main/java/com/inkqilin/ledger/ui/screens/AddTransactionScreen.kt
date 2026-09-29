@@ -157,7 +157,7 @@ fun AddTransactionScreen(
 
         item {
             Spacer(modifier = Modifier.height(24.dp))
-            Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), shape = RoundedCornerShape(18.dp),
+            Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), shape = com.inkqilin.ledger.ui.theme.Corners.Md,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -228,7 +228,7 @@ fun AddTransactionScreen(
 
         item {
             Spacer(modifier = Modifier.height(16.dp))
-            Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), shape = RoundedCornerShape(18.dp),
+            Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), shape = com.inkqilin.ledger.ui.theme.Corners.Md,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
                 Column(modifier = Modifier.padding(4.dp)) {
@@ -327,7 +327,7 @@ fun AddTransactionScreen(
         if (renQingEnabled) {
             item {
                 Spacer(modifier = Modifier.height(12.dp))
-                Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), shape = RoundedCornerShape(18.dp),
+                Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), shape = com.inkqilin.ledger.ui.theme.Corners.Md,
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -464,7 +464,7 @@ private fun RowScope.CategoryChip(cat: String, icon: String, selected: Boolean, 
                 interactionSource = chipInteractionSource,
                 indication = null
             ) { onClick() },
-        shape = RoundedCornerShape(18.dp),
+        shape = com.inkqilin.ledger.ui.theme.Corners.Md,
         colors = CardDefaults.cardColors(
             containerColor = if (selected) accentColor.copy(alpha = 0.15f)
             else MaterialTheme.colorScheme.surfaceVariant
@@ -508,7 +508,7 @@ private fun AddTransactionScreenPreview() {
                     Box(modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(vertical = 12.dp), contentAlignment = Alignment.Center) { Text("收入", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 15.sp) }
                 }
                 Spacer(modifier = Modifier.height(12.dp))
-                Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(0.dp)) {
+                Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), shape = com.inkqilin.ledger.ui.theme.Corners.Md, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(0.dp)) {
                     OutlinedTextField(value = "35.50", onValueChange = {}, label = { Text("金额") }, prefix = { Text("¥ ", fontWeight = FontWeight.Bold, fontSize = 20.sp) }, modifier = Modifier.fillMaxWidth().padding(4.dp), shape = RoundedCornerShape(14.dp), textStyle = LocalTextStyle.current.copy(fontSize = 24.sp, fontWeight = FontWeight.Bold), singleLine = true)
                 }
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -519,7 +519,7 @@ private fun AddTransactionScreenPreview() {
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     cats.forEachIndexed { i, (name, icon) ->
                         val accent = MaterialTheme.colorScheme.secondary
-                        Card(modifier = Modifier.weight(1f), shape = RoundedCornerShape(18.dp),
+                        Card(modifier = Modifier.weight(1f), shape = com.inkqilin.ledger.ui.theme.Corners.Md,
                             colors = CardDefaults.cardColors(containerColor = if (i == 0) accent.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant),
                             border = if (i == 0) BorderStroke(1.dp, accent.copy(alpha = 0.3f)) else null,
                             elevation = CardDefaults.cardElevation(0.dp)) {
@@ -528,7 +528,7 @@ private fun AddTransactionScreenPreview() {
                     }
                 }
                 Spacer(modifier = Modifier.height(12.dp))
-                Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(0.dp)) {
+                Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), shape = com.inkqilin.ledger.ui.theme.Corners.Md, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(0.dp)) {
                     OutlinedTextField(value = "午餐", onValueChange = {}, label = { Text("备注（可选）") }, modifier = Modifier.fillMaxWidth().padding(4.dp), shape = RoundedCornerShape(14.dp))
                 }
                 Spacer(modifier = Modifier.height(24.dp))

@@ -83,7 +83,7 @@ internal fun AlbumPhotoCard(
     val context = LocalContext.current
     val bitmap = remember(photo.id, photo.uri) {
         try {
-            val uri = Uri.parse(photo.uri)
+            val uri = com.inkqilin.ledger.util.AlbumStorage.resolveUri(context, photo.uri)
             DeviceCompat.decodeBitmapSampled(context, uri, maxDim = 512)
                 ?.takeIf { it.width > 0 && it.height > 0 }
         } catch (_: Throwable) {
@@ -96,14 +96,14 @@ internal fun AlbumPhotoCard(
             .fillMaxWidth()
             .aspectRatio(1f)
             .then(
-                if (isSelected) Modifier.border(3.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(18.dp))
+                if (isSelected) Modifier.border(3.dp, MaterialTheme.colorScheme.primary, com.inkqilin.ledger.ui.theme.Corners.Md)
                 else Modifier
             )
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
             ),
-        shape = RoundedCornerShape(18.dp),
+        shape = com.inkqilin.ledger.ui.theme.Corners.Md,
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {

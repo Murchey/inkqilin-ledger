@@ -91,7 +91,7 @@ fun CycleBillScreen(
         ) {
             // Tab bar
             Row(
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = com.inkqilin.ledger.ui.theme.Space.PageHorizontal, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 CycleFilter.values().forEach { filter ->

@@ -544,7 +544,7 @@ fun MainScreen(
             onDismissRequest = { showFabMenu = false },
             sheetState = sheetState,
             containerColor = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+            shape = com.inkqilin.ledger.ui.theme.Corners.SheetTop,
             dragHandle = {
                 Box(
                     modifier = Modifier

@@ -308,7 +308,7 @@ fun AmountKeypad(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                        .clip(com.inkqilin.ledger.ui.theme.Corners.SheetTop)
                         .background(MaterialTheme.colorScheme.surface)
                         .navigationBarsPadding()
                         .padding(horizontal = 16.dp, vertical = 10.dp)

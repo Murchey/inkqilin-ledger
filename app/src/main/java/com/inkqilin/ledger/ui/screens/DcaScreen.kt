@@ -238,7 +238,7 @@ fun DcaScreen() {
         ) {
             Surface(
                 onClick = { isGoalMode = !isGoalMode },
-                shape = RoundedCornerShape(24.dp),
+                shape = com.inkqilin.ledger.ui.theme.Corners.Lg,
                 color = if (isGoalMode) Color(0xFFFF6D00) else MaterialTheme.colorScheme.primary
             ) {
                 Text(

@@ -69,7 +69,7 @@ internal fun HomeScreenPreview() {
 
             LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp)) {
                 item {
-                    Card(modifier = Modifier.fillMaxWidth().padding(12.dp), shape = RoundedCornerShape(24.dp),
+                    Card(modifier = Modifier.fillMaxWidth().padding(12.dp), shape = com.inkqilin.ledger.ui.theme.Corners.Lg,
                         colors = CardDefaults.cardColors(containerColor = Color(0xFF4CAF50))) {
                         Column(modifier = Modifier.padding(24.dp)) {
                             Text("总览", color = Color.White, fontSize = 13.sp)
@@ -107,7 +107,7 @@ internal fun HomeScreenPreview() {
                         }
                     }
                     items(txs) { tx ->
-                        Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp), shape = RoundedCornerShape(18.dp),
+                        Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp), shape = com.inkqilin.ledger.ui.theme.Corners.Md,
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
                             Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

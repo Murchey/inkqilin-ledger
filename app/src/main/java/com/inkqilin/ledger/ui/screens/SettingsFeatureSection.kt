@@ -71,8 +71,8 @@ internal fun SettingsFeatureSection(
     val ocrEnabled by viewModel.ocrEnabled.collectAsState()
     val albumEnabled by viewModel.albumEnabled.collectAsState()
         SettingsSectionHeader("功能开关", if (renQingEnabled) "人情账本已启用" else "按需开启页面功能", featureSectionExpanded) { featureSectionExpanded = !featureSectionExpanded }
-        AnimatedVisibility(visible = featureSectionExpanded) {
-            Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+        SettingsDrawer(visible = featureSectionExpanded) {
+            Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = com.inkqilin.ledger.ui.theme.Corners.Md, elevation = CardDefaults.cardElevation(0.dp)) {
                 Column {
                     ListItem(
                         headlineContent = { Text("人情账本") },
@@ -83,7 +83,7 @@ internal fun SettingsFeatureSection(
                             Switch(checked = renQingEnabled, onCheckedChange = { renQingViewModel.setRenQingEnabled(it) })
                         }
                     )
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = com.inkqilin.ledger.ui.theme.Space.PageHorizontal))
                     ListItem(
                         headlineContent = { Text("记账相册") },
                         supportingContent = {
@@ -93,7 +93,7 @@ internal fun SettingsFeatureSection(
                             Switch(checked = albumEnabled, onCheckedChange = { viewModel.setAlbumEnabled(it) })
                         }
                     )
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = com.inkqilin.ledger.ui.theme.Space.PageHorizontal))
                     ListItem(
                         headlineContent = { Text("自动记账") },
                         supportingContent = {
@@ -123,8 +123,8 @@ internal fun SettingsFeatureSection(
         }
         val multiCurrencyEnabled by viewModel.multiCurrencyEnabled.collectAsState()
         SettingsSectionHeader("多币种管理", if (multiCurrencyEnabled) "已启用" else "未启用", currencySectionExpanded) { currencySectionExpanded = !currencySectionExpanded }
-        AnimatedVisibility(visible = currencySectionExpanded) {
-        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+        SettingsDrawer(visible = currencySectionExpanded) {
+        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = com.inkqilin.ledger.ui.theme.Corners.Md, elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
                 ListItem(
                     headlineContent = { Text("多币种资金管理") },
@@ -160,8 +160,8 @@ internal fun SettingsFeatureSection(
         var githubRepoInput by remember { mutableStateOf(githubRepo) }
 
         SettingsSectionHeader("更新检测", if (checkUpdateEnabled) "启动时自动检查" else "已关闭", updateSectionExpanded) { updateSectionExpanded = !updateSectionExpanded }
-        AnimatedVisibility(visible = updateSectionExpanded) {
-        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+        SettingsDrawer(visible = updateSectionExpanded) {
+        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = com.inkqilin.ledger.ui.theme.Corners.Md, elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
                 ListItem(
                     headlineContent = { Text("启动时检测新版本") },
@@ -170,7 +170,7 @@ internal fun SettingsFeatureSection(
                         Switch(checked = checkUpdateEnabled, onCheckedChange = { viewModel.setCheckUpdateEnabled(it) })
                     }
                 )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                HorizontalDivider(modifier = Modifier.padding(horizontal = com.inkqilin.ledger.ui.theme.Space.PageHorizontal))
                 ListItem(
                     headlineContent = { Text("更新检测仓库") },
                     supportingContent = { Text("Gitee: $updateRepo", maxLines = 2, fontSize = 12.sp) },
@@ -180,7 +180,7 @@ internal fun SettingsFeatureSection(
                         showUpdateRepoDialog = true
                     }
                 )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                HorizontalDivider(modifier = Modifier.padding(horizontal = com.inkqilin.ledger.ui.theme.Space.PageHorizontal))
                 ListItem(
                     headlineContent = { Text("GitHub 下载仓库") },
                     supportingContent = { Text("GitHub: $githubRepo", maxLines = 2, fontSize = 12.sp) },
@@ -190,14 +190,14 @@ internal fun SettingsFeatureSection(
                         showGithubRepoDialog = true
                     }
                 )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                HorizontalDivider(modifier = Modifier.padding(horizontal = com.inkqilin.ledger.ui.theme.Space.PageHorizontal))
                 ListItem(
                     headlineContent = { Text("检查更新") },
                     supportingContent = { Text("立即检测是否有新版本，有则弹出更新") },
                     leadingContent = { Icon(Icons.Default.Refresh, contentDescription = null) },
                     modifier = Modifier.clickable { viewModel.triggerManualUpdateCheck() }
                 )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                HorizontalDivider(modifier = Modifier.padding(horizontal = com.inkqilin.ledger.ui.theme.Space.PageHorizontal))
                 // 代理源选择
                 Box {
                     ListItem(
@@ -371,8 +371,8 @@ internal fun SettingsFeatureSection(
             expanded = labExpanded,
             onClick = { labExpanded = !labExpanded }
         )
-        AnimatedVisibility(visible = labExpanded) {
-            Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+        SettingsDrawer(visible = labExpanded) {
+            Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = com.inkqilin.ledger.ui.theme.Corners.Md, elevation = CardDefaults.cardElevation(0.dp)) {
                 Column {
                 Spacer(modifier = Modifier.height(0.5.dp))
                 ListItem(

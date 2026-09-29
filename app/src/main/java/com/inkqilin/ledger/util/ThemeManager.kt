@@ -201,11 +201,10 @@ private val WIDGET_SHOW_AMOUNT_KEY = booleanPreferencesKey("widget_show_amount")
         return json.toString()
     }
 
-    /** 从备份 JSON 恢复应用设置（先清后写） */
+    /** 从备份 JSON 恢复应用设置：合并写入，不 clear，避免旧备份缺 key 时清掉相册开关等本机配置 */
     suspend fun importSettingsJson(raw: String) {
         val json = org.json.JSONObject(raw)
         context.dataStore.edit { p ->
-            p.clear()
             val keys = json.keys()
             while (keys.hasNext()) {
                 val name = keys.next()

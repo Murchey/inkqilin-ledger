@@ -121,7 +121,7 @@ internal fun DynamicIslandCapsule(
         ) {
             // 纯系统相机：胶囊内不嵌 CameraX 预览，避免卓易通 native abort
             if (expansionProgress.value > 0.35f) {
-                if (!(expansionProgress.value > 0.6f && isDragging)) {
+                if (!(expansionProgress.value > 0.5f && isDragging)) {
                     Text(
                         "松手打开相机",
                         color = Color.White.copy(alpha = 0.9f),
@@ -142,7 +142,7 @@ internal fun DynamicIslandCapsule(
                 )
             }
 
-            if (expansionProgress.value > 0.6f && isDragging) {
+            if (expansionProgress.value > 0.5f && isDragging) {
                 Text(
                     "松手打开相机",
                     color = Color.White.copy(alpha = 0.9f),
@@ -150,7 +150,7 @@ internal fun DynamicIslandCapsule(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 12.dp)
-                        .graphicsLayer { alpha = ((expansionProgress.value - 0.6f) / 0.4f).coerceIn(0f, 1f) }
+                        .graphicsLayer { alpha = ((expansionProgress.value - 0.5f) / 0.4f).coerceIn(0f, 1f) }
                 )
             }
 

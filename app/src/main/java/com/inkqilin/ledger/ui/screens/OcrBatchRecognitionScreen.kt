@@ -268,7 +268,7 @@ fun OcrBatchRecognitionScreen(
                 AppleDialogButton("确定", AppleDialogButtonStyle.DEFAULT) {
                     val uris = albumPhotos
                         .filter { albumSelectedIds.contains(it.id) }
-                        .map { Uri.parse(it.uri) }
+                        .map { com.inkqilin.ledger.util.AlbumStorage.resolveUri(context, it.uri) }
                     selectedImages = uris
                     showAlbumPicker = false
                     albumSelectedIds = emptySet()
@@ -287,7 +287,7 @@ private fun AlbumPickerItem(
     val context = LocalContext.current
     val bitmap = remember(photo.id, photo.uri) {
         try {
-            val uri = Uri.parse(photo.uri)
+            val uri = com.inkqilin.ledger.util.AlbumStorage.resolveUri(context, photo.uri)
             context.contentResolver.openInputStream(uri)?.use { stream ->
                 BitmapFactory.decodeStream(stream)
             }

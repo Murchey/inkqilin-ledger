@@ -363,11 +363,11 @@ internal fun TrendChartSkeleton() {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(24.dp),
+        shape = com.inkqilin.ledger.ui.theme.Corners.Lg,
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Box(modifier = Modifier.fillMaxWidth().frostedGlass(RoundedCornerShape(24.dp), isDark)) {
+        Box(modifier = Modifier.fillMaxWidth().frostedGlass(com.inkqilin.ledger.ui.theme.Corners.Lg, isDark)) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Box(modifier = Modifier.fillMaxWidth(0.4f).height(18.dp).clip(RoundedCornerShape(4.dp)).shimmer())
                 Spacer(modifier = Modifier.height(24.dp))
@@ -383,7 +383,7 @@ internal fun TransactionItemSkeleton() {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(18.dp),
+        shape = com.inkqilin.ledger.ui.theme.Corners.Md,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(

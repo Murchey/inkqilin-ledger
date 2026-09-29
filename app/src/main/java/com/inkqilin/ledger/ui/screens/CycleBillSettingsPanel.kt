@@ -47,8 +47,19 @@ fun CycleBillSettingsPanel(
     onViewRecycleBin: () -> Unit, onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    ModalBottomSheet(onDismissRequest = onDismiss, shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)) {
-        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp).padding(bottom = 32.dp)) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        shape = com.inkqilin.ledger.ui.theme.Corners.SheetTop
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = com.inkqilin.ledger.ui.theme.SheetHeights.SettingsSheetMin)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp, vertical = 16.dp)
+                .padding(bottom = com.inkqilin.ledger.ui.theme.Space.SheetBottom)
+        ) {
             Text("周期账单设置", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(16.dp))
 

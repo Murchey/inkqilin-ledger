@@ -189,7 +189,7 @@ fun RenQingTagStatsScreen(viewModel: RenQingViewModel, year: Int) {
                 Text("暂无数据", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+            Card(modifier = Modifier.fillMaxWidth(), shape = com.inkqilin.ledger.ui.theme.Corners.Md, elevation = CardDefaults.cardElevation(0.dp)) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     allTags.forEach { tag ->
                         val tagEvents = yearEvents.filter { it.tagId == tag.id }
@@ -227,7 +227,7 @@ fun RenQingTagStatsScreen(viewModel: RenQingViewModel, year: Int) {
                                     color = MaterialTheme.colorScheme.primary
                                 )
                             }
-                            Divider(modifier = Modifier.padding(vertical = 4.dp))
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                         }
                     }
                 }
@@ -309,7 +309,7 @@ fun RenQingContactAnalysisScreen(viewModel: RenQingViewModel, year: Int) {
                 Text("暂无数据", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+            Card(modifier = Modifier.fillMaxWidth(), shape = com.inkqilin.ledger.ui.theme.Corners.Md, elevation = CardDefaults.cardElevation(0.dp)) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     contactStats.forEach { (name, rel, stats) ->
                         val (given, received, count) = stats
@@ -344,7 +344,7 @@ fun RenQingContactAnalysisScreen(viewModel: RenQingViewModel, year: Int) {
                                 color = if (balance >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                             )
                         }
-                        Divider(modifier = Modifier.padding(vertical = 4.dp))
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                     }
                 }
             }
@@ -435,7 +435,7 @@ fun ContactManagementScreen(viewModel: RenQingViewModel) {
                     }
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(18.dp),
+                        shape = com.inkqilin.ledger.ui.theme.Corners.Md,
                         elevation = CardDefaults.cardElevation(0.dp)
                     ) {
                         Row(

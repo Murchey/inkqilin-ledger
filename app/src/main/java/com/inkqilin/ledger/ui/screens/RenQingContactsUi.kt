@@ -139,7 +139,7 @@ internal fun ContactCard(
 
     Card(
         modifier = Modifier.fillMaxWidth().clickable { onNavigateToContactDetail(contact.id) },
-        shape = RoundedCornerShape(18.dp),
+        shape = com.inkqilin.ledger.ui.theme.Corners.Md,
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {

@@ -57,7 +57,7 @@ internal fun RenQingMainScreenPreview() {
         Surface(color = MaterialTheme.colorScheme.background) {
             Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
                 Text("人情往来", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 16.dp))
-                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF5856D6))) {
+                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp), shape = com.inkqilin.ledger.ui.theme.Corners.Md, colors = CardDefaults.cardColors(containerColor = Color(0xFF5856D6))) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text("本月人情 · 随礼", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -71,7 +71,7 @@ internal fun RenQingMainScreenPreview() {
                 }
                 val contacts = listOf("张三" to "朋友", "李四" to "同事", "王五" to "亲属")
                 contacts.forEach { (name, rel) ->
-                    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(0.dp)) {
+                    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), shape = com.inkqilin.ledger.ui.theme.Corners.Md, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(0.dp)) {
                         Row(modifier = Modifier.padding(14.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Box(modifier = Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF007AFF).copy(alpha = 0.1f)), contentAlignment = Alignment.Center) { Text(name.take(1), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF007AFF)) }
                             Spacer(modifier = Modifier.width(12.dp))

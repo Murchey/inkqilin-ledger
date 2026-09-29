@@ -76,6 +76,15 @@ object CloudBackupManager {
                 putFile(dbFile, DB_NAME)
                 putFile(wal, "$DB_NAME-wal")
                 putFile(shm, "$DB_NAME-shm")
+                // 记账相册图片：避免恢复后数据库有记录但文件丢失
+                runCatching {
+                    val albumDir = File(context.filesDir, "album_photos")
+                    albumDir.listFiles()?.forEach { f ->
+                        if (f.isFile && f.length() > 0) {
+                            putFile(f, "album_photos/${f.name}")
+                        }
+                    }
+                }
                 // 应用设置（主题、备份计划、COS 配置等）
                 runCatching {
                     val settings = ThemeManager(context).exportSettingsJson()
@@ -229,6 +238,18 @@ object CloudBackupManager {
             wal.delete()
             shm.delete()
             dbFile.outputStream().use { it.write(mainDb) }
+            // 恢复相册图片（包内 album_photos/）
+            runCatching {
+                val albumDir = File(context.filesDir, "album_photos")
+                albumDir.mkdirs()
+                files.forEach { (name, bytes) ->
+                    if (name.startsWith("album_photos/") && name.length > "album_photos/".length && bytes.isNotEmpty()) {
+                        val fileName = name.removePrefix("album_photos/")
+                        if (fileName.contains('/') || fileName.contains('\\')) return@forEach
+                        File(albumDir, fileName).outputStream().use { it.write(bytes) }
+                    }
+                }
+            }
             // 不恢复包内 wal/shm，避免与新主库不一致；下次打开会重建
             // 恢复应用设置（主题/备份计划/COS 等）；旧备份无此文件则跳过
             files[SETTINGS_ENTRY]?.toString(Charsets.UTF_8)?.let { settingsJson ->

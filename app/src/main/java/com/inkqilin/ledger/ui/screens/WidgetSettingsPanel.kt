@@ -19,7 +19,7 @@ fun WidgetSettingsPanel(viewModel: TransactionViewModel) {
     val context = LocalContext.current
 
     Card(
-        shape = RoundedCornerShape(18.dp),
+        shape = com.inkqilin.ledger.ui.theme.Corners.Md,
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Column {

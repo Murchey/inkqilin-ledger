@@ -267,8 +267,8 @@ fun SettingsScreen(
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 16.dp)) {
         // region 1. 应用版本
         SettingsSectionHeader("应用版本", if (appMode == AppMode.SMART) "智能版" else "基础版", appSectionExpanded) { appSectionExpanded = !appSectionExpanded }
-        AnimatedVisibility(visible = appSectionExpanded) {
-        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+        SettingsDrawer(visible = appSectionExpanded) {
+        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = com.inkqilin.ledger.ui.theme.Corners.Md, elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
                 ListItem(
                     headlineContent = { Text("基础版", fontWeight = if (appMode == AppMode.BASIC) FontWeight.Bold else FontWeight.Normal) },
@@ -331,7 +331,7 @@ fun SettingsScreen(
         // endregion
 
         SettingsSectionHeader("桌面小组件", "余额显示与刷新", widgetSectionExpanded) { widgetSectionExpanded = !widgetSectionExpanded }
-        AnimatedVisibility(visible = widgetSectionExpanded) {
+        SettingsDrawer(visible = widgetSectionExpanded) {
             WidgetSettingsPanel(viewModel)
         }
 
@@ -345,8 +345,8 @@ fun SettingsScreen(
             onShowHomeBgSheet = { showHomeBgSheet = true },
         )
         SettingsSectionHeader("分类管理", "账单分类与自动分类规则", categorySectionExpanded) { categorySectionExpanded = !categorySectionExpanded }
-        AnimatedVisibility(visible = categorySectionExpanded) {
-        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+        SettingsDrawer(visible = categorySectionExpanded) {
+        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = com.inkqilin.ledger.ui.theme.Corners.Md, elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
                 ListItem(
                     headlineContent = { Text("账单标签（类别）管理") },
@@ -380,8 +380,8 @@ fun SettingsScreen(
             harmonyCompatMode = harmonyCompatMode,
         )
         SettingsSectionHeader("数据管理", "导入、导出与数据备份", dataSectionExpanded) { dataSectionExpanded = !dataSectionExpanded }
-        AnimatedVisibility(visible = dataSectionExpanded) {
-        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+        SettingsDrawer(visible = dataSectionExpanded) {
+        Card(modifier = Modifier.fillMaxWidth(), shape = com.inkqilin.ledger.ui.theme.Corners.Md, elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
                 ListItem(
                     headlineContent = { Text("数据备份") },
@@ -390,7 +390,7 @@ fun SettingsScreen(
                     trailingContent = { Icon(Icons.Default.KeyboardArrowRight, contentDescription = null) },
                     modifier = Modifier.clickable { onNavigateToCloudBackup() }
                 )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                HorizontalDivider(modifier = Modifier.padding(horizontal = com.inkqilin.ledger.ui.theme.Space.PageHorizontal))
                 ListItem(
                     headlineContent = { Text("储存空间管理") },
                     supportingContent = { Text("查看相册/备份/缓存占用并清理") },
@@ -398,14 +398,14 @@ fun SettingsScreen(
                     trailingContent = { Icon(Icons.Default.KeyboardArrowRight, contentDescription = null) },
                     modifier = Modifier.clickable { showStorageSheet = true }
                 )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                HorizontalDivider(modifier = Modifier.padding(horizontal = com.inkqilin.ledger.ui.theme.Space.PageHorizontal))
                 ListItem(
                     headlineContent = { Text("导出账单") },
                     supportingContent = { Text("选择时间范围，导出 Excel 或 CSV") },
                     leadingContent = { Icon(Icons.Default.ExitToApp, contentDescription = null) },
                     modifier = Modifier.fillMaxWidth()
                 )
-                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp).animateContentSize()) {
+                Column(modifier = Modifier.padding(horizontal = com.inkqilin.ledger.ui.theme.Space.PageHorizontal, vertical = 4.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         ExportTimeRange.entries.forEach { range ->
                             FilterChip(
@@ -522,7 +522,7 @@ fun SettingsScreen(
                         leadingContent = { Icon(Icons.Default.ExitToApp, contentDescription = null) },
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp).animateContentSize()) {
+                    Column(modifier = Modifier.padding(horizontal = com.inkqilin.ledger.ui.theme.Space.PageHorizontal, vertical = 4.dp)) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             ExportTimeRange.entries.forEach { range ->
                                 FilterChip(
@@ -618,10 +618,10 @@ fun SettingsScreen(
             "版本 ${viewModel.getCurrentVersionName(context)} · 仓库与使用引导",
             aboutSectionExpanded
         ) { aboutSectionExpanded = !aboutSectionExpanded }
-        AnimatedVisibility(visible = aboutSectionExpanded) {
+        SettingsDrawer(visible = aboutSectionExpanded) {
             Card(
                 modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
-                shape = RoundedCornerShape(18.dp),
+                shape = com.inkqilin.ledger.ui.theme.Corners.Md,
                 elevation = CardDefaults.cardElevation(0.dp)
             ) {
                 ListItem(
@@ -639,7 +639,12 @@ fun SettingsScreen(
     }
 
     // 关于抽屉
-        SettingsAboutSheet(show = showAboutSheet, onDismiss = { showAboutSheet = false })
+        SettingsAboutSheet(
+            show = showAboutSheet,
+            onDismiss = { showAboutSheet = false },
+            onShowUsageGuide = { showUsageGuide = true },
+            onShowPrivacy = { showPrivacyPolicy = true },
+        )
 
     // 隐私政策（可再次查看）
     if (showPrivacyPolicy) {

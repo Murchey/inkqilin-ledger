@@ -139,7 +139,7 @@ fun AlbumScreen(
                         saveToSystemGallery(context, bitmap)
                         polaroidBitmap = bitmap
                         capturedUri = uri
-                        viewModel.addAlbumPhoto(uri.toString())
+                        viewModel.addAlbumPhoto(uri.toString(), context = context)
                         showFlash = true
                     } else {
                         Toast.makeText(context, "拍照失败", Toast.LENGTH_SHORT).show()
@@ -175,6 +175,8 @@ fun AlbumScreen(
         val imageDir = File(context.filesDir, "album_photos")
         if (!imageDir.exists()) imageDir.mkdirs()
         val photoFile = File(imageDir, "IMG_${System.currentTimeMillis()}.jpg")
+        // FileProvider / 部分相机要求目标文件已存在且非空目录路径
+        runCatching { photoFile.createNewFile() }
         tempSystemCameraUri = Uri.fromFile(photoFile)
         val contentUri = try {
             FileProvider.getUriForFile(
@@ -182,8 +184,8 @@ fun AlbumScreen(
                 "${context.packageName}.fileprovider",
                 photoFile
             )
-        } catch (_: Throwable) {
-            Toast.makeText(context, "无法打开相机（存储不可用）", Toast.LENGTH_SHORT).show()
+        } catch (t: Throwable) {
+            Toast.makeText(context, "无法打开相机（存储不可用）：${t.message}", Toast.LENGTH_LONG).show()
             null
         }
         scope.launch {
@@ -197,9 +199,22 @@ fun AlbumScreen(
         }
         if (contentUri != null) {
             try {
-                systemCameraLauncher.launch(contentUri)
-            } catch (_: Throwable) {
-                Toast.makeText(context, "无法打开系统相机", Toast.LENGTH_SHORT).show()
+                // 模拟器/精简系统可能没有相机应用：先探测，给出明确提示
+                val captureIntent = android.content.Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE).apply {
+                    putExtra(android.provider.MediaStore.EXTRA_OUTPUT, contentUri)
+                    addFlags(
+                        android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                            android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    )
+                }
+                val resolved = captureIntent.resolveActivity(context.packageManager)
+                if (resolved == null) {
+                    Toast.makeText(context, "本机/模拟器未安装相机应用，可从相册选择图片", Toast.LENGTH_LONG).show()
+                } else {
+                    systemCameraLauncher.launch(contentUri)
+                }
+            } catch (t: Throwable) {
+                Toast.makeText(context, "无法打开系统相机：${t.message}", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -208,7 +223,7 @@ fun AlbumScreen(
         if (!isDragging && expansionProgress.value > 0.01f) {
             kotlinx.coroutines.delay(150)
             if (isDragging) return@LaunchedEffect
-            if (expansionProgress.value > 0.6f) {
+            if (expansionProgress.value > 0.5f) {
                 launchSystemCamera()
             } else {
                 expansionProgress.animateTo(
@@ -228,7 +243,7 @@ fun AlbumScreen(
         uri?.let {
             val savedUri = copyUriToInternalStorage(context, it)
             if (savedUri != null) {
-                viewModel.addAlbumPhoto(savedUri.toString())
+                viewModel.addAlbumPhoto(savedUri.toString(), context = context)
             }
         }
     }
@@ -433,7 +448,7 @@ fun AlbumScreen(
                 buttons = listOf(
                     AppleDialogButton("取消", AppleDialogButtonStyle.CANCEL) { showDeleteConfirm = null },
                     AppleDialogButton("删除", AppleDialogButtonStyle.DESTRUCTIVE) {
-                        viewModel.deleteAlbumPhoto(photo)
+                        viewModel.deleteAlbumPhoto(photo, context = context)
                         showDeleteConfirm = null
                     }
                 )
@@ -449,7 +464,7 @@ fun AlbumScreen(
                     AppleDialogButton("取消", AppleDialogButtonStyle.CANCEL) { showBatchDeleteConfirm = false },
                     AppleDialogButton("删除", AppleDialogButtonStyle.DESTRUCTIVE) {
                         selectedIds.forEach { id ->
-                            photos.find { it.id == id }?.let { viewModel.deleteAlbumPhoto(it) }
+                            photos.find { it.id == id }?.let { viewModel.deleteAlbumPhoto(it, context = context) }
                         }
                         selectedIds = emptySet()
                         isSelectionMode = false

@@ -65,8 +65,8 @@ internal fun SettingsDisplaySection(
             ThemeMode.LIGHT -> "浅色模式"
             ThemeMode.DARK -> "深色模式"
         }, sectionExpanded) { sectionExpanded = !sectionExpanded }
-        AnimatedVisibility(visible = sectionExpanded) {
-        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+        SettingsDrawer(visible = sectionExpanded) {
+        Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = com.inkqilin.ledger.ui.theme.Corners.Md, elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
                 ListItem(
                     headlineContent = { Text("深浅色模式") },
@@ -134,23 +134,9 @@ internal fun SettingsDisplaySection(
                     modifier = Modifier.clickable { displaySettingsExpanded = !displaySettingsExpanded }
                 )
 
-                AnimatedVisibility(
-                    visible = displaySettingsExpanded,
-                    enter = expandVertically(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioNoBouncy,
-                            stiffness = Spring.StiffnessMediumLow
-                        )
-                    ) + fadeIn(
-                        animationSpec = tween(MotionDurations.MEDIUM)
-                    ),
-                    exit = shrinkVertically(
-                        animationSpec = tween(MotionDurations.SHORT)
-                    ) + fadeOut(
-                        animationSpec = tween(MotionDurations.FAST)
-                    )
-                ) {
-                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                // 与其它设置抽屉一致：默认 expand/shrink + fade（与未展开时的展开动画相同）
+                SettingsDrawer(visible = displaySettingsExpanded) {
+                    Column(modifier = Modifier.padding(horizontal = com.inkqilin.ledger.ui.theme.Space.PageHorizontal, vertical = 8.dp)) {
                         Spacer(modifier = Modifier.height(0.5.dp))
                         Spacer(modifier = Modifier.height(12.dp))
                         val currentPrimary = MaterialTheme.colorScheme.primary
@@ -249,7 +235,7 @@ internal fun SettingsDisplaySection(
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
-                        Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
                         Spacer(modifier = Modifier.height(12.dp))
 
                         // 主页主币种卡片颜色
@@ -355,7 +341,7 @@ internal fun SettingsDisplaySection(
 
                 // 显示设置一级项：首页背景图（不放在主题色展开区内）
                 Spacer(modifier = Modifier.height(0.5.dp))
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                HorizontalDivider(modifier = Modifier.padding(horizontal = com.inkqilin.ledger.ui.theme.Space.PageHorizontal))
                 val homeBgPathForRow by viewModel.homeBgImagePath.collectAsState()
                 val homeBgOpacityForRow by viewModel.homeBgOpacity.collectAsState()
                 ListItem(

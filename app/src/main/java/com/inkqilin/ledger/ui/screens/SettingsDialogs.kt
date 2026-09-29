@@ -52,13 +52,16 @@ internal fun SettingsAboutSheet(show: Boolean, onDismiss: () -> Unit, onShowUsag
     if (!show) return
         ModalBottomSheet(
             onDismissRequest = { onDismiss() },
-            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+            sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            shape = com.inkqilin.ledger.ui.theme.Corners.SheetTop
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 8.dp)
-                    .padding(bottom = 32.dp)
+                    .heightIn(min = com.inkqilin.ledger.ui.theme.SheetHeights.SettingsSheetMin)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = com.inkqilin.ledger.ui.theme.Space.Xxl, vertical = com.inkqilin.ledger.ui.theme.Space.Sm)
+                    .padding(bottom = com.inkqilin.ledger.ui.theme.Space.SheetBottom)
             ) {
                 Text(
                     "关于 墨麒麟记账",
@@ -122,7 +125,7 @@ internal fun SettingsAboutSheet(show: Boolean, onDismiss: () -> Unit, onShowUsag
                 OutlinedButton(
                     onClick = {
                         onDismiss()
-                        /* privacy via parent */
+                        onShowPrivacy()
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -167,13 +170,14 @@ internal fun SettingsHomeBgSheet(
             sheetState = androidx.compose.material3.rememberModalBottomSheetState(
                 skipPartiallyExpanded = true
             ),
-            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+            shape = com.inkqilin.ledger.ui.theme.Corners.SheetTop
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(min = com.inkqilin.ledger.ui.theme.SheetHeights.SettingsSheetMin)
                     .navigationBarsPadding()
-                    .padding(horizontal = 24.dp, vertical = 8.dp)
+                    .padding(horizontal = com.inkqilin.ledger.ui.theme.Space.Xxl, vertical = com.inkqilin.ledger.ui.theme.Space.Sm)
             ) {
                 Text(
                     "首页背景图",
@@ -192,7 +196,7 @@ internal fun SettingsHomeBgSheet(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 420.dp)
+                        .heightIn(max = com.inkqilin.ledger.ui.theme.SheetHeights.ScrollContentMax)
                         .verticalScroll(rememberScrollState())
                 ) {
                     Box(
@@ -312,13 +316,16 @@ internal fun SettingsStorageSheet(show: Boolean, onDismiss: () -> Unit, viewMode
 
         ModalBottomSheet(
             onDismissRequest = { onDismiss() },
-            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+            sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            shape = com.inkqilin.ledger.ui.theme.Corners.SheetTop
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 8.dp)
-                    .padding(bottom = 32.dp)
+                    .heightIn(min = com.inkqilin.ledger.ui.theme.SheetHeights.SettingsSheetMin)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = com.inkqilin.ledger.ui.theme.Space.Xxl, vertical = com.inkqilin.ledger.ui.theme.Space.Sm)
+                    .padding(bottom = com.inkqilin.ledger.ui.theme.Space.SheetBottom)
             ) {
                 Text("储存空间管理", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))

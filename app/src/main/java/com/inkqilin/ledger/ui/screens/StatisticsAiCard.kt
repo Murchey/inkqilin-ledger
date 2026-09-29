@@ -67,7 +67,7 @@ internal fun AiFinancialScoreCard(
     isFailed: Boolean
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(24.dp)
+    val shape = com.inkqilin.ledger.ui.theme.Corners.Lg
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
     val score = result?.score ?: 60

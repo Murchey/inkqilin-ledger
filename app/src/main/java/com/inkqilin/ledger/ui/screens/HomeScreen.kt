@@ -292,13 +292,13 @@ fun HomeScreen(
                 if (isDataLoading) {
                     TrendChartSkeleton()
                 } else {
-                    val trendShape = RoundedCornerShape(24.dp)
+                    val trendShape = com.inkqilin.ledger.ui.theme.Corners.Lg
                     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
                     val totalWeekExpense = homeData.recentDays.sumOf { it.second }
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
+                            .padding(horizontal = com.inkqilin.ledger.ui.theme.Space.PageHorizontal)
                             .frostedGlass(trendShape, isDark)
                             .clickable { onNavigateToStatistics() },
                         shape = trendShape,

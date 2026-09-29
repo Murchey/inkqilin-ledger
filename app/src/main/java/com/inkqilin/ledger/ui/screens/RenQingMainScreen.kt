@@ -228,7 +228,7 @@ internal fun RenQingYearHero(
             .padding(horizontal = 16.dp)
             .padding(top = 0.dp, bottom = 8.dp)
             .clickable { onOpenStats() },
-        shape = RoundedCornerShape(24.dp),
+        shape = com.inkqilin.ledger.ui.theme.Corners.Lg,
         elevation = CardDefaults.cardElevation(0.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
@@ -458,7 +458,7 @@ internal fun SwipeableRenQingEventCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
+            .clip(com.inkqilin.ledger.ui.theme.Corners.Md)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
     ) {
         if (menuProgress > 0.02f) {
@@ -534,7 +534,7 @@ internal fun RenQingEventCard(
     val tagColor = try { Color(android.graphics.Color.parseColor(tag?.color ?: "#715CFF")) } catch (_: Exception) { MaterialTheme.colorScheme.primary }
     val isGiven = event.direction == RenQingDirection.GIVEN
 
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), elevation = CardDefaults.cardElevation(0.dp)) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = com.inkqilin.ledger.ui.theme.Corners.Md, elevation = CardDefaults.cardElevation(0.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically

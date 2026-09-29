@@ -135,7 +135,7 @@ private fun KeywordCategoryItem(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp)
+        shape = com.inkqilin.ledger.ui.theme.Corners.Md
     ) {
         Row(
             modifier = Modifier

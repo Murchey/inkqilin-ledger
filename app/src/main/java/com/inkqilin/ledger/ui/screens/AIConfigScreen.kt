@@ -98,7 +98,7 @@ fun AIConfigScreen(
             }
         }
 
-        Divider()
+        HorizontalDivider()
 
         Text(
             text = "AI API 配置",

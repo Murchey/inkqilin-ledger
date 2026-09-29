@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
@@ -51,6 +52,29 @@ internal fun isNotificationServiceEnabled(context: Context): Boolean {
     return packageNames.contains(context.packageName)
 }
 
+/**
+ * 设置抽屉统一展开/收起动画。
+ * 进入与退出使用同一 spring（与「从收起展开」一致），避免展开/收起手感不一致。
+ */
+@Composable
+internal fun SettingsDrawer(
+    visible: Boolean,
+    content: @Composable () -> Unit,
+) {
+    val sizeSpec = spring<IntSize>(
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = Spring.StiffnessMediumLow,
+    )
+    val alphaSpec = tween<Float>(durationMillis = 200)
+    AnimatedVisibility(
+        visible = visible,
+        enter = expandVertically(animationSpec = sizeSpec) + fadeIn(animationSpec = alphaSpec),
+        exit = shrinkVertically(animationSpec = sizeSpec) + fadeOut(animationSpec = alphaSpec),
+    ) {
+        content()
+    }
+}
+
 @Composable
 internal fun SettingsSectionHeader(
     title: String,
@@ -58,6 +82,14 @@ internal fun SettingsSectionHeader(
     expanded: Boolean,
     onClick: () -> Unit
 ) {
+    val arrowRotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow,
+        ),
+        label = "settingsDrawerArrow",
+    )
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -71,8 +103,9 @@ internal fun SettingsSectionHeader(
             Text(summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Icon(
-            imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-            contentDescription = if (expanded) "收起" else "展开"
+            imageVector = Icons.Default.KeyboardArrowDown,
+            contentDescription = if (expanded) "收起" else "展开",
+            modifier = Modifier.rotate(arrowRotation)
         )
     }
 }

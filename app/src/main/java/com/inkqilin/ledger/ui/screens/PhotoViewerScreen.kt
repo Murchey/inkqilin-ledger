@@ -134,7 +134,7 @@ internal fun PhotoViewerScreen(
                 if (pagePhoto != null) {
                     val bitmap = remember(pagePhoto.id, pagePhoto.uri) {
                         try {
-                            val uri = Uri.parse(pagePhoto.uri)
+                            val uri = com.inkqilin.ledger.util.AlbumStorage.resolveUri(context, pagePhoto.uri)
                             DeviceCompat.decodeBitmapSampled(context, uri, maxDim = 2048)
                                 ?.takeIf { it.width > 0 && it.height > 0 }
                         } catch (_: Throwable) {

@@ -92,7 +92,7 @@ fun OCRConfigScreen(
             Text("从收支分析 API 一键同步配置")
         }
 
-        Divider()
+        HorizontalDivider()
 
         Text(
             text = "OCR API 设置指南",

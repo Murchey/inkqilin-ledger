@@ -122,7 +122,7 @@ fun CurrencyManagementScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .pressScale(assetInteractionSource), // iOS-style interactive feedback
-                shape = RoundedCornerShape(18.dp),
+                shape = com.inkqilin.ledger.ui.theme.Corners.Md,
                 colors = CardDefaults.cardColors(containerColor = animatedCardColor),
                 interactionSource = assetInteractionSource,
                 onClick = {}
