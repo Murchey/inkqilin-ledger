@@ -388,7 +388,6 @@ fun MainScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // ── Apple Music Tab Bar Container ──
                     // 静态边框 + 填充，去掉 shadowElevation（低端机阴影渲染昂贵）
                     Box(
                         modifier = Modifier
