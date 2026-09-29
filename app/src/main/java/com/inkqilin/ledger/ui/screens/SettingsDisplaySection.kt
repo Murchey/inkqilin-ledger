@@ -56,15 +56,17 @@ internal fun SettingsDisplaySection(
     homeCardColorHex: String?,
     onShowHomeBgSheet: () -> Unit,
 ) {
-    var sectionExpanded by rememberSaveable { mutableStateOf(false) }
+    val settingsExpand by viewModel.settingsExpand.collectAsState()
+    fun expand(key: String, default: Boolean = false) = settingsExpand[key] ?: default
+    val sectionExpanded = expand("display")
+    val displaySettingsExpanded = expand("display_colors")
     val context = LocalContext.current
         // region 2. 显示设置
-        var displaySettingsExpanded by rememberSaveable { mutableStateOf(false) }
         SettingsSectionHeader("显示设置", when (themeMode) {
             ThemeMode.AUTO -> "跟随系统"
             ThemeMode.LIGHT -> "浅色模式"
             ThemeMode.DARK -> "深色模式"
-        }, sectionExpanded) { sectionExpanded = !sectionExpanded }
+        }, sectionExpanded) { viewModel.toggleSettingsExpand("display") }
         SettingsDrawer(visible = sectionExpanded) {
         Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = com.inkqilin.ledger.ui.theme.Corners.Md, elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
@@ -128,10 +130,10 @@ internal fun SettingsDisplaySection(
                         Icon(
                             if (displaySettingsExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                             contentDescription = null,
-                            modifier = Modifier.clickable { displaySettingsExpanded = !displaySettingsExpanded }
+                            modifier = Modifier.clickable { viewModel.toggleSettingsExpand("display_colors") }
                         )
                     },
-                    modifier = Modifier.clickable { displaySettingsExpanded = !displaySettingsExpanded }
+                    modifier = Modifier.clickable { viewModel.toggleSettingsExpand("display_colors") }
                 )
 
                 // 与其它设置抽屉一致：默认 expand/shrink + fade（与未展开时的展开动画相同）

@@ -248,15 +248,13 @@ fun SettingsScreen(
         }
     )
 
-    // 使用 rememberSaveable：进入二级页（云备份等）返回后仍保持展开状态
-    var appSectionExpanded by rememberSaveable { mutableStateOf(true) }
-    var displaySectionExpanded by rememberSaveable { mutableStateOf(true) }
-    var categorySectionExpanded by rememberSaveable { mutableStateOf(false) }
-    var featureSectionExpanded by rememberSaveable { mutableStateOf(true) }
-    var currencySectionExpanded by rememberSaveable { mutableStateOf(false) }
-    var updateSectionExpanded by rememberSaveable { mutableStateOf(false) }
-    var dataSectionExpanded by rememberSaveable { mutableStateOf(false) }
-    var widgetSectionExpanded by rememberSaveable { mutableStateOf(false) }
+    // 抽屉展开态放 VM：功能开关会重建底部 Tab / 设置页，rememberSaveable 会丢
+    val settingsExpand by viewModel.settingsExpand.collectAsState()
+    fun expand(key: String, default: Boolean = false) = settingsExpand[key] ?: default
+    val appSectionExpanded = expand("app", true)
+    val categorySectionExpanded = expand("category")
+    val dataSectionExpanded = expand("data")
+    val widgetSectionExpanded = expand("widget")
     var showAboutSheet by rememberSaveable { mutableStateOf(false) }
     var showUsageGuide by rememberSaveable { mutableStateOf(false) }
     var showHomeBgSheet by rememberSaveable { mutableStateOf(false) }
@@ -264,9 +262,9 @@ fun SettingsScreen(
     var showStorageSheet by rememberSaveable { mutableStateOf(false) }
     // exportProgressState / importProgress 见函数开头（exportLauncher 需要先声明）
 
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 16.dp)) {
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(viewModel.settingsScrollState).padding(horizontal = 24.dp, vertical = 16.dp)) {
         // region 1. 应用版本
-        SettingsSectionHeader("应用版本", if (appMode == AppMode.SMART) "智能版" else "基础版", appSectionExpanded) { appSectionExpanded = !appSectionExpanded }
+        SettingsSectionHeader("应用版本", if (appMode == AppMode.SMART) "智能版" else "基础版", appSectionExpanded) { viewModel.toggleSettingsExpand("app", true) }
         SettingsDrawer(visible = appSectionExpanded) {
         Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = com.inkqilin.ledger.ui.theme.Corners.Md, elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
@@ -330,7 +328,7 @@ fun SettingsScreen(
         }
         // endregion
 
-        SettingsSectionHeader("桌面小组件", "余额显示与刷新", widgetSectionExpanded) { widgetSectionExpanded = !widgetSectionExpanded }
+        SettingsSectionHeader("桌面小组件", "余额显示与刷新", widgetSectionExpanded) { viewModel.toggleSettingsExpand("widget") }
         SettingsDrawer(visible = widgetSectionExpanded) {
             WidgetSettingsPanel(viewModel)
         }
@@ -344,7 +342,7 @@ fun SettingsScreen(
             homeCardColorHex = homeCardColorHex,
             onShowHomeBgSheet = { showHomeBgSheet = true },
         )
-        SettingsSectionHeader("分类管理", "账单分类与自动分类规则", categorySectionExpanded) { categorySectionExpanded = !categorySectionExpanded }
+        SettingsSectionHeader("分类管理", "账单分类与自动分类规则", categorySectionExpanded) { viewModel.toggleSettingsExpand("category") }
         SettingsDrawer(visible = categorySectionExpanded) {
         Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = com.inkqilin.ledger.ui.theme.Corners.Md, elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
@@ -379,7 +377,7 @@ fun SettingsScreen(
             ocrApiKey = ocrApiKey,
             harmonyCompatMode = harmonyCompatMode,
         )
-        SettingsSectionHeader("数据管理", "导入、导出与数据备份", dataSectionExpanded) { dataSectionExpanded = !dataSectionExpanded }
+        SettingsSectionHeader("数据管理", "导入、导出与数据备份", dataSectionExpanded) { viewModel.toggleSettingsExpand("data") }
         SettingsDrawer(visible = dataSectionExpanded) {
         Card(modifier = Modifier.fillMaxWidth(), shape = com.inkqilin.ledger.ui.theme.Corners.Md, elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
@@ -612,12 +610,12 @@ fun SettingsScreen(
         }
 
         // 一级节点：关于（与数据管理等分区同级）
-        var aboutSectionExpanded by rememberSaveable { mutableStateOf(false) }
+        val aboutSectionExpanded = expand("about")
         SettingsSectionHeader(
             "关于 墨麒麟记账",
             "版本 ${viewModel.getCurrentVersionName(context)} · 仓库与使用引导",
             aboutSectionExpanded
-        ) { aboutSectionExpanded = !aboutSectionExpanded }
+        ) { viewModel.toggleSettingsExpand("about") }
         SettingsDrawer(visible = aboutSectionExpanded) {
             Card(
                 modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),

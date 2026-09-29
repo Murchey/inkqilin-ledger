@@ -78,6 +78,25 @@ class TransactionViewModel(
         _pendingEditTransaction.value = transaction
     }
 
+    /**
+     * 设置页各抽屉展开态。
+     * 放在 VM：功能开关会改底部 Tab 列表，pager 重建导致 rememberSaveable 丢失、抽屉复位。
+     */
+    private val _settingsExpand = MutableStateFlow<Map<String, Boolean>>(emptyMap())
+    val settingsExpand: StateFlow<Map<String, Boolean>> = _settingsExpand.asStateFlow()
+
+    fun settingsExpanded(key: String, default: Boolean = false): Boolean =
+        _settingsExpand.value[key] ?: default
+
+    fun toggleSettingsExpand(key: String, default: Boolean = false) {
+        _settingsExpand.update { map ->
+            map + (key to !(map[key] ?: default))
+        }
+    }
+
+    /** 设置页滚动位置：Tab 重建时一并保住 */
+    val settingsScrollState = androidx.compose.foundation.ScrollState(0)
+
     init {
         viewModelScope.launch(Dispatchers.IO) {
             // 本版配色改版：仅升级后首次启动重置一次默认色；失败不影响业务数据

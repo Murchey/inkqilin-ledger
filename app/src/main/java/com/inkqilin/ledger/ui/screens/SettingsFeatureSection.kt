@@ -61,17 +61,15 @@ internal fun SettingsFeatureSection(
     harmonyCompatMode: Boolean,
 ) {
     val context = LocalContext.current
-    var categorySectionExpanded by rememberSaveable { mutableStateOf(false) }
-    var featureSectionExpanded by rememberSaveable { mutableStateOf(false) }
-    var currencySectionExpanded by rememberSaveable { mutableStateOf(false) }
-    var updateSectionExpanded by rememberSaveable { mutableStateOf(false) }
-    var labSectionExpanded by rememberSaveable { mutableStateOf(false) }
+    // 抽屉展开态放 VM：开关人情/相册会重建底部 Tab，rememberSaveable 会丢
+    val settingsExpand by viewModel.settingsExpand.collectAsState()
+    fun expand(key: String, default: Boolean = false) = settingsExpand[key] ?: default
     val renQingEnabled by renQingViewModel.renQingEnabled.collectAsState()
     val autoRecordEnabled by viewModel.autoRecordEnabled.collectAsState()
     val ocrEnabled by viewModel.ocrEnabled.collectAsState()
     val albumEnabled by viewModel.albumEnabled.collectAsState()
-        SettingsSectionHeader("功能开关", if (renQingEnabled) "人情账本已启用" else "按需开启页面功能", featureSectionExpanded) { featureSectionExpanded = !featureSectionExpanded }
-        SettingsDrawer(visible = featureSectionExpanded) {
+        SettingsSectionHeader("功能开关", if (renQingEnabled) "人情账本已启用" else "按需开启页面功能", expand("feature")) { viewModel.toggleSettingsExpand("feature") }
+        SettingsDrawer(visible = expand("feature")) {
             Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = com.inkqilin.ledger.ui.theme.Corners.Md, elevation = CardDefaults.cardElevation(0.dp)) {
                 Column {
                     ListItem(
@@ -122,8 +120,8 @@ internal fun SettingsFeatureSection(
             }
         }
         val multiCurrencyEnabled by viewModel.multiCurrencyEnabled.collectAsState()
-        SettingsSectionHeader("多币种管理", if (multiCurrencyEnabled) "已启用" else "未启用", currencySectionExpanded) { currencySectionExpanded = !currencySectionExpanded }
-        SettingsDrawer(visible = currencySectionExpanded) {
+        SettingsSectionHeader("多币种管理", if (multiCurrencyEnabled) "已启用" else "未启用", expand("currency")) { viewModel.toggleSettingsExpand("currency") }
+        SettingsDrawer(visible = expand("currency")) {
         Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = com.inkqilin.ledger.ui.theme.Corners.Md, elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
                 ListItem(
@@ -159,8 +157,8 @@ internal fun SettingsFeatureSection(
         var showGithubRepoDialog by remember { mutableStateOf(false) }
         var githubRepoInput by remember { mutableStateOf(githubRepo) }
 
-        SettingsSectionHeader("更新检测", if (checkUpdateEnabled) "启动时自动检查" else "已关闭", updateSectionExpanded) { updateSectionExpanded = !updateSectionExpanded }
-        SettingsDrawer(visible = updateSectionExpanded) {
+        SettingsSectionHeader("更新检测", if (checkUpdateEnabled) "启动时自动检查" else "已关闭", expand("update")) { viewModel.toggleSettingsExpand("update") }
+        SettingsDrawer(visible = expand("update")) {
         Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = com.inkqilin.ledger.ui.theme.Corners.Md, elevation = CardDefaults.cardElevation(0.dp)) {
             Column {
                 ListItem(
@@ -364,14 +362,13 @@ internal fun SettingsFeatureSection(
             )
         }
 
-        var labExpanded by rememberSaveable { mutableStateOf(false) }
         SettingsSectionHeader(
             title = "实验室功能",
             summary = if (autoRecordEnabled || ocrEnabled || albumEnabled) "部分功能已启用" else "未启用实验室功能",
-            expanded = labExpanded,
-            onClick = { labExpanded = !labExpanded }
+            expanded = expand("lab"),
+            onClick = { viewModel.toggleSettingsExpand("lab") }
         )
-        SettingsDrawer(visible = labExpanded) {
+        SettingsDrawer(visible = expand("lab")) {
             Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = com.inkqilin.ledger.ui.theme.Corners.Md, elevation = CardDefaults.cardElevation(0.dp)) {
                 Column {
                 Spacer(modifier = Modifier.height(0.5.dp))

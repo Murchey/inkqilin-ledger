@@ -132,6 +132,8 @@ internal fun MainNavGraph(
                     beyondBoundsPageCount = 0
                 ) { page ->
                     val pageRoute = bottomItems[page].route
+                    // 用路由作为内容身份，页下标因开关功能变化时状态不跟着错位重建
+                    androidx.compose.runtime.key(pageRoute) {
                     saveableStateHolder.SaveableStateProvider(key = pageRoute) {
                     when (pageRoute) {
                         "home" -> HomeScreen(
@@ -212,6 +214,7 @@ internal fun MainNavGraph(
                                 navController.navigateSingle("cloud_backup")
                             }
                         )
+                    }
                     }
                     }
                 }
