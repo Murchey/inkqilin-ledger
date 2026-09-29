@@ -9,6 +9,12 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.inkqilin.ledger.LedgerApplication
 import com.inkqilin.ledger.data.*
+import com.inkqilin.ledger.data.repository.AlbumRepository
+import com.inkqilin.ledger.data.repository.AssetRepository
+import com.inkqilin.ledger.data.repository.CategoryRepository
+import com.inkqilin.ledger.data.repository.CurrencyAssetRepository
+import com.inkqilin.ledger.data.repository.KeywordCategoryRepository
+import com.inkqilin.ledger.data.repository.TransactionRepository
 import com.inkqilin.ledger.service.AIAnalysisService
 import com.inkqilin.ledger.service.AiAlert
 import com.inkqilin.ledger.service.AiAnalysisResult
@@ -27,15 +33,16 @@ import java.io.File
 import java.util.Calendar
 
 class TransactionViewModel(
-    private val transactionDao: TransactionDao,
-    private val categoryDao: CategoryDao,
-    private val currencyAssetDao: CurrencyAssetDao,
-    private val albumPhotoDao: AlbumPhotoDao,
-    private val keywordCategoryDao: KeywordCategoryDao,
-    private val userAssetDao: UserAssetDao,
-    private val assetFlowDao: AssetFlowDao,
+    private val transactionDao: TransactionRepository,
+    private val categoryDao: CategoryRepository,
+    private val currencyAssetDao: CurrencyAssetRepository,
+    private val albumPhotoDao: AlbumRepository,
+    private val keywordCategoryDao: KeywordCategoryRepository,
+    private val assets: AssetRepository,
     private val themeManager: ThemeManager
 ) : ViewModel() {
+    private val userAssetDao get() = assets
+    private val assetFlowDao get() = assets
     // Eagerly 保持缓存：子页面返回时首帧就能拿到完整账单，避免空列表闪断导致滚动位置丢失
     val allTransactions: StateFlow<List<Transaction>> = transactionDao.getAllTransactions()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -1062,19 +1069,18 @@ class TransactionViewModel(
 }
 
 class TransactionViewModelFactory(
-    private val transactionDao: TransactionDao,
-    private val categoryDao: CategoryDao,
-    private val currencyAssetDao: CurrencyAssetDao,
-    private val albumPhotoDao: AlbumPhotoDao,
-    private val keywordCategoryDao: KeywordCategoryDao,
-    private val userAssetDao: UserAssetDao,
-    private val assetFlowDao: AssetFlowDao,
+    private val transactionDao: TransactionRepository,
+    private val categoryDao: CategoryRepository,
+    private val currencyAssetDao: CurrencyAssetRepository,
+    private val albumPhotoDao: AlbumRepository,
+    private val keywordCategoryDao: KeywordCategoryRepository,
+    private val assets: AssetRepository,
     private val themeManager: ThemeManager
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(TransactionViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return TransactionViewModel(transactionDao, categoryDao, currencyAssetDao, albumPhotoDao, keywordCategoryDao, userAssetDao, assetFlowDao, themeManager) as T
+            return TransactionViewModel(transactionDao, categoryDao, currencyAssetDao, albumPhotoDao, keywordCategoryDao, assets, themeManager) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

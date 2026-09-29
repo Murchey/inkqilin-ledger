@@ -1,9 +1,13 @@
 package com.inkqilin.ledger.data
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "album_photos")
+@Entity(
+    tableName = "album_photos",
+    indices = [Index("createdAt")]
+)
 data class AlbumPhoto(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,

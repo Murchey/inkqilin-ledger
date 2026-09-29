@@ -1,4 +1,4 @@
-﻿package com.inkqilin.ledger.ui.screens
+package com.inkqilin.ledger.ui.screens
 
 import android.content.Context
 import android.Manifest
@@ -87,19 +87,6 @@ fun computeCycleRange(bill: CycleBill, now: Long): Triple<Long, Long, Long> {
     return Triple(start, end, end)
 }
 
-// ═══════════════════════════════ Dao provider via singleton ═══════════════════════════════
-
-object CycleBillDaoProvider {
-    @Volatile private var dao: CycleBillDao? = null
-    @Volatile private var nLogDao: NotificationLogDao? = null
-    fun init(database: AppDatabase) {
-        if (dao == null) dao = database.cycleBillDao()
-        if (nLogDao == null) nLogDao = database.notificationLogDao()
-    }
-    fun getCycleBillDao(): CycleBillDao = dao ?: throw IllegalStateException("Call init first")
-    fun getNotificationLogDao(): NotificationLogDao = nLogDao ?: throw IllegalStateException("Call init first")
-}
-
 // ═══════════════════════════════ Main Screen ═══════════════════════════════
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -113,10 +100,9 @@ fun CycleBillScreen(
     onUpdateTopBar: ((String?, (() -> Unit)?) -> Unit)? = null,
     context: Context = LocalContext.current
 ) {
-    // 直接从数据库获取 DAO
-    val db = AppDatabase.getDatabase(context)
-    val cycleBillDao = remember { db.cycleBillDao() }
-    val transactionDao = remember { db.transactionDao() }
+    val repos = remember { com.inkqilin.ledger.data.repository.LedgerRepositories.get(context) }
+    val cycleBillDao = remember { repos.cycleBills }
+    val transactionDao = remember { repos.transactions }
     val allBills by cycleBillDao.getAllCycleBills().collectAsState(initial = emptyList())
     val recycledBills by cycleBillDao.getAllRecycledCycleBills().collectAsState(initial = emptyList())
 
@@ -231,9 +217,9 @@ fun CycleBillEditScreen(
     context: Context = LocalContext.current
 ) {
     val scope = rememberCoroutineScope()
-    val db = remember { AppDatabase.getDatabase(context) }
-    val cycleBillDao = remember { db.cycleBillDao() }
-    val categories by db.categoryDao().getAllCategories().collectAsState(initial = emptyList())
+    val repos = remember { com.inkqilin.ledger.data.repository.LedgerRepositories.get(context) }
+    val cycleBillDao = remember { repos.cycleBills }
+    val categories by repos.categories.getAllCategories().collectAsState(initial = emptyList())
     
     var name by remember { mutableStateOf("") }
     var amountStr by remember { mutableStateOf("") }
@@ -943,8 +929,8 @@ fun RecycleBinScreen(
     onUpdateTopBar: ((String?, (() -> Unit)?) -> Unit)? = null,
     context: Context = LocalContext.current
 ) {
-    val db = AppDatabase.getDatabase(context)
-    val cycleBillDao by remember { derivedStateOf { db.cycleBillDao() } }
+    val repos = com.inkqilin.ledger.data.repository.LedgerRepositories.get(context)
+    val cycleBillDao by remember { derivedStateOf { repos.cycleBills } }
     val recycledBills by cycleBillDao.getAllRecycledCycleBills().collectAsState(initial = emptyList())
     var filterDays by remember { mutableIntStateOf(0) }
     var showConfirmClear by remember { mutableStateOf(false) }

@@ -27,7 +27,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
-import com.inkqilin.ledger.data.AppDatabase
 import com.inkqilin.ledger.ui.RenQingViewModel
 import com.inkqilin.ledger.ui.TransactionViewModel
 import com.inkqilin.ledger.ui.TransactionViewModelFactory
@@ -56,27 +55,24 @@ private sealed class DownloadUiState {
 class MainActivity : ComponentActivity() {
     /** 桌面小部件导航目标（由 WidgetClickReceiver 携带，经此路由到 MainScreen） */
     private val widgetNavTarget = MutableStateFlow<String?>(null)
-    private val database by lazy { AppDatabase.getDatabase(this) }
+    private val repos by lazy { com.inkqilin.ledger.data.repository.LedgerRepositories.get(this) }
     private val themeManager by lazy { ThemeManager(this) }
     private val viewModel: TransactionViewModel by viewModels {
         TransactionViewModelFactory(
-            database.transactionDao(),
-            database.categoryDao(),
-            database.currencyAssetDao(),
-            database.albumPhotoDao(),
-            database.keywordCategoryDao(),
-            database.userAssetDao(),
-            database.assetFlowDao(),
+            repos.transactions,
+            repos.categories,
+            repos.currencyAssets,
+            repos.album,
+            repos.keywordCategories,
+            repos.assets,
             themeManager
         )
     }
     private val renQingViewModel: RenQingViewModel by viewModels {
         RenQingViewModel.Factory(
-            database.renQingContactDao(),
-            database.renQingEventDao(),
-            database.renQingTagDao(),
-            database.transactionDao(),
-            database.categoryDao(),
+            repos.renQing,
+            repos.transactions,
+            repos.categories,
             themeManager
         )
     }

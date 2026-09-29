@@ -222,6 +222,7 @@ object CloudBackupManager {
         if (shm.exists()) runCatching { shm.copyTo(shmSafety, overwrite = true) }
 
         AppDatabase.closeAndClear()
+        com.inkqilin.ledger.data.repository.LedgerRepositories.clear()
 
         try {
             dbFile.parentFile?.mkdirs()
@@ -372,6 +373,7 @@ object CloudBackupManager {
         val wal = context.getDatabasePath("$DB_NAME-wal")
         val shm = context.getDatabasePath("$DB_NAME-shm")
         AppDatabase.closeAndClear()
+        com.inkqilin.ledger.data.repository.LedgerRepositories.clear()
         dbFile.parentFile?.mkdirs()
         wal.delete()
         shm.delete()

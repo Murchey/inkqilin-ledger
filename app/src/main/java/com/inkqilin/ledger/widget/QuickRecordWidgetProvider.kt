@@ -5,8 +5,8 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.widget.RemoteViews
 import com.inkqilin.ledger.R
-import com.inkqilin.ledger.data.AppDatabase
 import com.inkqilin.ledger.data.TransactionType
+import com.inkqilin.ledger.data.repository.LedgerRepositories
 import com.inkqilin.ledger.util.DEFAULT_PRIMARY_COLOR_HEX
 import com.inkqilin.ledger.util.ThemeManager
 import kotlinx.coroutines.flow.first
@@ -20,12 +20,12 @@ class QuickRecordWidgetProvider : BaseLedgerWidgetProvider() {
         manager: AppWidgetManager,
         appWidgetId: Int
     ) {
-        val db = AppDatabase.getDatabase(context)
-        val cats = db.categoryDao().getCategoriesByTypeSync(TransactionType.EXPENSE)
+        val repos = LedgerRepositories.get(context)
+        val cats = repos.categories.getCategoriesByTypeSync(TransactionType.EXPENSE)
         val quick = theme.widgetQuickCategories.first()
         // 最近使用的支出分类优先（近 90 天），不足时依次用设置勾选 / 全部分类补位
         val now = System.currentTimeMillis()
-        val recent = db.transactionDao().getRecentExpenseCategoriesSync(now - 90L * 86_400_000L, 8)
+        val recent = repos.transactions.getRecentExpenseCategoriesSync(now - 90L * 86_400_000L, 8)
         val recentCats = recent.map { it.category }.mapNotNull { n -> cats.firstOrNull { it.name == n } }
         val quickCats = quick.mapNotNull { q -> cats.firstOrNull { it.name == q } }
         val recentNames = recentCats.map { it.name }.toSet()

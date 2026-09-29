@@ -1,6 +1,7 @@
 package com.inkqilin.ledger.data
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 enum class RenQingEventType(val label: String, val icon: String) {
@@ -17,7 +18,10 @@ enum class RenQingDirection(val label: String) {
     RECEIVED("收到"), GIVEN("送出")
 }
 
-@Entity(tableName = "renqing_events")
+@Entity(
+    tableName = "renqing_events",
+    indices = [Index("contactId"), Index("date")]
+)
 data class RenQingEvent(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,

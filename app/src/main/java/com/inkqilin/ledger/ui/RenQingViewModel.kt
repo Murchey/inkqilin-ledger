@@ -4,6 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.inkqilin.ledger.data.*
+import com.inkqilin.ledger.data.repository.CategoryRepository
+import com.inkqilin.ledger.data.repository.RenQingRepository
+import com.inkqilin.ledger.data.repository.TransactionRepository
 import com.inkqilin.ledger.util.ThemeManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
@@ -11,13 +14,14 @@ import kotlinx.coroutines.launch
 import java.util.Calendar
 
 class RenQingViewModel(
-    private val contactDao: RenQingContactDao,
-    private val eventDao: RenQingEventDao,
-    private val tagDao: RenQingTagDao,
-    private val transactionDao: TransactionDao,
-    private val categoryDao: CategoryDao,
+    private val renQing: RenQingRepository,
+    private val transactionDao: TransactionRepository,
+    private val categoryDao: CategoryRepository,
     private val themeManager: ThemeManager
 ) : ViewModel() {
+    private val contactDao get() = renQing
+    private val eventDao get() = renQing
+    private val tagDao get() = renQing
 
     val allContacts: StateFlow<List<RenQingContact>> = contactDao.getAllContacts()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -192,17 +196,15 @@ class RenQingViewModel(
     }
 
     class Factory(
-        private val contactDao: RenQingContactDao,
-        private val eventDao: RenQingEventDao,
-        private val tagDao: RenQingTagDao,
-        private val transactionDao: TransactionDao,
-        private val categoryDao: CategoryDao,
+        private val renQing: RenQingRepository,
+        private val transactionDao: TransactionRepository,
+        private val categoryDao: CategoryRepository,
         private val themeManager: ThemeManager
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(RenQingViewModel::class.java)) {
-                return RenQingViewModel(contactDao, eventDao, tagDao, transactionDao, categoryDao, themeManager) as T
+                return RenQingViewModel(renQing, transactionDao, categoryDao, themeManager) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }

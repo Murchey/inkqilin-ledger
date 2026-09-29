@@ -42,7 +42,6 @@ import com.inkqilin.ledger.ui.motion.*
 import com.inkqilin.ledger.util.DEFAULT_PRIMARY_COLOR_HEX
 import androidx.compose.ui.platform.LocalContext
 import android.widget.Toast
-import com.inkqilin.ledger.data.AppDatabase
 import com.inkqilin.ledger.data.CycleType
 import com.inkqilin.ledger.data.Transaction
 import com.inkqilin.ledger.data.TransactionType
@@ -802,8 +801,8 @@ fun MainScreen(
                             overdue = false
                         )
                         scope.launch {
-                            val appDb = AppDatabase.getDatabase(ctx)
-                            appDb.transactionDao().insertTransaction(
+                            val repos = com.inkqilin.ledger.data.repository.LedgerRepositories.get(ctx)
+                            repos.transactions.insertTransaction(
                                 Transaction(
                                     amount = bill.amount,
                                     category = bill.category,
@@ -815,7 +814,7 @@ fun MainScreen(
                                     cycleBillId = bill.id
                                 )
                             )
-                            appDb.cycleBillDao().updateCycleBill(updatedBill)
+                            repos.cycleBills.updateCycleBill(updatedBill)
                             if (bill.reminderEnabled && bill.advanceMinutes > 0) {
                                 NotificationHelper.scheduleCycleBillReminder(
                                     ctx,

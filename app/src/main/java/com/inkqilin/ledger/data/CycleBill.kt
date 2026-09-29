@@ -3,6 +3,7 @@ package com.inkqilin.ledger.data
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
@@ -13,7 +14,10 @@ import kotlinx.coroutines.flow.Flow
 enum class CycleType { DAILY, WEEKLY, MONTHLY, YEARLY }
 enum class GenerationMode { AUTO_BEFORE, AUTO_START, NOTIFY_ONLY }
 
-@Entity(tableName = "cycle_bills")
+@Entity(
+    tableName = "cycle_bills",
+    indices = [Index("enabled"), Index("nextTriggerDate")]
+)
 data class CycleBill(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,

@@ -1,6 +1,7 @@
 package com.inkqilin.ledger.data
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 enum class UserAssetType(val label: String) {
@@ -14,7 +15,10 @@ enum class UserAssetType(val label: String) {
     OTHER("其他")
 }
 
-@Entity(tableName = "user_assets")
+@Entity(
+    tableName = "user_assets",
+    indices = [Index("type")]
+)
 data class UserAsset(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,

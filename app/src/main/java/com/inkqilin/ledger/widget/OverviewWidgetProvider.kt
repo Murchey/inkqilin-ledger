@@ -6,8 +6,8 @@ import android.content.res.ColorStateList
 import android.view.View
 import android.widget.RemoteViews
 import com.inkqilin.ledger.R
-import com.inkqilin.ledger.data.AppDatabase
 import com.inkqilin.ledger.data.TransactionType
+import com.inkqilin.ledger.data.repository.LedgerRepositories
 import com.inkqilin.ledger.util.DEFAULT_PRIMARY_COLOR_HEX
 import com.inkqilin.ledger.util.ThemeManager
 import kotlinx.coroutines.flow.first
@@ -22,18 +22,18 @@ class OverviewWidgetProvider : BaseLedgerWidgetProvider() {
         manager: AppWidgetManager,
         appWidgetId: Int
     ) {
-        val db = AppDatabase.getDatabase(context)
+        val repos = LedgerRepositories.get(context)
         val now = System.currentTimeMillis()
 
         val (monthStart, monthEnd) = currentMonthRange()
-        val income = db.transactionDao().getIncomeSumByRangeSync(monthStart, monthEnd)
-        val expense = db.transactionDao().getExpenseSumByRangeSync(monthStart, monthEnd)
+        val income = repos.transactions.getIncomeSumByRangeSync(monthStart, monthEnd)
+        val expense = repos.transactions.getExpenseSumByRangeSync(monthStart, monthEnd)
         val budget = theme.monthlyBudget.first()
         val showAmount = theme.widgetShowAmount.first()
-        val top = db.transactionDao().getTopExpenseCategoriesSync(now - 7L * 86_400_000L, now, 3)
-        val catIcons = db.categoryDao().getCategoriesByTypeSync(TransactionType.EXPENSE)
+        val top = repos.transactions.getTopExpenseCategoriesSync(now - 7L * 86_400_000L, now, 3)
+        val catIcons = repos.categories.getCategoriesByTypeSync(TransactionType.EXPENSE)
             .associate { it.name to it.icon }
-        val bills = db.cycleBillDao().getWidgetBillsSync(50)
+        val bills = repos.cycleBills.getWidgetBillsSync(50)
         val overdueCount = bills.count { it.nextTriggerDate < now }
         val dueSoonCount = bills.count { it.nextTriggerDate >= now && it.nextTriggerDate <= now + 7L * 86_400_000L }
 

@@ -4,9 +4,9 @@ import android.app.Notification
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
-import com.inkqilin.ledger.data.AppDatabase
 import com.inkqilin.ledger.data.Transaction
 import com.inkqilin.ledger.data.TransactionType
+import com.inkqilin.ledger.data.repository.LedgerRepositories
 import com.inkqilin.ledger.util.ThemeManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -18,7 +18,7 @@ class NotificationCaptureService : NotificationListenerService() {
 
     private val serviceScope = CoroutineScope(Dispatchers.IO)
     private val themeManager by lazy { ThemeManager(applicationContext) }
-    private val database by lazy { AppDatabase.getDatabase(applicationContext) }
+    private val repos by lazy { LedgerRepositories.get(applicationContext) }
 
     // 去重缓存：(金额+类别+收支类型) -> 时间戳
     private val lastProcessedMap = ConcurrentHashMap<String, Long>()
@@ -102,7 +102,7 @@ class NotificationCaptureService : NotificationListenerService() {
         )
 
         try {
-            database.transactionDao().insertTransaction(transaction)
+            repos.transactions.insertTransaction(transaction)
         } catch (t: Throwable) {
             Log.w("NotificationCapture", "insert auto transaction failed", t)
         }
