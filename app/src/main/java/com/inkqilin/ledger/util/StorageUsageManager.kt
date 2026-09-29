@@ -37,7 +37,10 @@ object StorageUsageManager {
     fun collectUsage(context: Context): List<UsageItem> {
         val albumDir = File(context.filesDir, "album_photos")
         val backupDir = File(context.filesDir, "backups")
-        val homeBg = File(context.filesDir, "home_bg_image")
+        // 首页背景图：历史固定名 home_bg_image + 现行 home_bg_image_<ts>
+        val homeBgFiles = context.filesDir.listFiles().orEmpty().filter {
+            it.isFile && (it.name == "home_bg_image" || it.name.startsWith("home_bg_image_"))
+        }
         val cacheDir = context.cacheDir
         val updateDir = context.getExternalFilesDir(null)?.let { File(it, "updates") }
         return listOf(
@@ -68,8 +71,8 @@ object StorageUsageManager {
             UsageItem(
                 key = "home_bg",
                 label = "首页背景图",
-                sizeBytes = if (homeBg.exists()) homeBg.length() else 0L,
-                fileCount = if (homeBg.exists()) 1 else 0
+                sizeBytes = homeBgFiles.sumOf { it.length() },
+                fileCount = homeBgFiles.size
             )
         )
     }

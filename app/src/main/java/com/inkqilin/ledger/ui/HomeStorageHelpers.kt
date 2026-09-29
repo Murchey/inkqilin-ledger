@@ -10,8 +10,14 @@ import java.io.File
 
 /** 首页背景图与本地清理工具。 */
 internal object HomeStorageHelpers {
+    private const val HOME_BG_PREFIX = "home_bg_image"
+
+    /**
+     * 复制到应用私有目录。文件名带时间戳，保证「更换图片」时路径变化，
+     * 否则 StateFlow 路径相等不会重发、Coil 也会命中旧缓存，预览不刷新。
+     */
     suspend fun CopyHomeBackground(context: Context, uri: Uri): File {
-        val target = File(context.filesDir, "home_bg_image")
+        val target = File(context.filesDir, "${HOME_BG_PREFIX}_${System.currentTimeMillis()}")
         withContext(Dispatchers.IO) {
             context.contentResolver.openInputStream(uri)?.use { input ->
                 target.outputStream().use { output -> input.copyTo(output) }

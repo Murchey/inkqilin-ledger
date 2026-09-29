@@ -391,8 +391,13 @@ class TransactionViewModel(
     fun importHomeBackground(context: Context, uri: Uri) {
         viewModelScope.launch {
             try {
+                val oldPath = homeBgImagePath.value
                 val target = HomeStorageHelpers.CopyHomeBackground(context, uri)
                 setHomeBgImagePath(target.absolutePath)
+                // 路径变化后删除旧文件，避免残留占用
+                if (!oldPath.isNullOrBlank() && oldPath != target.absolutePath) {
+                    HomeStorageHelpers.DeleteQuietly(oldPath)
+                }
             } catch (e: Exception) {
                 Log.e("HomeBg", "导入背景失败", e)
             }
