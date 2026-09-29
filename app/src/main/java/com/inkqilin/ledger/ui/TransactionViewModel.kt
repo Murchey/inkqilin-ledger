@@ -95,85 +95,15 @@ class TransactionViewModel(
     }
 
     private suspend fun initializeDefaultCategories() {
-        val defaults = listOf(
-            Category(name = "餐饮", icon = "🍜", type = TransactionType.EXPENSE),
-            Category(name = "交通", icon = "🚗", type = TransactionType.EXPENSE),
-            Category(name = "购物", icon = "🛒", type = TransactionType.EXPENSE),
-            Category(name = "娱乐", icon = "🎮", type = TransactionType.EXPENSE),
-            Category(name = "居住", icon = "🏠", type = TransactionType.EXPENSE),
-            Category(name = "其他", icon = "📦", type = TransactionType.EXPENSE),
-            Category(name = "工资", icon = "💰", type = TransactionType.INCOME),
-            Category(name = "奖金", icon = "🎁", type = TransactionType.INCOME),
-            Category(name = "理财", icon = "📈", type = TransactionType.INCOME),
-            Category(name = "其他", icon = "📦", type = TransactionType.INCOME)
-        )
-        defaults.forEach { categoryDao.insertCategory(it) }
+        DefaultSeedData.categories.forEach { categoryDao.insertCategory(it) }
     }
 
     private suspend fun initializeDefaultCurrencies() {
-        val defaults = listOf(
-            CurrencyAsset(code = "CNY", symbol = "¥", name = "人民币", cardColor = "#43A047", isDefault = true),
-            CurrencyAsset(code = "USD", symbol = "$", name = "美元", cardColor = "#1565C0")
-        )
-        defaults.forEach { currencyAssetDao.insertAsset(it) }
+        DefaultSeedData.currencies.forEach { currencyAssetDao.insertAsset(it) }
     }
 
     private suspend fun initializeDefaultKeywordCategories() {
-        val defaults = listOf(
-            KeywordCategory(keyword = "外卖", categoryName = "餐饮"),
-            KeywordCategory(keyword = "饿了么", categoryName = "餐饮"),
-            KeywordCategory(keyword = "美团", categoryName = "餐饮"),
-            KeywordCategory(keyword = "餐厅", categoryName = "餐饮"),
-            KeywordCategory(keyword = "咖啡", categoryName = "餐饮"),
-            KeywordCategory(keyword = "奶茶", categoryName = "餐饮"),
-            KeywordCategory(keyword = "肯德基", categoryName = "餐饮"),
-            KeywordCategory(keyword = "麦当劳", categoryName = "餐饮"),
-            KeywordCategory(keyword = "星巴克", categoryName = "餐饮"),
-            KeywordCategory(keyword = "瑞幸", categoryName = "餐饮"),
-            KeywordCategory(keyword = "食堂", categoryName = "餐饮"),
-            KeywordCategory(keyword = "公交", categoryName = "交通"),
-            KeywordCategory(keyword = "地铁", categoryName = "交通"),
-            KeywordCategory(keyword = "滴滴", categoryName = "交通"),
-            KeywordCategory(keyword = "出租车", categoryName = "交通"),
-            KeywordCategory(keyword = "加油", categoryName = "交通"),
-            KeywordCategory(keyword = "高铁", categoryName = "交通"),
-            KeywordCategory(keyword = "机票", categoryName = "交通"),
-            KeywordCategory(keyword = "12306", categoryName = "交通"),
-            KeywordCategory(keyword = "哈啰", categoryName = "交通"),
-            KeywordCategory(keyword = "单车", categoryName = "交通"),
-            KeywordCategory(keyword = "超市", categoryName = "购物"),
-            KeywordCategory(keyword = "淘宝", categoryName = "购物"),
-            KeywordCategory(keyword = "京东", categoryName = "购物"),
-            KeywordCategory(keyword = "拼多多", categoryName = "购物"),
-            KeywordCategory(keyword = "便利店", categoryName = "购物"),
-            KeywordCategory(keyword = "天猫", categoryName = "购物"),
-            KeywordCategory(keyword = "盒马", categoryName = "购物"),
-            KeywordCategory(keyword = "唯品会", categoryName = "购物"),
-            KeywordCategory(keyword = "沃尔玛", categoryName = "购物"),
-            KeywordCategory(keyword = "电影", categoryName = "娱乐"),
-            KeywordCategory(keyword = "游戏", categoryName = "娱乐"),
-            KeywordCategory(keyword = "KTV", categoryName = "娱乐"),
-            KeywordCategory(keyword = "网易云", categoryName = "娱乐"),
-            KeywordCategory(keyword = "腾讯视频", categoryName = "娱乐"),
-            KeywordCategory(keyword = "爱奇艺", categoryName = "娱乐"),
-            KeywordCategory(keyword = "B站", categoryName = "娱乐"),
-            KeywordCategory(keyword = "房租", categoryName = "居住"),
-            KeywordCategory(keyword = "水电", categoryName = "居住"),
-            KeywordCategory(keyword = "物业", categoryName = "居住"),
-            KeywordCategory(keyword = "煤气", categoryName = "居住"),
-            KeywordCategory(keyword = "燃气", categoryName = "居住"),
-            KeywordCategory(keyword = "供暖", categoryName = "居住"),
-            KeywordCategory(keyword = "薪水", categoryName = "工资"),
-            KeywordCategory(keyword = "转账", categoryName = "工资"),
-            KeywordCategory(keyword = "分红", categoryName = "工资"),
-            KeywordCategory(keyword = "基金", categoryName = "理财"),
-            KeywordCategory(keyword = "股票", categoryName = "理财"),
-            KeywordCategory(keyword = "收益", categoryName = "理财"),
-            KeywordCategory(keyword = "利息", categoryName = "理财"),
-            KeywordCategory(keyword = "余额宝", categoryName = "理财"),
-            KeywordCategory(keyword = "零钱通", categoryName = "理财")
-        )
-        defaults.forEach { keywordCategoryDao.insertKeywordCategory(it) }
+        DefaultSeedData.keywordCategories.forEach { keywordCategoryDao.insertKeywordCategory(it) }
     }
 
     fun setMultiCurrencyEnabled(enabled: Boolean) {
@@ -461,12 +391,7 @@ class TransactionViewModel(
     fun importHomeBackground(context: Context, uri: Uri) {
         viewModelScope.launch {
             try {
-                val target = java.io.File(context.filesDir, "home_bg_image")
-                withContext(Dispatchers.IO) {
-                    context.contentResolver.openInputStream(uri)?.use { input ->
-                        target.outputStream().use { output -> input.copyTo(output) }
-                    } ?: error("无法读取图片")
-                }
+                val target = HomeStorageHelpers.CopyHomeBackground(context, uri)
                 setHomeBgImagePath(target.absolutePath)
             } catch (e: Exception) {
                 Log.e("HomeBg", "导入背景失败", e)
@@ -478,9 +403,7 @@ class TransactionViewModel(
         viewModelScope.launch {
             val path = homeBgImagePath.value
             setHomeBgImagePath(null)
-            if (!path.isNullOrBlank()) {
-                runCatching { java.io.File(path).delete() }
-            }
+            HomeStorageHelpers.DeleteQuietly(path)
         }
     }
 
@@ -621,87 +544,34 @@ class TransactionViewModel(
         viewModelScope.launch { themeManager.setAiDataRange(range) }
     }
 
-    private val _aiAnalysisResult = MutableStateFlow<AiAnalysisResult?>(null)
-    val aiAnalysisResult: StateFlow<AiAnalysisResult?> = _aiAnalysisResult.asStateFlow()
-
-    private val _aiAnalysisLoading = MutableStateFlow(false)
-    val aiAnalysisLoading: StateFlow<Boolean> = _aiAnalysisLoading.asStateFlow()
-
-    private val _aiAnalysisFailed = MutableStateFlow(false)
-    val aiAnalysisFailed: StateFlow<Boolean> = _aiAnalysisFailed.asStateFlow()
-
-    init {
-        loadCachedAiResult()
+    private val aiAnalysis = AiAnalysisController(themeManager, viewModelScope) {
+        allTransactions.first()
     }
 
-    private fun loadCachedAiResult() {
-        viewModelScope.launch {
-            val score = themeManager.aiScore.first()
-            val label = themeManager.aiScoreLabel.first()
-            val explanation = themeManager.aiScoreExplanation.first()
-            val alertsJson = themeManager.aiAlertsJson.first()
-            val failed = themeManager.aiAnalysisFailed.first()
+    val aiAnalysisResult: StateFlow<AiAnalysisResult?> = aiAnalysis.aiAnalysisResult
+    val aiAnalysisLoading: StateFlow<Boolean> = aiAnalysis.aiAnalysisLoading
+    val aiAnalysisFailed: StateFlow<Boolean> = aiAnalysis.aiAnalysisFailed
 
-            if (score != null) {
-                _aiAnalysisResult.value = AiAnalysisResult(
-                    score = score,
-                    scoreLabel = label,
-                    scoreExplanation = explanation,
-                    alerts = AIAnalysisService.deserializeAlerts(alertsJson)
-                )
-            }
-            _aiAnalysisFailed.value = failed
-        }
+    init {
+        aiAnalysis.loadCachedAiResult()
     }
 
     fun checkAndRunDailyAnalysis() {
-        viewModelScope.launch {
-            val mode = appMode.value
-            if (mode != AppMode.SMART) return@launch
-
-            val apiKey = aiApiKey.value
-            if (apiKey.isBlank()) return@launch
-
-            val lastDate = themeManager.aiLastAnalysisDate.first()
-            val today = Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-            }.timeInMillis
-            if (lastDate >= today) return@launch
-
-            runAiAnalysis()
-        }
+        aiAnalysis.checkAndRunDailyAnalysis(
+            isSmartMode = { appMode.value == AppMode.SMART },
+            apiKey = { aiApiKey.value },
+            runAnalysis = { runAiAnalysis() },
+        )
     }
 
     fun runAiAnalysis() {
-        if (_aiAnalysisLoading.value) return
-        if (appMode.value != AppMode.SMART) return
-        viewModelScope.launch {
-            val apiKey = aiApiKey.value
-            val baseUrl = aiBaseUrl.value
-            val model = aiModel.value
-            if (apiKey.isBlank()) {
-                _aiAnalysisFailed.value = true
-                return@launch
-            }
-
-            _aiAnalysisLoading.value = true
-            _aiAnalysisFailed.value = false
-
-            try {
-                val transactions = allTransactions.first()
-                val dataRange = aiDataRange.value
-                val result = AIAnalysisService.analyze(transactions, dataRange, apiKey, baseUrl, model)
-                val alertsJson = AIAnalysisService.serializeAlerts(result.alerts)
-                themeManager.saveAiAnalysisResult(result.score, result.scoreLabel, result.scoreExplanation, alertsJson)
-                _aiAnalysisResult.value = result
-                _aiAnalysisFailed.value = false
-            } catch (_: Exception) {
-                themeManager.markAiAnalysisFailed()
-                _aiAnalysisFailed.value = true
-            } finally {
-                _aiAnalysisLoading.value = false
-            }
-        }
+        aiAnalysis.runAiAnalysis(
+            isSmartMode = { appMode.value == AppMode.SMART },
+            apiKey = { aiApiKey.value },
+            baseUrl = { aiBaseUrl.value },
+            model = { aiModel.value },
+            dataRange = { aiDataRange.value },
+        )
     }
 
     val recentNotes: StateFlow<List<String>> = themeManager.recentNotes.stateIn(
@@ -764,30 +634,12 @@ class TransactionViewModel(
     }
 
     /** 清空记账相册：删文件 + 清数据库 */
-    suspend fun clearAllAlbumPhotos(context: Context): Boolean = withContext(Dispatchers.IO) {
-        try {
-            com.inkqilin.ledger.util.StorageUsageManager.clearDir(
-                java.io.File(context.filesDir, "album_photos")
-            )
-            albumPhotoDao.deleteAllPhotos()
-            true
-        } catch (e: Exception) {
-            Log.e("TransactionVM", "clear album failed", e)
-            false
-        }
-    }
+    suspend fun clearAllAlbumPhotos(context: Context): Boolean =
+        HomeStorageHelpers.ClearAlbumDirAndDb(context) { albumPhotoDao.deleteAllPhotos() }
 
     /** 清空本地备份目录（含 pre_restore） */
-    suspend fun clearLocalBackups(context: Context): Boolean = withContext(Dispatchers.IO) {
-        try {
-            com.inkqilin.ledger.util.StorageUsageManager.clearDir(
-                com.inkqilin.ledger.util.CloudBackupManager.localBackupDir(context)
-            )
-            true
-        } catch (e: Exception) {
-            false
-        }
-    }
+    suspend fun clearLocalBackups(context: Context): Boolean =
+        HomeStorageHelpers.ClearLocalBackupDir(context)
 
     val allUserAssets: StateFlow<List<UserAsset>> = userAssetDao.getAllAssets()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -809,91 +661,24 @@ class TransactionViewModel(
     }
 
     // --- AssetFlow ---
-    val allAssetFlows: StateFlow<List<AssetFlow>> = assetFlowDao.getAllFlows()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    private val assetFlows = AssetFlowController(assets, viewModelScope)
 
-    fun getAssetFlows(assetId: Long): Flow<List<AssetFlow>> =
-        assetFlowDao.getFlowsByAssetId(assetId)
+    val allAssetFlows: StateFlow<List<AssetFlow>> = assetFlows.allAssetFlows
 
-    fun addAssetFlow(flow: AssetFlow) {
-        viewModelScope.launch {
-            val f = if (flow.uuid == null) flow.copy(uuid = java.util.UUID.randomUUID().toString()) else flow
-            assetFlowDao.insertFlow(f)
-            // 同步更新资产的当前估值
-            userAssetDao.getAssetById(f.assetId)?.let { asset ->
-                userAssetDao.updateAsset(asset.copy(
-                    currentValue = f.newValue,
-                    lastUpdated = System.currentTimeMillis()
-                ))
-            }
-        }
-    }
+    fun getAssetFlows(assetId: Long): Flow<List<AssetFlow>> = assetFlows.GetFlows(assetId)
+
+    fun addAssetFlow(flow: AssetFlow) = assetFlows.Add(flow)
 
     /** 导入流转时去重 */
-    suspend fun importAssetFlowSkipDuplicates(flow: AssetFlow): Boolean {
-        if (flow.uuid != null) {
-            val count = assetFlowDao.countByUuid(flow.uuid!!)
-            if (count == 0) {
-                assetFlowDao.insertFlowIgnore(flow)
-                userAssetDao.getAssetById(flow.assetId)?.let { asset ->
-                    userAssetDao.updateAsset(asset.copy(
-                        currentValue = flow.newValue,
-                        lastUpdated = System.currentTimeMillis()
-                    ))
-                }
-                return true
-            }
-            return false
-        } else {
-            val f = flow.copy(uuid = java.util.UUID.randomUUID().toString())
-            assetFlowDao.insertFlow(f)
-            userAssetDao.getAssetById(f.assetId)?.let { asset ->
-                userAssetDao.updateAsset(asset.copy(
-                    currentValue = f.newValue,
-                    lastUpdated = System.currentTimeMillis()
-                ))
-            }
-            return true
-        }
-    }
+    suspend fun importAssetFlowSkipDuplicates(flow: AssetFlow): Boolean =
+        assetFlows.ImportSkipDuplicates(flow)
 
     /** 为存量流转记录补齐 UUID */
-    fun backfillAssetFlowUuids() {
-        viewModelScope.launch(Dispatchers.IO) {
-            val nulls = assetFlowDao.getFlowsWithoutUuid()
-            if (nulls.isNotEmpty()) {
-                val updated = nulls.map { it.copy(uuid = java.util.UUID.randomUUID().toString()) }
-                assetFlowDao.updateFlows(updated)
-            }
-        }
-    }
+    fun backfillAssetFlowUuids() = assetFlows.BackfillUuids()
 
-    fun updateAssetFlow(flow: AssetFlow) {
-        viewModelScope.launch {
-            assetFlowDao.updateFlow(flow)
-            // 同步更新资产的当前估值
-            userAssetDao.getAssetById(flow.assetId)?.let { asset ->
-                userAssetDao.updateAsset(asset.copy(
-                    currentValue = flow.newValue,
-                    lastUpdated = System.currentTimeMillis()
-                ))
-            }
-        }
-    }
+    fun updateAssetFlow(flow: AssetFlow) = assetFlows.Update(flow)
 
-    fun deleteAssetFlow(flow: AssetFlow) {
-        viewModelScope.launch {
-            assetFlowDao.deleteFlow(flow)
-            // 删除后，找到该资产最新的流转记录，以其 newValue 更新资产估值
-            val latestFlow = assetFlowDao.getLatestFlowByAssetId(flow.assetId)
-            userAssetDao.getAssetById(flow.assetId)?.let { asset ->
-                userAssetDao.updateAsset(asset.copy(
-                    currentValue = latestFlow?.newValue ?: asset.currentValue,
-                    lastUpdated = System.currentTimeMillis()
-                ))
-            }
-        }
-    }
+    fun deleteAssetFlow(flow: AssetFlow) = assetFlows.Delete(flow)
 
     fun setAiApiKey(apiKey: String) {
         viewModelScope.launch { themeManager.setAiApiKey(apiKey) }
@@ -968,120 +753,44 @@ class TransactionViewModel(
         return transactionDao.getTransactionsByDateRange(startTime, endTime)
     }
 
-    fun getYearRange(year: Int): Pair<Long, Long> {
-        val cal = Calendar.getInstance()
-        cal.set(year, Calendar.JANUARY, 1, 0, 0, 0)
-        cal.set(Calendar.MILLISECOND, 0)
-        val start = cal.timeInMillis
-        cal.set(year + 1, Calendar.JANUARY, 1, 0, 0, 0)
-        cal.set(Calendar.MILLISECOND, 0)
-        val end = cal.timeInMillis - 1
-        return start to end
+    fun getYearRange(year: Int): Pair<Long, Long> = DateRangeUtils.GetYearRange(year)
+
+    fun getMonthRange(year: Int, month: Int): Pair<Long, Long> = DateRangeUtils.GetMonthRange(year, month)
+
+    private val excelImporter = ExcelImportController(viewModelScope, categoryDao, transactionDao) {
+        notifyWidgets()
     }
 
-    fun getMonthRange(year: Int, month: Int): Pair<Long, Long> {
-        val cal = Calendar.getInstance()
-        cal.set(year, month, 1, 0, 0, 0)
-        cal.set(Calendar.MILLISECOND, 0)
-        val start = cal.timeInMillis
-        cal.set(Calendar.MONTH, month + 1)
-        val end = cal.timeInMillis - 1
-        return start to end
-    }
-
-    /** Excel 导入进度：fraction 0–1 + 描述；null = 未在导入 */
-    private val _excelProgress = MutableStateFlow<Pair<Float, String>?>(null)
-    val excelProgress: StateFlow<Pair<Float, String>?> = _excelProgress.asStateFlow()
+    val excelProgress: StateFlow<Pair<Float, String>?> = excelImporter.excelProgress
 
     fun importTransactions(
         context: Context,
         uri: Uri,
         onDone: ((imported: Int, newCats: Int) -> Unit)? = null
     ) {
-        viewModelScope.launch {
-            _excelProgress.value = 0f to "开始导入…"
-            try {
-                val existingCategories = allCategories.first()
-                val result = withContext(Dispatchers.IO) {
-                    ExcelImporter.importTransactionsFromUri(context, uri, existingCategories) { fraction, msg ->
-                        _excelProgress.value = fraction.coerceIn(0f, 1f) to msg
-                    }
-                }
-                _excelProgress.value = 0.96f to "写入数据库…"
-                result.newCategories.forEach { category ->
-                    categoryDao.insertCategory(category)
-                }
-                result.transactions.forEach { transaction ->
-                    transactionDao.insertTransaction(transaction)
-                }
-                notifyWidgets()
-                _excelProgress.value = 1f to "导入完成"
-                onDone?.invoke(result.transactions.size, result.newCategories.size)
-                kotlinx.coroutines.delay(400)
-            } catch (e: Exception) {
-                Log.e("TransactionVM", "import failed", e)
-                onDone?.invoke(0, 0)
-            } finally {
-                _excelProgress.value = null
-            }
-        }
+        excelImporter.ImportTransactions(
+            context = context,
+            uri = uri,
+            existingCategories = { allCategories.first() },
+            onDone = onDone,
+        )
     }
 
-    val allKeywordCategories: Flow<List<KeywordCategory>> = keywordCategoryDao.getAllKeywordCategories()
+    private val keywordCategories = KeywordCategoryController(keywordCategoryDao, viewModelScope)
 
-    fun addKeywordCategory(keyword: String, categoryName: String) {
-        viewModelScope.launch {
-            keywordCategoryDao.insertKeywordCategory(KeywordCategory(keyword = keyword, categoryName = categoryName))
-        }
-    }
+    val allKeywordCategories: Flow<List<KeywordCategory>> = keywordCategories.allKeywordCategories
 
-    fun updateKeywordCategory(keywordCategory: KeywordCategory) {
-        viewModelScope.launch {
-            keywordCategoryDao.updateKeywordCategory(keywordCategory)
-        }
-    }
+    fun addKeywordCategory(keyword: String, categoryName: String) =
+        keywordCategories.Add(keyword, categoryName)
 
-    fun deleteKeywordCategory(keywordCategory: KeywordCategory) {
-        viewModelScope.launch {
-            keywordCategoryDao.deleteKeywordCategory(keywordCategory)
-        }
-    }
+    fun updateKeywordCategory(keywordCategory: KeywordCategory) =
+        keywordCategories.Update(keywordCategory)
 
-    suspend fun matchCategoryByKeyword(note: String): String? {
-        if (note.isBlank()) return null
-        val keywords = keywordCategoryDao.getAllKeywordCategoriesOnce()
-        for (kc in keywords) {
-            if (note.contains(kc.keyword, ignoreCase = true)) {
-                return kc.categoryName
-            }
-        }
-        return null
-    }
+    fun deleteKeywordCategory(keywordCategory: KeywordCategory) =
+        keywordCategories.Delete(keywordCategory)
 
-    fun getCurrentVersionName(context: Context): String {
-        return try {
-            val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-            packageInfo.versionName ?: "0.0.0"
-        } catch (e: PackageManager.NameNotFoundException) {
-            "0.0.0"
-        }
-    }
-}
+    suspend fun matchCategoryByKeyword(note: String): String? =
+        keywordCategories.MatchCategoryByKeyword(note)
 
-class TransactionViewModelFactory(
-    private val transactionDao: TransactionRepository,
-    private val categoryDao: CategoryRepository,
-    private val currencyAssetDao: CurrencyAssetRepository,
-    private val albumPhotoDao: AlbumRepository,
-    private val keywordCategoryDao: KeywordCategoryRepository,
-    private val assets: AssetRepository,
-    private val themeManager: ThemeManager
-) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(TransactionViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return TransactionViewModel(transactionDao, categoryDao, currencyAssetDao, albumPhotoDao, keywordCategoryDao, assets, themeManager) as T
-        }
-        throw IllegalArgumentException("Unknown ViewModel class")
-    }
+    fun getCurrentVersionName(context: Context): String = AppVersionUtils.Get(context)
 }

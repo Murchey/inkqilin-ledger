@@ -165,3 +165,58 @@
 ### 验证
 
 - `compileDebugKotlin` BUILD SUCCESSFUL
+
+---
+
+## StatisticsScreen.kt
+
+- **原文件路径**: `app/src/main/java/com/inkqilin/ledger/ui/screens/StatisticsScreen.kt`
+- **拆分日期**: 2026-09-29
+- **原大小**: 89.3KB / 1838 行
+
+### 新文件列表
+
+| 新文件 | 职责 |
+|--------|------|
+| `StatisticsScreen.kt` | 统计主界面编排 |
+| `StatisticsModels.kt` | `TimePeriod` / `FilterListIcon` / `BouncyTabItem` |
+| `StatisticsFilters.kt` | `FilterByPeriod` / `GetDateRangeForPeriod` |
+| `StatisticsCharts.kt` | `AnimatedBarChart` / `CategoryPieChart` |
+| `StatisticsAiCard.kt` | `AiFinancialScoreCard` |
+| `StatisticsScreenPreview.kt` | Preview |
+
+### 验证
+
+- `compileDebugKotlin` BUILD SUCCESSFUL
+
+---
+
+## 第二批（阈值：>800 行或 >40KB）
+
+- **拆分日期**: 2026-09-29
+- **命名**: 文件 PascalCase.kt / 变量 camelCase / 函数 PascalCase
+
+### TransactionComponents.kt
+- `AppleDialogs.kt` / `TransactionListItems.kt` / `CategoryEditDialog.kt` / `TransactionComponentsPreview.kt`
+
+### AlbumScreen.kt
+- `AlbumScreen.kt` / `AlbumEffects.kt` / `AlbumPhotoCard.kt` / `PhotoViewerScreen.kt` / `AlbumFileUtils.kt`
+
+### TransactionViewModel.kt
+- 保留门面 + `DefaultSeedData` / `AiAnalysisController` / `ExcelImportController` / `AssetFlowController` / `KeywordCategoryController` / `HomeStorageHelpers` / `DateRangeUtils` / `AppVersionUtils` / `TransactionViewModelFactory`
+
+### SettingsScreen.kt
+- `SettingsExportModels` / `SettingsUiHelpers` / `ColorPickerButton` / `CurrencyManagementScreen` / `SettingsScreenPreview` / `SettingsDisplaySection` / `SettingsFeatureSection` / `SettingsDialogs` / `SettingsExportDatePickers`
+
+### RenQingMainScreen.kt
+- `RenQingLoadingIndicator` / `RenQingMainScreen` / `AddRenQingEventScreen` / `RenQingContactsUi` / `RenQingStatsScreen` / `RenQingDetailScreens` / `RenQingPreview`
+
+### MainScreen.kt
+- `MainNavGraph.kt` + `NavExtensions.kt`
+
+### StatisticsScreen.kt
+- `StatisticsModels` / `StatisticsFilters` / `StatisticsCharts` / `StatisticsAiCard` / `StatisticsAssetSummary` / `StatisticsBodyItems` / `StatisticsScreenPreview`
+
+### 验证
+- `assembleDebug` BUILD SUCCESSFUL
+- 阈值扫描：无 >800 行或 >40KB 的 Kotlin 源文件
