@@ -1,38 +1,45 @@
 package com.inkqilin.ledger.ui.screens
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,12 +47,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.inkqilin.ledger.ui.TransactionViewModel
+import com.inkqilin.ledger.ui.theme.Corners
 import com.inkqilin.ledger.util.BackupFrequency
 import com.inkqilin.ledger.util.BackupSchedule
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.launch
 
 /**
  * 自动备份计划二级页：本地 / 云端各一份。
@@ -66,6 +71,8 @@ fun BackupAutoScheduleScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .imePadding()
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Text(
@@ -92,180 +99,50 @@ fun BackupAutoScheduleScreen(
     }
 }
 
-/**
- * 滚轮选择器：中项高亮。
- *
- * 选中在滚动停稳后上报，避免 fling 中被 [androidx.compose.foundation.lazy.LazyListState.scrollToItem]
- * 打断手势导致「滚不动 / 选不中」；另支持点选作为可靠兜底。
- */
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-@Composable
-fun WheelPicker(
-    items: List<String>,
-    selectedIndex: Int,
-    onSelected: (Int) -> Unit,
-    modifier: Modifier = Modifier,
-    visibleCount: Int = 5
-) {
-    val itemHeight = 36.dp
-    val lastIndex = (items.size - 1).coerceAtLeast(0)
-    val listState = rememberLazyListState(
-        initialFirstVisibleItemIndex = selectedIndex.coerceIn(0, lastIndex)
-    )
-    val fling = rememberSnapFlingBehavior(lazyListState = listState)
-    val scope = rememberCoroutineScope()
-    val currentOnSelected by rememberUpdatedState(onSelected)
-
-    val centerIndex by remember {
-        derivedStateOf {
-            val visible = listState.layoutInfo.visibleItemsInfo
-            if (visible.isEmpty()) return@derivedStateOf 0
-            val layout = listState.layoutInfo
-            val viewport = layout.viewportEndOffset - layout.viewportStartOffset
-            val center = layout.viewportStartOffset + viewport / 2
-            visible.minByOrNull {
-                kotlin.math.abs((it.offset + it.size / 2) - center)
-            }?.index ?: 0
-        }
-    }
-
-    // 本组件滚动/点选已提交的下标：外部回写同一值时不要再 scrollToItem，以免打断手势
-    var committedIndex by remember { mutableStateOf(selectedIndex) }
-
-    // 仅当选中值从外部被改掉（如 DataStore 异步加载完成）才对齐列表位置
-    LaunchedEffect(selectedIndex) {
-        if (selectedIndex != committedIndex && selectedIndex in items.indices) {
-            committedIndex = selectedIndex
-            listState.scrollToItem(selectedIndex)
-        }
-    }
-
-    // 滚动停稳后再上报选中，避免拖拽/惯性过程中被程序化滚动抢走手势
-    LaunchedEffect(listState, items.size) {
-        snapshotFlow { listState.isScrollInProgress }
-            .distinctUntilChanged()
-            .collect { scrolling ->
-                if (!scrolling) {
-                    val idx = centerIndex
-                    if (idx in items.indices && idx != committedIndex) {
-                        committedIndex = idx
-                        currentOnSelected(idx)
-                    }
-                }
-            }
-    }
-
-    // 滚动中高亮跟随中心项，停稳后与 selectedIndex 一致
-    val visualIndex = if (listState.isScrollInProgress) {
-        centerIndex.coerceIn(0, lastIndex)
-    } else {
-        selectedIndex.coerceIn(0, lastIndex)
-    }
-
-    Box(modifier = modifier.height(itemHeight * visibleCount)) {
-        // 中项高亮
-        Box(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .fillMaxWidth()
-                .height(itemHeight)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
-        )
-        LazyColumn(
-            state = listState,
-            flingBehavior = fling,
-            horizontalAlignment = Alignment.CenterHorizontally,
-            // 用 contentPadding 做首尾留白，保证 item 索引与 items 列表一致
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                vertical = itemHeight * (visibleCount / 2)
-            ),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            items(items.size) { i ->
-                val selected = i == visualIndex
-                Box(
-                    modifier = Modifier
-                        .height(itemHeight)
-                        .fillMaxWidth()
-                        .clickable {
-                            // 点选：不依赖滚动结果，立即生效
-                            committedIndex = i
-                            currentOnSelected(i)
-                            scope.launch { listState.animateScrollToItem(i) }
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = items[i],
-                        fontSize = if (selected) 16.sp else 14.sp,
-                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (selected) MaterialTheme.colorScheme.onSurface
-                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                    )
-                }
-            }
-        }
-    }
-}
-
 @Composable
 fun AutoBackupScheduleForm(
     schedule: BackupSchedule,
     onChange: ((BackupSchedule) -> BackupSchedule) -> Unit
 ) {
-    val frequencyLabels = BackupFrequency.entries.map { it.label }
-    val frequencyIndex = BackupFrequency.entries.indexOf(schedule.frequency).coerceAtLeast(0)
-    val weekLabels = listOf("周日", "周一", "周二", "周三", "周四", "周五", "周六")
-    val dayLabels = (1..31).map { " $it 日" }
     // 密钥用本地草稿：避免 DataStore 异步回写导致光标前移/丢字
     var passwordDraft by remember { mutableStateOf(schedule.autoPassword) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = com.inkqilin.ledger.ui.theme.Corners.Md,
-        elevation = CardDefaults.cardElevation(0.dp)
+        shape = Corners.Md,
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)) {
             Text("备份时机", style = MaterialTheme.typography.labelMedium)
             Spacer(Modifier.height(8.dp))
-            WheelPicker(
-                items = frequencyLabels,
-                selectedIndex = frequencyIndex,
-                onSelected = { idx ->
-                    val freq = BackupFrequency.entries.getOrNull(idx) ?: BackupFrequency.OFF
-                    onChange { it.copy(frequency = freq) }
-                },
-                modifier = Modifier.fillMaxWidth()
+            FrequencyOptions(
+                selected = schedule.frequency,
+                onSelected = { frequency ->
+                    onChange { it.copy(frequency = frequency) }
+                }
             )
 
             when (schedule.frequency) {
                 BackupFrequency.WEEKLY -> {
-                    Spacer(Modifier.height(8.dp))
-                    Text("每周", style = MaterialTheme.typography.labelMedium)
-                    Spacer(Modifier.height(4.dp))
-                    WheelPicker(
-                        items = weekLabels,
-                        selectedIndex = (schedule.weekday - 1).coerceIn(0, 6),
-                        onSelected = { dowIndex -> onChange { it.copy(weekday = dowIndex + 1) } },
-                        modifier = Modifier.fillMaxWidth()
+                    Spacer(Modifier.height(16.dp))
+                    WeeklyDayOptions(
+                        selectedWeekday = schedule.weekday,
+                        onSelected = { weekday -> onChange { it.copy(weekday = weekday) } }
                     )
                 }
+
                 BackupFrequency.MONTHLY -> {
-                    Spacer(Modifier.height(8.dp))
-                    Text("每月日期（超出当月天数则月末）", style = MaterialTheme.typography.labelMedium)
-                    Spacer(Modifier.height(4.dp))
-                    WheelPicker(
-                        items = dayLabels,
-                        selectedIndex = (schedule.dayOfMonth - 1).coerceIn(0, 30),
-                        onSelected = { dayIndex -> onChange { it.copy(dayOfMonth = dayIndex + 1) } },
-                        modifier = Modifier.fillMaxWidth()
+                    Spacer(Modifier.height(16.dp))
+                    MonthlyDayOptions(
+                        selectedDay = schedule.dayOfMonth,
+                        onSelected = { day -> onChange { it.copy(dayOfMonth = day) } }
                     )
                 }
+
                 else -> Unit
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(16.dp))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
@@ -301,6 +178,213 @@ fun AutoBackupScheduleForm(
                     Text("填入后自动备份将加密；留空则不加密", style = MaterialTheme.typography.labelSmall)
                 },
                 modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+/** 所有频率同时可见，最后一项横跨整行避免留下半格空白。 */
+@Composable
+private fun FrequencyOptions(
+    selected: BackupFrequency,
+    onSelected: (BackupFrequency) -> Unit
+) {
+    val frequencies = BackupFrequency.entries
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        frequencies.take(4).chunked(2).forEach { rowFrequencies ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                rowFrequencies.forEach { frequency ->
+                    FrequencyOptionCard(
+                        frequency = frequency,
+                        selected = frequency == selected,
+                        onClick = { onSelected(frequency) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+        frequencies.getOrNull(4)?.let { frequency ->
+            FrequencyOptionCard(
+                frequency = frequency,
+                selected = frequency == selected,
+                onClick = { onSelected(frequency) },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
+private fun FrequencyOptionCard(
+    frequency: BackupFrequency,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val shape = Corners.Sm
+    Card(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 58.dp),
+        shape = shape,
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surface
+            }
+        ),
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (selected) {
+                MaterialTheme.colorScheme.outline
+            } else {
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+            }
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = frequency.label,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (selected) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                }
+            )
+            if (selected) {
+                Spacer(Modifier.width(6.dp))
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = "已选择",
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun WeeklyDayOptions(
+    selectedWeekday: Int,
+    onSelected: (Int) -> Unit
+) {
+    val weekLabels = listOf("日", "一", "二", "三", "四", "五", "六")
+    Column {
+        Text("每周备份日", style = MaterialTheme.typography.labelMedium)
+        Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            weekLabels.forEachIndexed { index, label ->
+                DateOption(
+                    label = label,
+                    selected = selectedWeekday == index + 1,
+                    onClick = { onSelected(index + 1) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MonthlyDayOptions(
+    selectedDay: Int,
+    onSelected: (Int) -> Unit
+) {
+    val days = (1..31).toList()
+    val listState = rememberLazyListState()
+    val selectedIndex = (selectedDay - 1).coerceIn(0, days.lastIndex)
+
+    // 页面重新进入或外部配置加载完成时，让当前日期落在可见区域。
+    LaunchedEffect(selectedIndex) {
+        listState.animateScrollToItem(selectedIndex)
+    }
+
+    Column {
+        Text("每月备份日", style = MaterialTheme.typography.labelMedium)
+        Spacer(Modifier.height(8.dp))
+        LazyRow(
+            state = listState,
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            contentPadding = PaddingValues(horizontal = 2.dp)
+        ) {
+            items(days) { day ->
+                DateOption(
+                    label = "${day}日",
+                    selected = day == selectedDay,
+                    onClick = { onSelected(day) },
+                    modifier = Modifier.width(48.dp)
+                )
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "超过当月天数则按月末执行",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun DateOption(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val shape = RoundedCornerShape(10.dp)
+    Surface(
+        modifier = modifier
+            .height(40.dp)
+            .clip(shape)
+            .clickable(onClick = onClick)
+            .border(
+                width = 1.dp,
+                color = if (selected) {
+                    MaterialTheme.colorScheme.outline
+                } else {
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+                },
+                shape = shape
+            ),
+        shape = shape,
+        color = if (selected) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surface
+        }
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (selected) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                }
             )
         }
     }
