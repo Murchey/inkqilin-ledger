@@ -632,8 +632,8 @@ fun SettingsScreen(
             }
         }
 
-        val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(6.dp)
-        Spacer(modifier = Modifier.height(navBarBottomPadding + 76.dp))
+        val safeAreaBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        Spacer(modifier = Modifier.height(safeAreaBottom + floatingContentBottomInset))
     }
 
     // 关于抽屉

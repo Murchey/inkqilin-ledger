@@ -44,6 +44,7 @@ import com.inkqilin.ledger.ui.RenQingViewModel
 import com.inkqilin.ledger.ui.motion.*
 import com.inkqilin.ledger.ui.theme.appButtonElevation
 import com.inkqilin.ledger.ui.theme.InkQilinLedgerTheme
+import com.inkqilin.ledger.ui.theme.floatingContentBottomInset
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt
@@ -387,8 +388,8 @@ internal fun RenQingEventsList(events: List<RenQingEvent>, tags: List<RenQingTag
         }
     } else {
         val grouped = events.groupBy { SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date(it.date)) }
-        val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(6.dp)
-        LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 16.dp), contentPadding = PaddingValues(bottom = navBarBottomPadding + 76.dp)) {
+        val safeAreaBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 16.dp), contentPadding = PaddingValues(bottom = safeAreaBottom + floatingContentBottomInset)) {
             grouped.forEach { (month, monthEvents) ->
                 item {
                     Text(

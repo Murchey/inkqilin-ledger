@@ -25,6 +25,27 @@ object Space {
     val SheetBottom = 32.dp
 }
 
+/**
+ * 悬浮底部导航 token。
+ *
+ * 内容会延伸到屏幕底部，导航胶囊再覆盖到内容之上。因此列表只需要在末尾
+ * 预留导航高度、导航与安全区之间的间距，以及最后一项与胶囊之间的额外间距。
+ */
+// 52dp keeps the icon/label stack compact while matching the 44dp FAB visually.
+val floatingNavHeight = 52.dp
+val floatingBottomGap = 8.dp
+val floatingContentBottomInset = floatingNavHeight + floatingBottomGap + 16.dp
+val floatingNavBlurSigma = 22.dp
+val floatingNavDarkOpacity = 0.58f
+val floatingNavLightOpacity = 0.70f
+val floatingNavOutlineOpacity = 0.28f
+val floatingNavSelectedOpacity = 0.08f
+val floatingNavSelectedCornerRadius = 13.dp
+val floatingNavShadowElevation = 6.dp
+
+/** 主题层使用的悬浮导航形状，避免选中态重新使用导航胶囊的圆角 token。 */
+val floatingNavSelectedShape = RoundedCornerShape(floatingNavSelectedCornerRadius)
+
 object Corners {
     val Xs = RoundedCornerShape(8.dp)
     val Sm = RoundedCornerShape(12.dp)

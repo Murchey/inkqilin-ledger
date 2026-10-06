@@ -482,11 +482,11 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
         groups
     }
 
-    val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(6.dp)
+    val safeAreaBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     LazyColumn(
         state = statisticsListState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = navBarBottomPadding + 76.dp)
+        contentPadding = PaddingValues(bottom = safeAreaBottom + floatingContentBottomInset)
     ) {
         item(key = "period_tabs") {
             Row(

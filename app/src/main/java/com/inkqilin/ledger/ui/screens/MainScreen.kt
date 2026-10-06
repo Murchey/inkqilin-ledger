@@ -18,9 +18,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -39,6 +41,7 @@ import androidx.navigation.navArgument
 import com.inkqilin.ledger.ui.RenQingViewModel
 import com.inkqilin.ledger.ui.TransactionViewModel
 import com.inkqilin.ledger.ui.motion.*
+import com.inkqilin.ledger.ui.theme.*
 import com.inkqilin.ledger.util.DEFAULT_PRIMARY_COLOR_HEX
 import androidx.compose.ui.platform.LocalContext
 import android.widget.Toast
@@ -380,7 +383,7 @@ fun MainScreen(
                 val fabRadius = 22.dp
 
                 val showFab = currentPageRoute == "home" || currentPageRoute == "album"
-                val navBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(6.dp)
+                val safeAreaBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
                 // ── Smooth indicator position：只在值变化时写入，避免 layout 回环重组 ──
                 var indicatorCenterX by remember { mutableFloatStateOf(0f) }
@@ -404,33 +407,40 @@ fun MainScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .padding(top = 4.dp, bottom = navBottomPadding),
+                        .padding(horizontal = Space.PageHorizontal)
+                        .padding(bottom = floatingBottomGap + safeAreaBottom),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 静态边框 + 填充，去掉 shadowElevation（低端机阴影渲染昂贵）
+                    // 透明表面让页面内容透出，胶囊本身覆盖在 Pager 上方。
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .clip(capsuleShape)
-                            .background(
-                                if (isDarkMode) Color(0xFF1C1C1E).copy(alpha = 0.96f)
-                                else Color.White.copy(alpha = 0.98f)
+                            .height(floatingNavHeight)
+                            .shadow(
+                                elevation = floatingNavShadowElevation,
+                                shape = capsuleShape,
+                                clip = false
                             )
+                            .clip(capsuleShape)
                             .border(
                                 width = 1.dp,
-                                color = if (isDarkMode) Color.White.copy(alpha = 0.16f)
-                                        else Color(0xFFD1D1D6).copy(alpha = 0.9f),
+                                color = floatingNavOutlineColor(),
                                 shape = capsuleShape
                             )
-                            .padding(horizontal = 4.dp, vertical = 4.dp)
                     ) {
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                // Compose 的 blur 作为轻量毛玻璃层；页面内容通过半透明表面透出。
+                                .background(floatingNavSurfaceColor(isDarkMode))
+                                .blur(floatingNavBlurSigma)
+                        )
                         // 内容高度由 Tab 行决定；指示器用 IntrinsicSize.Min 对齐同高，再 clip 成胶囊
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .height(IntrinsicSize.Min)
+                                .fillMaxSize()
+                                .padding(horizontal = 4.dp, vertical = 4.dp)
                         ) {
                             // ── Apple Photos Style Indicator ──
                             if (animIndicatorW > 0.dp) {
@@ -443,10 +453,9 @@ fun MainScreen(
                                         }
                                         .fillMaxHeight()
                                         .width(animIndicatorW)
-                                        .clip(capsuleShape)
+                                        .clip(floatingNavSelectedShape)
                                         .background(
-                                            if (isDarkMode) Color.White.copy(alpha = 0.08f)
-                                            else Color.Black.copy(alpha = 0.08f)
+                                            MaterialTheme.colorScheme.onSurface.copy(alpha = floatingNavSelectedOpacity)
                                         )
                                 )
                             }

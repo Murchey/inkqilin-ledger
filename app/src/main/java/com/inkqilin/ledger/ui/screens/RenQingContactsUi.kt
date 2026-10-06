@@ -44,6 +44,7 @@ import com.inkqilin.ledger.ui.RenQingViewModel
 import com.inkqilin.ledger.ui.motion.*
 import com.inkqilin.ledger.ui.theme.appButtonElevation
 import com.inkqilin.ledger.ui.theme.InkQilinLedgerTheme
+import com.inkqilin.ledger.ui.theme.floatingContentBottomInset
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt
@@ -104,8 +105,8 @@ internal fun RenQingContactsList(
                 Button(onClick = { showAddDialog = true }) { Text("添加联系人") }
             }
         } else {
-            val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(6.dp)
-            LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 16.dp), contentPadding = PaddingValues(bottom = navBarBottomPadding + 76.dp)) {
+            val safeAreaBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+            LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 16.dp), contentPadding = PaddingValues(bottom = safeAreaBottom + floatingContentBottomInset)) {
                 items(contacts, key = { it.id }) { contact ->
                     ContactCard(contact, viewModel, onNavigateToContactDetail)
                     Spacer(modifier = Modifier.height(8.dp))

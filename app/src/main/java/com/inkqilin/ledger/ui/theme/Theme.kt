@@ -79,6 +79,16 @@ private val AppShapes = Shapes(
     extraLarge = Corners.Xl,
 )
 
+/** 悬浮导航的半透明表面：背景由当前页面透出，避免使用不透明黑色底。 */
+@Composable
+fun floatingNavSurfaceColor(isDark: Boolean): Color = MaterialTheme.colorScheme.surface.copy(
+    alpha = if (isDark) floatingNavDarkOpacity else floatingNavLightOpacity
+)
+
+/** 悬浮导航使用主题描边的低透明度版本，适配自定义主题颜色。 */
+@Composable
+fun floatingNavOutlineColor(): Color = MaterialTheme.colorScheme.outline.copy(alpha = floatingNavOutlineOpacity)
+
 @Composable
 fun appButtonElevation() = ButtonDefaults.buttonElevation(
     defaultElevation = 0.dp,
@@ -137,6 +147,10 @@ fun InkQilinLedgerTheme(
             val window = (view.context as Activity).window
             window.statusBarColor = Color.Transparent.toArgb()
             window.navigationBarColor = Color.Transparent.toArgb()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                // 让页面背景继续绘制到系统导航栏安全区，悬浮胶囊才是真正覆盖在内容上。
+                window.isNavigationBarContrastEnforced = false
+            }
             val controller = WindowCompat.getInsetsController(window, view)
             controller.isAppearanceLightStatusBars = !darkTheme
             controller.isAppearanceLightNavigationBars = !darkTheme

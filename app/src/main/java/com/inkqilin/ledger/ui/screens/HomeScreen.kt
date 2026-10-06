@@ -244,21 +244,17 @@ fun HomeScreen(
             )
         }
 
-        Scaffold(
-            containerColor = Color.Transparent,
-        ) { scaffoldPadding ->
-            val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(6.dp)
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        if (bgFile != null && bgFile.exists()) Color.Transparent
-                        else MaterialTheme.colorScheme.background
-                    )
-                    .padding(scaffoldPadding),
-                contentPadding = PaddingValues(bottom = navBarBottomPadding + 76.dp)
-            ) {
+        val safeAreaBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    if (bgFile != null && bgFile.exists()) Color.Transparent
+                    else MaterialTheme.colorScheme.background
+                ),
+            contentPadding = PaddingValues(bottom = safeAreaBottom + floatingContentBottomInset)
+        ) {
             item(key = "overview") {
                 if (isDataLoading) {
                     OverviewCardSkeleton()
@@ -469,7 +465,6 @@ fun HomeScreen(
                     }
                 }
             }
-        }
         }
     }
     }
