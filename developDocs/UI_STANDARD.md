@@ -66,8 +66,8 @@
 
 | Token | 值 | 说明 |
 |-------|-----|------|
-| `LightDefaultPrimary` | `#2E9E6A` | 默认「青松」主色（亮色） |
-| `DarkDefaultPrimary` | `#4FAF82` | 暗色下提亮，保证对比 |
+| `LightDefaultPrimary` | `#007AFF` | 默认 Apple Blue 主色（亮色） |
+| `DarkDefaultPrimary` | `#0A84FF` | 暗色下提亮，保证对比 |
 
 用户可在设置中换主题色；组件一律 `MaterialTheme.colorScheme.primary`。
 

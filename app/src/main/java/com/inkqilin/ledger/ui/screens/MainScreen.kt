@@ -519,7 +519,7 @@ fun MainScreen(
                         val fabScale = animatePressScale(fabInteractionSource)
                         val fabColor = remember(customPrimaryColorHex) {
                             val hex = customPrimaryColorHex ?: DEFAULT_PRIMARY_COLOR_HEX
-                            try { Color(android.graphics.Color.parseColor(hex)) } catch (_: Exception) { Color(0xFF34C759) }
+                            try { Color(android.graphics.Color.parseColor(hex)) } catch (_: Exception) { Color(0xFF007AFF) }
                         }
 
                         Box(

@@ -100,8 +100,8 @@ fun parseHexColor(hex: String): Color? {
 }
 
 // 默认主色「青松」：暗色界面略微提亮，保证对比可读（与亮暗主题切换无关的品牌色）
-val LightDefaultPrimary = Color(0xFF2E9E6A)
-val DarkDefaultPrimary = Color(0xFF4FAF82)
+val LightDefaultPrimary = AppleBlue
+val DarkDefaultPrimary = InkSecondaryDark
 
 @Composable
 fun InkQilinLedgerTheme(

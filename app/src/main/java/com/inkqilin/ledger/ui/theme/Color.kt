@@ -26,9 +26,10 @@ import androidx.compose.ui.unit.sp
 import com.inkqilin.ledger.data.CurrencyAsset
 
 // ─── Apple HIG Primary Colors ───
-val InkPrimary = Color(0xFF34C759)
-val InkPrimaryLight = Color(0xFF34C759)
-val InkPrimaryDark = Color(0xFF30D158)
+// Apple-style brand action color. Green remains reserved for income/success.
+val InkPrimary = Color(0xFF007AFF)
+val InkPrimaryLight = Color(0xFF007AFF)
+val InkPrimaryDark = Color(0xFF0A84FF)
 
 // ─── Apple HIG Secondary Colors ───
 val InkSecondary = Color(0xFF007AFF)

@@ -20,7 +20,7 @@ private val Context.dataStore by preferencesDataStore(name = "settings")
 data class ThemeColorPreset(val name: String, val hex: String)
 
 val BrightThemePresets = listOf(
-    ThemeColorPreset("青松", "#2E9E6A"),
+    ThemeColorPreset("海蓝", "#007AFF"),
     ThemeColorPreset("晴蓝", "#2F74D0"),
     ThemeColorPreset("暖橙", "#D8873E"),
     ThemeColorPreset("珊瑚", "#D75B52"),
@@ -39,7 +39,7 @@ val DarkThemePresets = listOf(
 )
 
 /** 默认主题色（青松）：兼顾识别度与耐看度 */
-const val DEFAULT_PRIMARY_COLOR_HEX = "#2E9E6A"
+const val DEFAULT_PRIMARY_COLOR_HEX = "#007AFF"
 const val DEFAULT_INCOME_COLOR_HEX = "#22965A"
 const val DEFAULT_EXPENSE_COLOR_HEX = "#D8793A"
 /** 主页币种卡片默认底色：暗色预置行第一枚（青松暗） */
