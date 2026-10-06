@@ -63,6 +63,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.inkqilin.ledger.ui.TransactionViewModel
 import com.inkqilin.ledger.util.CloudBackupManager
+import com.inkqilin.ledger.util.AutoBackupStatus
+import com.inkqilin.ledger.util.BackupSchedule
 import com.inkqilin.ledger.util.CosConfig
 import com.inkqilin.ledger.util.CosObjectMeta
 import kotlinx.coroutines.Dispatchers
@@ -83,6 +85,10 @@ fun CloudBackupScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val cosConfig by viewModel.cosConfig.collectAsState()
+    val localSchedule by viewModel.localBackupSchedule.collectAsState()
+    val cloudSchedule by viewModel.cloudBackupSchedule.collectAsState()
+    val localBackupStatus by viewModel.localBackupStatus.collectAsState()
+    val cloudBackupStatus by viewModel.cloudBackupStatus.collectAsState()
 
     // 0 = 本地备份， 1 = 云端备份
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
@@ -221,13 +227,11 @@ fun CloudBackupScreen(
 
         if (selectedTab == 0) {
             val hasSafety = remember(localBackups) { CloudBackupManager.hasSafetyCopy(context) }
-            val localSchedule by viewModel.localBackupSchedule.collectAsState()
             ListItem(
                 headlineContent = { Text("自动备份设置") },
                 supportingContent = {
                     Text(
-                        if (localSchedule.frequency.name == "OFF") "未开启"
-                        else localSchedule.frequency.label,
+                        backupStatusSummary(localSchedule, localBackupStatus),
                         fontSize = 12.sp
                     )
                 },
@@ -265,13 +269,11 @@ fun CloudBackupScreen(
                 }
             )
         } else {
-            val cloudSchedule by viewModel.cloudBackupSchedule.collectAsState()
             ListItem(
                 headlineContent = { Text("自动备份设置") },
                 supportingContent = {
                     Text(
-                        if (cloudSchedule.frequency.name == "OFF") "未开启"
-                        else cloudSchedule.frequency.label,
+                        backupStatusSummary(cloudSchedule, cloudBackupStatus, cosConfig.isConfigured),
                         fontSize = 12.sp
                     )
                 },
@@ -341,6 +343,8 @@ fun CloudBackupScreen(
                         }
                     } catch (e: Exception) {
                         uiState = BackupUiState.Error(e.message ?: "备份失败")
+                    } finally {
+                        password?.fill('\u0000')
                     }
                 }
             }
@@ -415,6 +419,8 @@ fun CloudBackupScreen(
                         } catch (e: Exception) {
                             // 失败时 Room 可能仍可用（校验阶段未 close）或已回滚
                             uiState = BackupUiState.Error(e.message ?: "恢复失败")
+                        } finally {
+                            pwdOrNull?.fill('\u0000')
                         }
                     }
                 }) { Text("我明白，恢复") }
@@ -537,5 +543,29 @@ fun CloudBackupScreen(
                 }) { Text("关闭应用") }
             }
         )
+    }
+}
+
+private fun backupStatusSummary(
+    schedule: BackupSchedule,
+    status: AutoBackupStatus,
+    cosConfigured: Boolean = true
+): String {
+    val frequency = if (schedule.frequency == com.inkqilin.ledger.util.BackupFrequency.OFF) {
+        "未开启"
+    } else {
+        schedule.frequency.label
+    }
+    if (!cosConfigured && schedule.frequency != com.inkqilin.ledger.util.BackupFrequency.OFF) {
+        return "$frequency · 需要配置 COS"
+    }
+    val success = status.lastSuccessAt.takeIf { it > 0L }?.let {
+        SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(it))
+    }
+    val failure = status.lastError?.takeIf { it.isNotBlank() }?.let { "失败：${it.take(24)}" }
+    return when {
+        failure != null -> "$frequency · $failure"
+        success != null -> "$frequency · 最近成功 $success"
+        else -> frequency
     }
 }

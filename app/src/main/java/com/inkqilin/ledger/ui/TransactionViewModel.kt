@@ -300,7 +300,10 @@ class TransactionViewModel(
         )
 
     fun setCosConfig(config: com.inkqilin.ledger.util.CosConfig) {
-        viewModelScope.launch { themeManager.setCosConfig(config) }
+        viewModelScope.launch {
+            themeManager.setCosConfig(config)
+            com.inkqilin.ledger.util.AutoBackupRunner.refreshAutoBackupWorkers(LedgerApplication.instance)
+        }
     }
 
     // ── 自动备份计划 ──
@@ -316,6 +319,18 @@ class TransactionViewModel(
             com.inkqilin.ledger.util.BackupSchedule()
         )
 
+    val localBackupStatus: StateFlow<com.inkqilin.ledger.util.AutoBackupStatus> =
+        themeManager.localBackupStatus.stateIn(
+            viewModelScope, SharingStarted.WhileSubscribed(5000),
+            com.inkqilin.ledger.util.AutoBackupStatus()
+        )
+
+    val cloudBackupStatus: StateFlow<com.inkqilin.ledger.util.AutoBackupStatus> =
+        themeManager.cloudBackupStatus.stateIn(
+            viewModelScope, SharingStarted.WhileSubscribed(5000),
+            com.inkqilin.ledger.util.AutoBackupStatus()
+        )
+
     val autoBackupError: StateFlow<String?> = themeManager.autoBackupError.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), null
     )
@@ -327,14 +342,14 @@ class TransactionViewModel(
     fun setLocalBackupSchedule(schedule: com.inkqilin.ledger.util.BackupSchedule) {
         viewModelScope.launch {
             themeManager.setLocalBackupSchedule(schedule)
-            com.inkqilin.ledger.util.AutoBackupRunner.scheduleAutoBackupWorker(LedgerApplication.instance)
+            com.inkqilin.ledger.util.AutoBackupRunner.refreshAutoBackupWorkers(LedgerApplication.instance)
         }
     }
 
     fun setCloudBackupSchedule(schedule: com.inkqilin.ledger.util.BackupSchedule) {
         viewModelScope.launch {
             themeManager.setCloudBackupSchedule(schedule)
-            com.inkqilin.ledger.util.AutoBackupRunner.scheduleAutoBackupWorker(LedgerApplication.instance)
+            com.inkqilin.ledger.util.AutoBackupRunner.refreshAutoBackupWorkers(LedgerApplication.instance)
         }
     }
 
@@ -342,23 +357,26 @@ class TransactionViewModel(
     fun updateLocalBackupSchedule(transform: (com.inkqilin.ledger.util.BackupSchedule) -> com.inkqilin.ledger.util.BackupSchedule) {
         viewModelScope.launch {
             themeManager.updateLocalBackupSchedule(transform)
-            com.inkqilin.ledger.util.AutoBackupRunner.scheduleAutoBackupWorker(LedgerApplication.instance)
+            com.inkqilin.ledger.util.AutoBackupRunner.refreshAutoBackupWorkers(LedgerApplication.instance)
         }
     }
 
     fun updateCloudBackupSchedule(transform: (com.inkqilin.ledger.util.BackupSchedule) -> com.inkqilin.ledger.util.BackupSchedule) {
         viewModelScope.launch {
             themeManager.updateCloudBackupSchedule(transform)
-            com.inkqilin.ledger.util.AutoBackupRunner.scheduleAutoBackupWorker(LedgerApplication.instance)
+            com.inkqilin.ledger.util.AutoBackupRunner.refreshAutoBackupWorkers(LedgerApplication.instance)
         }
     }
 
-    /** 启动时：调度周期任务 + 执行「打开 APP 时」备份 */
+    /** 进程回到前台时：调度周期任务 + 执行「打开 APP 时」备份。 */
     fun kickAutoBackupsOnAppOpen() {
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
                 val app = LedgerApplication.instance
-                com.inkqilin.ledger.util.AutoBackupRunner.scheduleAutoBackupWorker(app)
+                // 首次隐私确认前不执行可能上传数据的自动备份。
+                if (!themeManager.privacyAccepted.first()) return@runCatching
+                themeManager.migrateAutoBackupSecrets()
+                com.inkqilin.ledger.util.AutoBackupRunner.refreshAutoBackupWorkers(app)
                 com.inkqilin.ledger.util.AutoBackupRunner.runAppOpenBackups(app)
             }
         }

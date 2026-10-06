@@ -1,6 +1,7 @@
 package com.inkqilin.ledger.util
 
 import android.content.Context
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
@@ -137,17 +138,33 @@ private val WIDGET_SHOW_AMOUNT_KEY = booleanPreferencesKey("widget_show_amount")
     private val LOCAL_BACKUP_LAST_RUN_KEY = longPreferencesKey("local_backup_last_run")
     private val CLOUD_BACKUP_LAST_RUN_KEY = longPreferencesKey("cloud_backup_last_run")
     private val AUTO_BACKUP_ERROR_KEY = stringPreferencesKey("auto_backup_error")
+    private val LOCAL_BACKUP_STATUS_KEY = stringPreferencesKey("local_backup_status_v2")
+    private val CLOUD_BACKUP_STATUS_KEY = stringPreferencesKey("cloud_backup_status_v2")
+    private val LOCAL_AUTO_PASSWORD_KEY = stringPreferencesKey("local_auto_password_ciphertext")
+    private val CLOUD_AUTO_PASSWORD_KEY = stringPreferencesKey("cloud_auto_password_ciphertext")
 
     /** 备份导出时必须排除的敏感键（密钥、令牌等） */
     private val SENSITIVE_PREF_KEYS = setOf(
         "cos_secret_id",
         "cos_secret_key",
         "ai_api_key",
-        "ocr_api_key"
+        "ocr_api_key",
+        "local_auto_password_ciphertext",
+        "cloud_auto_password_ciphertext"
+    )
+
+    /** 运行时状态不随账本设置恢复，避免新设备显示旧设备的执行记录。 */
+    private val BACKUP_RUNTIME_KEYS = setOf(
+        "local_backup_last_run",
+        "cloud_backup_last_run",
+        "local_backup_status_v2",
+        "cloud_backup_status_v2",
+        "auto_backup_error"
     )
 
     private val localScheduleMutex = Mutex()
     private val cloudScheduleMutex = Mutex()
+    private val secretStore = BackupSecretStore()
 
     /** 自动备份失败信息；首页弹窗提示后清除 */
     val autoBackupError: Flow<String?> = context.dataStore.data.map { p ->
@@ -168,7 +185,7 @@ private val WIDGET_SHOW_AMOUNT_KEY = booleanPreferencesKey("widget_show_amount")
         val json = org.json.JSONObject()
         map.forEach { (key, value) ->
             // 安全：密钥 / 令牌 / 自动备份密码一律不进备份包
-            if (key.name in SENSITIVE_PREF_KEYS) return@forEach
+            if (key.name in SENSITIVE_PREF_KEYS || key.name in BACKUP_RUNTIME_KEYS) return@forEach
             val obj = org.json.JSONObject()
             when (value) {
                 is String -> {
@@ -209,6 +226,7 @@ private val WIDGET_SHOW_AMOUNT_KEY = booleanPreferencesKey("widget_show_amount")
             while (keys.hasNext()) {
                 val name = keys.next()
                 val obj = json.optJSONObject(name) ?: continue
+                if (name in SENSITIVE_PREF_KEYS || name in BACKUP_RUNTIME_KEYS) continue
                 when (obj.optString("t")) {
                     "s" -> p[androidx.datastore.preferences.core.stringPreferencesKey(name)] = obj.optString("v")
                     "b" -> p[androidx.datastore.preferences.core.booleanPreferencesKey(name)] = obj.optBoolean("v")
@@ -222,11 +240,11 @@ private val WIDGET_SHOW_AMOUNT_KEY = booleanPreferencesKey("widget_show_amount")
     }
 
     val localBackupSchedule: Flow<BackupSchedule> = context.dataStore.data.map { p ->
-        BackupSchedule.decode(p[LOCAL_BACKUP_SCHEDULE_KEY])
+        decodeSchedule(p[LOCAL_BACKUP_SCHEDULE_KEY], p[LOCAL_AUTO_PASSWORD_KEY])
     }
 
     val cloudBackupSchedule: Flow<BackupSchedule> = context.dataStore.data.map { p ->
-        BackupSchedule.decode(p[CLOUD_BACKUP_SCHEDULE_KEY])
+        decodeSchedule(p[CLOUD_BACKUP_SCHEDULE_KEY], p[CLOUD_AUTO_PASSWORD_KEY])
     }
 
     val localBackupLastRun: Flow<Long> = context.dataStore.data.map { p ->
@@ -237,12 +255,20 @@ private val WIDGET_SHOW_AMOUNT_KEY = booleanPreferencesKey("widget_show_amount")
         p[CLOUD_BACKUP_LAST_RUN_KEY] ?: 0L
     }
 
+    val localBackupStatus: Flow<AutoBackupStatus> = context.dataStore.data.map { p ->
+        AutoBackupStatus.decode(p[LOCAL_BACKUP_STATUS_KEY])
+    }
+
+    val cloudBackupStatus: Flow<AutoBackupStatus> = context.dataStore.data.map { p ->
+        AutoBackupStatus.decode(p[CLOUD_BACKUP_STATUS_KEY])
+    }
+
     suspend fun setLocalBackupSchedule(schedule: BackupSchedule) {
-        context.dataStore.edit { it[LOCAL_BACKUP_SCHEDULE_KEY] = schedule.encode() }
+        context.dataStore.edit { writeSchedule(it, LOCAL_BACKUP_SCHEDULE_KEY, LOCAL_AUTO_PASSWORD_KEY, schedule) }
     }
 
     suspend fun setCloudBackupSchedule(schedule: BackupSchedule) {
-        context.dataStore.edit { it[CLOUD_BACKUP_SCHEDULE_KEY] = schedule.encode() }
+        context.dataStore.edit { writeSchedule(it, CLOUD_BACKUP_SCHEDULE_KEY, CLOUD_AUTO_PASSWORD_KEY, schedule) }
     }
 
     /**
@@ -250,18 +276,22 @@ private val WIDGET_SHOW_AMOUNT_KEY = booleanPreferencesKey("widget_show_amount")
      */
     suspend fun updateLocalBackupSchedule(transform: (BackupSchedule) -> BackupSchedule) {
         localScheduleMutex.withLock {
-            val current = BackupSchedule.decode(context.dataStore.data.first()[LOCAL_BACKUP_SCHEDULE_KEY])
+            val preferences = context.dataStore.data.first()
+            val current = decodeSchedule(preferences[LOCAL_BACKUP_SCHEDULE_KEY], preferences[LOCAL_AUTO_PASSWORD_KEY])
+            val updated = transform(current)
             context.dataStore.edit {
-                it[LOCAL_BACKUP_SCHEDULE_KEY] = transform(current).encode()
+                writeSchedule(it, LOCAL_BACKUP_SCHEDULE_KEY, LOCAL_AUTO_PASSWORD_KEY, updated)
             }
         }
     }
 
     suspend fun updateCloudBackupSchedule(transform: (BackupSchedule) -> BackupSchedule) {
         cloudScheduleMutex.withLock {
-            val current = BackupSchedule.decode(context.dataStore.data.first()[CLOUD_BACKUP_SCHEDULE_KEY])
+            val preferences = context.dataStore.data.first()
+            val current = decodeSchedule(preferences[CLOUD_BACKUP_SCHEDULE_KEY], preferences[CLOUD_AUTO_PASSWORD_KEY])
+            val updated = transform(current)
             context.dataStore.edit {
-                it[CLOUD_BACKUP_SCHEDULE_KEY] = transform(current).encode()
+                writeSchedule(it, CLOUD_BACKUP_SCHEDULE_KEY, CLOUD_AUTO_PASSWORD_KEY, updated)
             }
         }
     }
@@ -272,6 +302,93 @@ private val WIDGET_SHOW_AMOUNT_KEY = booleanPreferencesKey("widget_show_amount")
 
     suspend fun markCloudBackupRun(timeMs: Long = System.currentTimeMillis()) {
         context.dataStore.edit { it[CLOUD_BACKUP_LAST_RUN_KEY] = timeMs }
+    }
+
+    suspend fun markBackupAttempt(target: AutoBackupTarget, timeMs: Long = System.currentTimeMillis()) {
+        updateBackupStatus(target) { it.copy(lastAttemptAt = timeMs) }
+    }
+
+    suspend fun markBackupSuccess(
+        target: AutoBackupTarget,
+        fileName: String,
+        size: Long,
+        cleanupWarning: String? = null,
+        timeMs: Long = System.currentTimeMillis()
+    ) {
+        updateBackupStatus(target) {
+            it.copy(
+                lastAttemptAt = timeMs,
+                lastSuccessAt = timeMs,
+                lastSuccessName = fileName,
+                lastSuccessSize = size,
+                lastErrorAt = 0L,
+                lastError = null,
+                cleanupWarning = cleanupWarning
+            )
+        }
+    }
+
+    suspend fun markBackupFailure(
+        target: AutoBackupTarget,
+        message: String,
+        timeMs: Long = System.currentTimeMillis()
+    ) {
+        updateBackupStatus(target) {
+            it.copy(lastAttemptAt = timeMs, lastErrorAt = timeMs, lastError = message)
+        }
+    }
+
+    /** 首次启动时将旧版计划字符串里的明文口令迁移到 Android Keystore。 */
+    suspend fun migrateAutoBackupSecrets() {
+        context.dataStore.edit { preferences ->
+            migrateScheduleSecret(preferences, LOCAL_BACKUP_SCHEDULE_KEY, LOCAL_AUTO_PASSWORD_KEY)
+            migrateScheduleSecret(preferences, CLOUD_BACKUP_SCHEDULE_KEY, CLOUD_AUTO_PASSWORD_KEY)
+        }
+    }
+
+    private fun decodeSchedule(raw: String?, encryptedPassword: String?): BackupSchedule {
+        val decoded = BackupSchedule.decode(raw)
+        val securePassword = secretStore.decrypt(encryptedPassword)
+        return decoded.copy(autoPassword = securePassword.ifBlank { decoded.autoPassword })
+    }
+
+    private fun writeSchedule(
+        preferences: MutablePreferences,
+        scheduleKey: androidx.datastore.preferences.core.Preferences.Key<String>,
+        passwordKey: androidx.datastore.preferences.core.Preferences.Key<String>,
+        schedule: BackupSchedule
+    ) {
+        preferences[scheduleKey] = schedule.copy(autoPassword = "").encode()
+        if (schedule.autoPassword.isBlank()) {
+            preferences.remove(passwordKey)
+        } else {
+            preferences[passwordKey] = secretStore.encrypt(schedule.autoPassword)
+        }
+    }
+
+    private fun migrateScheduleSecret(
+        preferences: MutablePreferences,
+        scheduleKey: androidx.datastore.preferences.core.Preferences.Key<String>,
+        passwordKey: androidx.datastore.preferences.core.Preferences.Key<String>
+    ) {
+        val raw = preferences[scheduleKey] ?: return
+        val decoded = BackupSchedule.decode(raw)
+        if (decoded.autoPassword.isBlank()) return
+        if (preferences[passwordKey].isNullOrBlank()) {
+            preferences[passwordKey] = secretStore.encrypt(decoded.autoPassword)
+        }
+        preferences[scheduleKey] = decoded.copy(autoPassword = "").encode()
+    }
+
+    private suspend fun updateBackupStatus(
+        target: AutoBackupTarget,
+        transform: (AutoBackupStatus) -> AutoBackupStatus
+    ) {
+        val key = if (target == AutoBackupTarget.LOCAL) LOCAL_BACKUP_STATUS_KEY else CLOUD_BACKUP_STATUS_KEY
+        context.dataStore.edit { preferences ->
+            val current = AutoBackupStatus.decode(preferences[key])
+            preferences[key] = transform(current).encode()
+        }
     }
 
     /**

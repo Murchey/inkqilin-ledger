@@ -3,12 +3,15 @@ package com.inkqilin.ledger.util
 import android.content.Context
 import com.inkqilin.ledger.data.AppDatabase
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
@@ -17,6 +20,11 @@ import java.util.zip.ZipOutputStream
 object CloudBackupManager {
     private const val DB_NAME = "ledger_database"
     private const val SETTINGS_ENTRY = "app_settings.json"
+    private val operationMutex = Mutex()
+
+    /** 串行化本地、云端、手动备份及恢复，避免同时复制数据库文件。 */
+    suspend fun <T> withBackupOperation(block: suspend () -> T): T =
+        operationMutex.withLock { block() }
 
     private fun prefixOf(config: CosConfig): String =
         config.prefix.trim().trimEnd('/').ifBlank { "backups/v1" }
@@ -45,10 +53,25 @@ object CloudBackupManager {
         password: CharArray? = null,
         auto: Boolean = false
     ): LocalExport =
-        withContext(Dispatchers.IO) {
+        withBackupOperation {
+            exportDatabaseZipUnlocked(context, password, auto)
+        }
+
+    private suspend fun exportDatabaseZipUnlocked(
+        context: Context,
+        password: CharArray? = null,
+        auto: Boolean = false
+    ): LocalExport = withContext(Dispatchers.IO) {
             val db = AppDatabase.getDatabase(context)
-            runCatching {
-                db.openHelper.writableDatabase.query("PRAGMA wal_checkpoint(FULL)").use { it.moveToFirst() }
+            db.openHelper.writableDatabase.query("PRAGMA wal_checkpoint(FULL)").use { cursor ->
+                if (cursor.moveToFirst() && cursor.getInt(0) != 0) {
+                    error("数据库正忙，暂时无法创建一致的自动备份")
+                }
+            }
+            db.openHelper.writableDatabase.query("PRAGMA quick_check").use { cursor ->
+                if (!cursor.moveToFirst() || cursor.getString(0) != "ok") {
+                    error("数据库完整性检查失败，已取消备份")
+                }
             }
 
             val dbFile = context.getDatabasePath(DB_NAME)
@@ -56,7 +79,8 @@ object CloudBackupManager {
             val shm = context.getDatabasePath("$DB_NAME-shm")
             if (!dbFile.exists()) error("找不到本地数据库")
 
-            val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+            val ts = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(Date()) +
+                "_" + UUID.randomUUID().toString().take(8)
             val encrypted = password != null && password.isNotEmpty()
             val fileName = when {
                 auto && encrypted -> "auto_backup_${ts}_enc.zip"
@@ -105,27 +129,42 @@ object CloudBackupManager {
         password: CharArray? = null,
         auto: Boolean = false
     ): CosObjectMeta {
-        val export = exportDatabaseZip(context, password, auto)
-        val key = "${prefixOf(config)}/${export.fileName}"
-        CosClient.putObject(
-            config = config,
-            key = key,
-            bytes = export.bytes,
-            contentType = "application/octet-stream"
-        )
-        return CosObjectMeta(
-            key = key,
-            size = export.size,
-            lastModified = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).format(Date())
-        )
+        return withBackupOperation {
+            val export = exportDatabaseZipUnlocked(context, password, auto)
+            val key = "${prefixOf(config)}/${export.fileName}"
+            CosClient.putObject(
+                config = config,
+                key = key,
+                bytes = export.bytes,
+                contentType = "application/octet-stream"
+            )
+            if (!CosClient.objectExists(config, key)) {
+                error("云端备份上传后未找到对象")
+            }
+            CosObjectMeta(
+                key = key,
+                size = export.size,
+                lastModified = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).format(Date())
+            )
+        }
     }
 
     /** 删除云端 auto_backup*（仅自动备份，不动手动备份） */
-    suspend fun deletePreviousAutoCloudBackups(config: CosConfig) {
-        listBackups(config)
-            .filter { it.key.substringAfterLast('/').startsWith("auto_backup") }
-            .forEach { runCatching { deleteBackup(config, it.key) } }
-    }
+    suspend fun deletePreviousAutoCloudBackups(config: CosConfig, keepKey: String? = null): String? =
+        withBackupOperation {
+            val items = runCatching { listBackups(config) }
+                .getOrElse { return@withBackupOperation "列出旧自动备份失败：${it.message ?: "未知错误"}" }
+            val failures = items
+                .filter {
+                    it.key != keepKey && it.key.substringAfterLast('/').startsWith("auto_backup")
+                }
+                .mapNotNull { item ->
+                    runCatching { deleteBackup(config, item.key) }
+                        .exceptionOrNull()
+                        ?.let { "${item.key.substringAfterLast('/')}：${it.message ?: "删除失败"}" }
+                }
+            failures.takeIf { it.isNotEmpty() }?.joinToString("；")
+        }
 
     /** 列出云端备份 */
     suspend fun listBackups(config: CosConfig): List<CosObjectMeta> {
@@ -141,14 +180,16 @@ object CloudBackupManager {
         config: CosConfig,
         key: String,
         password: CharArray? = null
-    ): Unit = withContext(Dispatchers.IO) {
-        val raw = CosClient.getObject(config, key)
-        val zipBytes = if (BackupCrypto.isEncrypted(raw)) {
-            BackupCrypto.decrypt(raw, password ?: charArrayOf())
-        } else {
-            raw
+    ): Unit = withBackupOperation {
+        withContext(Dispatchers.IO) {
+            val raw = CosClient.getObject(config, key)
+            val zipBytes = if (BackupCrypto.isEncrypted(raw)) {
+                BackupCrypto.decrypt(raw, password ?: charArrayOf())
+            } else {
+                raw
+            }
+            restoreZipBytes(context, zipBytes)
         }
-        restoreZipBytes(context, zipBytes)
     }
 
     /** 读取文件头判断是否加密备份 */
@@ -301,11 +342,13 @@ object CloudBackupManager {
         password: CharArray? = null,
         auto: Boolean = false
     ): File =
-        withContext(Dispatchers.IO) {
-            val export = exportDatabaseZip(context, password, auto)
+        withBackupOperation {
+            val export = exportDatabaseZipUnlocked(context, password, auto)
+            withContext(Dispatchers.IO) {
             val target = File(localBackupDir(context), export.fileName)
             target.outputStream().use { it.write(export.bytes) }
             target
+            }
         }
 
     /** 自动备份文件（文件名以 auto_backup 开头） */
@@ -313,9 +356,19 @@ object CloudBackupManager {
         listLocalBackups(context).filter { it.name.startsWith("auto_backup") }
 
     /** 删除上一次自动备份（仅 auto_backup*，不动手动备份） */
-    fun deletePreviousAutoLocalBackups(context: Context) {
-        listAutoLocalBackups(context).forEach { runCatching { deleteLocalBackup(it) } }
-    }
+    suspend fun deletePreviousAutoLocalBackups(context: Context, keepFile: File? = null): String? =
+        withBackupOperation {
+            val files = runCatching { listAutoLocalBackups(context) }
+                .getOrElse { return@withBackupOperation "列出旧自动备份失败：${it.message ?: "未知错误"}" }
+            val failures = files
+                .filter { keepFile == null || it.absolutePath != keepFile.absolutePath }
+                .mapNotNull { file ->
+                    runCatching { deleteLocalBackup(file) }
+                        .getOrDefault(false)
+                        .let { deleted -> if (deleted) null else "${file.name}：删除失败" }
+                }
+            failures.takeIf { it.isNotEmpty() }?.joinToString("；")
+        }
 
     fun listLocalBackups(context: Context): List<File> {
         val dir = localBackupDir(context)
@@ -383,7 +436,8 @@ object CloudBackupManager {
      * 用恢复前安全副本直接覆盖当前库（救灾用）。
      * 仅在确认当前库异常时使用。
      */
-    fun restoreFromSafetyCopy(context: Context) {
+    suspend fun restoreFromSafetyCopy(context: Context) = withBackupOperation {
+        withContext(Dispatchers.IO) {
         val safety = safetyBackupFile(context)
         if (!safety.exists()) error("没有找到恢复前安全副本")
         val bytes = safety.readBytes()
@@ -399,6 +453,7 @@ object CloudBackupManager {
         wal.delete()
         shm.delete()
         dbFile.outputStream().use { it.write(bytes) }
+        }
     }
 
     /** 调试/救灾：列出备份相关目录下的文件名 */
@@ -412,16 +467,19 @@ object CloudBackupManager {
         return "当前库: $dbInfo\n本地 zip: ${zips.ifBlank { "无" }}\n安全副本目录: $pres"
     }
 
-    fun restoreLocalBackup(context: Context, file: File, password: CharArray? = null) {
-        if (!file.exists()) error("本地备份文件不存在")
-        val raw = file.readBytes()
-        val zipBytes = if (BackupCrypto.isEncrypted(raw)) {
-            BackupCrypto.decrypt(raw, password ?: charArrayOf())
-        } else {
-            raw
+    suspend fun restoreLocalBackup(context: Context, file: File, password: CharArray? = null) =
+        withBackupOperation {
+            withContext(Dispatchers.IO) {
+                if (!file.exists()) error("本地备份文件不存在")
+                val raw = file.readBytes()
+                val zipBytes = if (BackupCrypto.isEncrypted(raw)) {
+                    BackupCrypto.decrypt(raw, password ?: charArrayOf())
+                } else {
+                    raw
+                }
+                restoreZipBytes(context, zipBytes)
+            }
         }
-        restoreZipBytes(context, zipBytes)
-    }
 
     /**
      * 彻底删除本地备份：先用零字节覆写文件内容，再 unlink。

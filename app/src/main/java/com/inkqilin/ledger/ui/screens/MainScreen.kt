@@ -341,239 +341,257 @@ fun MainScreen(
                     }
                 )
             }
-        },
-        bottomBar = {
-            AnimatedVisibility(
-                visible = showBottomBar,
-                enter = if (enableAnimations) {
-                    slideInVertically(
-                        animationSpec = MotionSprings.appearanceTween(),
-                        initialOffsetY = { it }
-                    ) + fadeIn(animationSpec = MotionSprings.appearanceTween())
-                } else {
-                    EnterTransition.None
-                },
-                exit = if (enableAnimations) {
-                    slideOutVertically(
-                        animationSpec = MotionSprings.appearanceTween(),
-                        targetOffsetY = { it }
-                    ) + fadeOut(animationSpec = MotionSprings.appearanceTween())
-                } else {
-                    ExitTransition.None
-                }
+        }
+    ) { innerPadding ->
+        // Keep the page measured at full height and overlay the floating bar on it.
+        // The last list item remains visible through each page's own bottom inset.
+        Box(modifier = Modifier.fillMaxSize()) {
+            MainNavGraph(
+                navController = navController,
+                viewModel = viewModel,
+                renQingViewModel = renQingViewModel,
+                enableAnimations = enableAnimations,
+                innerPadding = innerPadding,
+                currentRoute = currentRoute,
+                pagerState = pagerState,
+                bottomItems = bottomItems,
+                albumFabTrigger = albumFabTrigger,
+                cloudBackupOpenSettings = cloudBackupOpenSettings,
+                customTopBarTitle = customTopBarTitle,
+                customBackAction = customBackAction,
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
             ) {
-                // ══════════════════════════════════════════════
-                //  Apple Music Style Floating Tab Bar
-                //  Lightweight · Minimal · Subtle
-                // ══════════════════════════════════════════════
-                val bgLuminance = MaterialTheme.colorScheme.background.let {
-                    it.red * 0.299f + it.green * 0.587f + it.blue * 0.114f
-                }
-                val isDarkMode = bgLuminance < 0.5f
-
-                // Apple Music colors: subtle in dark, clearly elevated in light
-                val unselectedColor = if (isDarkMode) Color.White.copy(alpha = 0.55f) else Color(0xFF8E8E93)
-                val selectedColor = if (isDarkMode) Color.White else Color(0xFF1D1D1F)
-
-                // Compact container
-                // 外框与选中指示器共用胶囊圆角，避免「大方角 bar + 小圆角选中块」形状打架
-                val capsuleShape = RoundedCornerShape(percent = 50)
-                val density = androidx.compose.ui.platform.LocalDensity.current
-                val fabSize = 44.dp
-                val fabRadius = 22.dp
-
-                val showFab = currentPageRoute == "home" || currentPageRoute == "album"
-                val safeAreaBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-
-                // ── Smooth indicator position：只在值变化时写入，避免 layout 回环重组 ──
-                var indicatorCenterX by remember { mutableFloatStateOf(0f) }
-                var indicatorWidth by remember { mutableStateOf(0.dp) }
-                val animIndicatorX by animateFloatAsState(
-                    targetValue = indicatorCenterX,
-                    animationSpec = if (enableAnimations)
-                        tween(durationMillis = MotionDurations.FAST, easing = MotionCurves.FastOutSlowIn)
-                    else snap(),
-                    label = "tabIndicatorX"
-                )
-                val animIndicatorW by animateDpAsState(
-                    targetValue = indicatorWidth,
-                    animationSpec = if (enableAnimations)
-                        tween(durationMillis = MotionDurations.FAST, easing = MotionCurves.FastOutSlowIn)
-                    else snap(),
-                    label = "tabIndicatorW"
-                )
-                val selectedIndex by remember { derivedStateOf { pagerState.currentPage } }
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = Space.PageHorizontal)
-                        .padding(bottom = floatingBottomGap + safeAreaBottom),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // 透明表面让页面内容透出，胶囊本身覆盖在 Pager 上方。
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(floatingNavHeight)
-                            .shadow(
-                                elevation = floatingNavShadowElevation,
-                                shape = capsuleShape,
-                                clip = false
-                            )
-                            .clip(capsuleShape)
-                            .border(
-                                width = 1.dp,
-                                color = floatingNavOutlineColor(),
-                                shape = capsuleShape
-                            )
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .matchParentSize()
-                                // Compose 的 blur 作为轻量毛玻璃层；页面内容通过半透明表面透出。
-                                .background(floatingNavSurfaceColor(isDarkMode))
-                                .blur(floatingNavBlurSigma)
-                        )
-                        // 内容高度由 Tab 行决定；指示器用 IntrinsicSize.Min 对齐同高，再 clip 成胶囊
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 4.dp, vertical = 4.dp)
-                        ) {
-                            // ── Apple Photos Style Indicator ──
-                            if (animIndicatorW > 0.dp) {
-                                Box(
-                                    modifier = Modifier
-                                        .offset {
-                                            val centerXPx = animIndicatorX.toInt()
-                                            val halfW = animIndicatorW.roundToPx() / 2
-                                            IntOffset(centerXPx - halfW, 0)
-                                        }
-                                        .fillMaxHeight()
-                                        .width(animIndicatorW)
-                                        .clip(floatingNavSelectedShape)
-                                        .background(
-                                            MaterialTheme.colorScheme.onSurface.copy(alpha = floatingNavSelectedOpacity)
-                                        )
-                                )
-                            }
-
-                            // ── Tab Items ──
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceEvenly,
-                                verticalAlignment = Alignment.CenterVertically
+                            AnimatedVisibility(
+                                visible = showBottomBar,
+                                enter = if (enableAnimations) {
+                                    slideInVertically(
+                                        animationSpec = MotionSprings.appearanceTween(),
+                                        initialOffsetY = { it }
+                                    ) + fadeIn(animationSpec = MotionSprings.appearanceTween())
+                                } else {
+                                    EnterTransition.None
+                                },
+                                exit = if (enableAnimations) {
+                                    slideOutVertically(
+                                        animationSpec = MotionSprings.appearanceTween(),
+                                        targetOffsetY = { it }
+                                    ) + fadeOut(animationSpec = MotionSprings.appearanceTween())
+                                } else {
+                                    ExitTransition.None
+                                }
                             ) {
-                                bottomItems.forEachIndexed { index, item ->
-                                    val selected = selectedIndex == index
-                                    // 滑动/切页不再逐 tab 跑颜色弹簧，直接取色
-                                    val iconColor = if (selected) selectedColor else unselectedColor
+                                // ══════════════════════════════════════════════
+                                //  Apple Music Style Floating Tab Bar
+                                //  Lightweight · Minimal · Subtle
+                                // ══════════════════════════════════════════════
+                                val bgLuminance = MaterialTheme.colorScheme.background.let {
+                                    it.red * 0.299f + it.green * 0.587f + it.blue * 0.114f
+                                }
+                                val isDarkMode = bgLuminance < 0.5f
 
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                // Apple Music colors: subtle in dark, clearly elevated in light
+                                val unselectedColor = if (isDarkMode) Color.White.copy(alpha = 0.55f) else Color(0xFF8E8E93)
+                                val selectedColor = if (isDarkMode) Color.White else Color(0xFF1D1D1F)
+
+                                // Compact container
+                                // 外框与选中指示器共用胶囊圆角，避免「大方角 bar + 小圆角选中块」形状打架
+                                val capsuleShape = RoundedCornerShape(percent = 50)
+                                val density = androidx.compose.ui.platform.LocalDensity.current
+                                val fabSize = 44.dp
+                                val fabRadius = 22.dp
+
+                                val showFab = currentPageRoute == "home" || currentPageRoute == "album"
+                                val safeAreaBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
+                                // ── Smooth indicator position：只在值变化时写入，避免 layout 回环重组 ──
+                                var indicatorCenterX by remember { mutableFloatStateOf(0f) }
+                                var indicatorWidth by remember { mutableStateOf(0.dp) }
+                                val animIndicatorX by animateFloatAsState(
+                                    targetValue = indicatorCenterX,
+                                    animationSpec = if (enableAnimations)
+                                        tween(durationMillis = MotionDurations.FAST, easing = MotionCurves.FastOutSlowIn)
+                                    else snap(),
+                                    label = "tabIndicatorX"
+                                )
+                                val animIndicatorW by animateDpAsState(
+                                    targetValue = indicatorWidth,
+                                    animationSpec = if (enableAnimations)
+                                        tween(durationMillis = MotionDurations.FAST, easing = MotionCurves.FastOutSlowIn)
+                                    else snap(),
+                                    label = "tabIndicatorW"
+                                )
+                                val selectedIndex by remember { derivedStateOf { pagerState.currentPage } }
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = Space.PageHorizontal)
+                                        .padding(bottom = floatingBottomGap + safeAreaBottom),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // 透明表面让页面内容透出，胶囊本身覆盖在 Pager 上方。
+                                    Box(
                                         modifier = Modifier
                                             .weight(1f)
-                                            .onGloballyPositioned { coords ->
-                                                if (selected) {
-                                                    val parentCoords = coords.parentCoordinates
-                                                    if (parentCoords != null) {
-                                                        val localCenter = coords.size.width / 2
-                                                        val posInParent = parentCoords.localPositionOf(
-                                                            coords,
-                                                            androidx.compose.ui.geometry.Offset(localCenter.toFloat(), 0f)
+                                            .height(floatingNavHeight)
+                                            .shadow(
+                                                elevation = floatingNavShadowElevation,
+                                                shape = capsuleShape,
+                                                clip = false
+                                            )
+                                            .clip(capsuleShape)
+                                    ) {
+                                        // 分层绘制：阴影在外、半透明主题表面在内，描边单独叠加。
+                                        Box(
+                                            modifier = Modifier
+                                                .matchParentSize()
+                                                .background(floatingNavSurfaceColor(isDarkMode))
+                                        )
+                                        // Android 没有 backdrop blur 时，半透明表面作为降级；高光层仍提供玻璃边缘。
+                                        Box(
+                                            modifier = Modifier
+                                                .matchParentSize()
+                                                .background(floatingNavHighlightColor())
+                                                .blur(floatingNavBlurSigma)
+                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .matchParentSize()
+                                                .border(
+                                                    width = 1.dp,
+                                                    color = floatingNavOutlineColor(),
+                                                    shape = capsuleShape
+                                                )
+                                        )
+                                        // 内容高度由 Tab 行决定；指示器用 IntrinsicSize.Min 对齐同高，再 clip 成胶囊
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .padding(horizontal = 4.dp, vertical = 4.dp)
+                                        ) {
+                                            // ── Apple Photos Style Indicator ──
+                                            if (animIndicatorW > 0.dp) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .offset {
+                                                            val centerXPx = animIndicatorX.toInt()
+                                                            val halfW = animIndicatorW.roundToPx() / 2
+                                                            IntOffset(centerXPx - halfW, 0)
+                                                        }
+                                                        .fillMaxHeight()
+                                                        .width(animIndicatorW)
+                                                        .clip(floatingNavSelectedShape)
+                                                        .background(
+                                                            MaterialTheme.colorScheme.onSurface.copy(alpha = floatingNavSelectedOpacity)
                                                         )
-                                                        val cx = posInParent.x
-                                                        val w = with(density) { (coords.size.width * 0.9f).toDp() }
-                                                        // 仅在变化时写 state，打断 onGloballyPositioned → recompose 回环
-                                                        if (cx != indicatorCenterX) indicatorCenterX = cx
-                                                        if (w != indicatorWidth) indicatorWidth = w
+                                                )
+                                            }
+
+                                            // ── Tab Items ──
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                bottomItems.forEachIndexed { index, item ->
+                                                    val selected = selectedIndex == index
+                                                    // 滑动/切页不再逐 tab 跑颜色弹簧，直接取色
+                                                    val iconColor = if (selected) selectedColor else unselectedColor
+
+                                                    Column(
+                                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                                        modifier = Modifier
+                                                            .weight(1f)
+                                                            .onGloballyPositioned { coords ->
+                                                                if (selected) {
+                                                                    val parentCoords = coords.parentCoordinates
+                                                                    if (parentCoords != null) {
+                                                                        val localCenter = coords.size.width / 2
+                                                                        val posInParent = parentCoords.localPositionOf(
+                                                                            coords,
+                                                                            androidx.compose.ui.geometry.Offset(localCenter.toFloat(), 0f)
+                                                                        )
+                                                                        val cx = posInParent.x
+                                                                        val w = with(density) { (coords.size.width * 0.9f).toDp() }
+                                                                        // 仅在变化时写 state，打断 onGloballyPositioned → recompose 回环
+                                                                        if (cx != indicatorCenterX) indicatorCenterX = cx
+                                                                        if (w != indicatorWidth) indicatorWidth = w
+                                                                    }
+                                                                }
+                                                            }
+                                                            .clickable(
+                                                                interactionSource = remember { MutableInteractionSource() },
+                                                                indication = null
+                                                            ) {
+                                                                selectedTabRoute = item.route
+                                                                scope.launch { pagerState.animateScrollToPage(index) }
+                                                            }
+                                                            .padding(vertical = 3.dp)
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = item.icon,
+                                                            contentDescription = item.label,
+                                                            modifier = Modifier.size(21.dp),
+                                                            tint = iconColor
+                                                        )
+                                                        Spacer(modifier = Modifier.height(1.dp))
+                                                        Text(
+                                                            text = item.label,
+                                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                                fontSize = 9.sp,
+                                                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+                                                            ),
+                                                            color = iconColor
+                                                        )
                                                     }
                                                 }
                                             }
-                                            .clickable(
-                                                interactionSource = remember { MutableInteractionSource() },
-                                                indication = null
-                                            ) {
-                                                selectedTabRoute = item.route
-                                                scope.launch { pagerState.animateScrollToPage(index) }
-                                            }
-                                            .padding(vertical = 3.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = item.icon,
-                                            contentDescription = item.label,
-                                            modifier = Modifier.size(21.dp),
-                                            tint = iconColor
-                                        )
-                                        Spacer(modifier = Modifier.height(1.dp))
-                                        Text(
-                                            text = item.label,
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                fontSize = 9.sp,
-                                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
-                                            ),
-                                            color = iconColor
-                                        )
+                                        }
+                                    }
+
+                                    // ── Apple Music Style FAB ──
+                                    if (showFab) {
+                                        val fabInteractionSource = remember { MutableInteractionSource() }
+                                        val fabScale = animatePressScale(fabInteractionSource)
+                                        val fabColor = remember(customPrimaryColorHex) {
+                                            val hex = customPrimaryColorHex ?: DEFAULT_PRIMARY_COLOR_HEX
+                                            try { Color(android.graphics.Color.parseColor(hex)) } catch (_: Exception) { Color(0xFF007AFF) }
+                                        }
+
+                                        Box(
+                                            modifier = Modifier
+                                                .size(fabSize)
+                                                .clip(RoundedCornerShape(fabRadius))
+                                                .background(fabColor)
+                                                .clickable(
+                                                    interactionSource = fabInteractionSource,
+                                                    indication = null
+                                                ) {
+                                                    when (currentPageRoute) {
+                                                        "home" -> showFabMenu = true
+                                                        "album" -> albumFabTrigger.value = true
+                                                    }
+                                                }
+                                                .pressScale(fabScale),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Add,
+                                                contentDescription = "记一笔",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
-                        }
-                    }
-
-                    // ── Apple Music Style FAB ──
-                    if (showFab) {
-                        val fabInteractionSource = remember { MutableInteractionSource() }
-                        val fabScale = animatePressScale(fabInteractionSource)
-                        val fabColor = remember(customPrimaryColorHex) {
-                            val hex = customPrimaryColorHex ?: DEFAULT_PRIMARY_COLOR_HEX
-                            try { Color(android.graphics.Color.parseColor(hex)) } catch (_: Exception) { Color(0xFF007AFF) }
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .size(fabSize)
-                                .clip(RoundedCornerShape(fabRadius))
-                                .background(fabColor)
-                                .clickable(
-                                    interactionSource = fabInteractionSource,
-                                    indication = null
-                                ) {
-                                    when (currentPageRoute) {
-                                        "home" -> showFabMenu = true
-                                        "album" -> albumFabTrigger.value = true
-                                    }
-                                }
-                                .pressScale(fabScale),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.Add,
-                                contentDescription = "记一笔",
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-                }
             }
         }
-    ) { innerPadding ->
-        MainNavGraph(
-            navController = navController,
-            viewModel = viewModel,
-            renQingViewModel = renQingViewModel,
-            enableAnimations = enableAnimations,
-            innerPadding = innerPadding,
-            currentRoute = currentRoute,
-            pagerState = pagerState,
-            bottomItems = bottomItems,
-            albumFabTrigger = albumFabTrigger,
-            cloudBackupOpenSettings = cloudBackupOpenSettings,
-            customTopBarTitle = customTopBarTitle,
-            customBackAction = customBackAction,
-        )
     }
 
     // FAB Bottom Sheet (shared across pages, triggered from bottom bar)

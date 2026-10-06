@@ -1,5 +1,11 @@
 package com.inkqilin.ledger.util
 
+import java.time.DayOfWeek
+import java.time.Instant
+import java.time.LocalDate
+import java.time.YearMonth
+import java.time.ZoneId
+
 /** 自动备份频次 */
 enum class BackupFrequency(val label: String) {
     OFF("关闭"),
@@ -23,12 +29,16 @@ data class BackupSchedule(
     val deletePreviousAuto: Boolean = true,
     val autoPassword: String = ""
 ) {
+    /**
+     * 仅序列化计划本身。自动备份口令由 ThemeManager 写入 Android Keystore，
+     * 这里保留空字段以兼容旧版的五段格式；绝不把运行时口令写回字符串。
+     */
     fun encode(): String = listOf(
         frequency.name,
         weekday.toString(),
         dayOfMonth.toString(),
         if (deletePreviousAuto) "1" else "0",
-        autoPassword.replace('|', '/')
+        ""
     ).joinToString("|")
 
     companion object {
@@ -51,27 +61,72 @@ data class BackupSchedule(
 object BackupScheduleRules {
     /**
      * 当前时刻是否应执行该计划。
-     * @param lastRun 上次执行时间戳（0=从未）；同一天内 ON_APP_OPEN/DAILY 不重复。
+     *
+     * [lastRun] 只应记录上一次成功完成的备份。对于周/月计划，如果 Worker
+     * 错过了目标日期，只要当前日期已经越过下一次计划点，就会补做一份最新快照。
+     * @param lastRun 上次成功执行时间戳（0=从未）
+     * @param zoneId 用于日期边界判断的时区，默认使用系统时区
      */
-    fun shouldRun(schedule: BackupSchedule, now: Long, lastRun: Long): Boolean {
+    fun shouldRun(
+        schedule: BackupSchedule,
+        now: Long,
+        lastRun: Long,
+        zoneId: ZoneId = ZoneId.systemDefault()
+    ): Boolean {
         if (schedule.frequency == BackupFrequency.OFF) return false
-        val cal = java.util.Calendar.getInstance().apply { timeInMillis = now }
-        val last = java.util.Calendar.getInstance().apply { timeInMillis = lastRun }
-        val sameDay = lastRun > 0L &&
-            cal.get(java.util.Calendar.YEAR) == last.get(java.util.Calendar.YEAR) &&
-            cal.get(java.util.Calendar.DAY_OF_YEAR) == last.get(java.util.Calendar.DAY_OF_YEAR)
+        val today = Instant.ofEpochMilli(now).atZone(zoneId).toLocalDate()
+        val lastDate = lastRun.takeIf { it > 0L }
+            ?.let { Instant.ofEpochMilli(it).atZone(zoneId).toLocalDate() }
 
         return when (schedule.frequency) {
             BackupFrequency.OFF -> false
-            BackupFrequency.ON_APP_OPEN -> !sameDay
-            BackupFrequency.DAILY -> !sameDay
-            BackupFrequency.WEEKLY ->
-                cal.get(java.util.Calendar.DAY_OF_WEEK) == schedule.weekday && !sameDay
+            BackupFrequency.ON_APP_OPEN,
+            BackupFrequency.DAILY -> lastDate == null || today.isAfter(lastDate)
+
+            BackupFrequency.WEEKLY -> {
+                val next = if (lastDate == null) {
+                    weeklyDateOnOrAfter(today, schedule.weekday)
+                        .takeIf { it == today }
+                } else {
+                    weeklyDateOnOrAfter(lastDate.plusDays(1), schedule.weekday)
+                }
+                next != null && !today.isBefore(next)
+            }
+
             BackupFrequency.MONTHLY -> {
-                val dim = cal.get(java.util.Calendar.DAY_OF_MONTH)
-                val lastDay = cal.getActualMaximum(java.util.Calendar.DAY_OF_MONTH)
-                dim == minOf(schedule.dayOfMonth, lastDay) && !sameDay
+                val next = if (lastDate == null) {
+                    monthlyDateOnOrAfter(today, schedule.dayOfMonth)
+                        .takeIf { it == today }
+                } else {
+                    monthlyDateOnOrAfter(lastDate.plusDays(1), schedule.dayOfMonth)
+                }
+                next != null && !today.isBefore(next)
             }
         }
     }
+
+    /** 返回从 [start] 开始（含当天）的下一个目标星期。 */
+    fun weeklyDateOnOrAfter(start: LocalDate, weekday: Int): LocalDate {
+        val target = weekday.coerceIn(1, 7)
+        var date = start
+        while (calendarWeekday(date.dayOfWeek) != target) {
+            date = date.plusDays(1)
+        }
+        return date
+    }
+
+    /** 返回从 [start] 开始（含当天）的下一个目标月日，31 日按月末执行。 */
+    fun monthlyDateOnOrAfter(start: LocalDate, dayOfMonth: Int): LocalDate {
+        val targetDay = dayOfMonth.coerceIn(1, 31)
+        var month = YearMonth.from(start)
+        while (true) {
+            val candidate = month.atDay(minOf(targetDay, month.lengthOfMonth()))
+            if (!candidate.isBefore(start)) return candidate
+            month = month.plusMonths(1)
+        }
+    }
+
+    /** Calendar.DAY_OF_WEEK 兼容映射：1=周日 … 7=周六。 */
+    private fun calendarWeekday(dayOfWeek: DayOfWeek): Int =
+        (dayOfWeek.value % 7) + 1
 }

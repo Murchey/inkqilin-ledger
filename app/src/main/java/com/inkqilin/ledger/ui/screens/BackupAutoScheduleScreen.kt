@@ -49,8 +49,13 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.inkqilin.ledger.ui.TransactionViewModel
 import com.inkqilin.ledger.ui.theme.Corners
+import com.inkqilin.ledger.util.AutoBackupStatus
 import com.inkqilin.ledger.util.BackupFrequency
 import com.inkqilin.ledger.util.BackupSchedule
+import com.inkqilin.ledger.util.CloudBackupManager
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * 自动备份计划二级页：本地 / 云端各一份。
@@ -66,6 +71,11 @@ fun BackupAutoScheduleScreen(
         viewModel.localBackupSchedule.collectAsState()
     } else {
         viewModel.cloudBackupSchedule.collectAsState()
+    }
+    val status by if (isLocal) {
+        viewModel.localBackupStatus.collectAsState()
+    } else {
+        viewModel.cloudBackupStatus.collectAsState()
     }
 
     Column(
@@ -96,6 +106,57 @@ fun BackupAutoScheduleScreen(
                 else viewModel.updateCloudBackupSchedule(transform)
             }
         )
+
+        Spacer(Modifier.height(12.dp))
+        AutoBackupStatusCard(status)
+    }
+}
+
+@Composable
+private fun AutoBackupStatusCard(status: AutoBackupStatus) {
+    val formatter = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()) }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = Corners.Md,
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Text("最近状态", style = MaterialTheme.typography.labelMedium)
+            Spacer(Modifier.height(4.dp))
+            if (status.lastSuccessAt > 0L) {
+                Text(
+                    "最近成功：${formatter.format(Date(status.lastSuccessAt))}" +
+                        (status.lastSuccessName?.let { "（$it" } ?: "") +
+                        if (status.lastSuccessName != null && status.lastSuccessSize > 0L) {
+                            "，${CloudBackupManager.formatSize(status.lastSuccessSize)}）"
+                        } else if (status.lastSuccessName != null) {
+                            "）"
+                        } else {
+                            ""
+                        },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            } else {
+                Text("最近成功：暂无记录", style = MaterialTheme.typography.bodySmall)
+            }
+            status.lastError?.takeIf { it.isNotBlank() }?.let { error ->
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "最近失败：$error",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+            status.cleanupWarning?.takeIf { it.isNotBlank() }?.let { warning ->
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "清理提示：$warning",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
 }
 

@@ -35,10 +35,11 @@ object Space {
 val floatingNavHeight = 52.dp
 val floatingBottomGap = 8.dp
 val floatingContentBottomInset = floatingNavHeight + floatingBottomGap + 16.dp
-val floatingNavBlurSigma = 22.dp
-val floatingNavDarkOpacity = 0.58f
-val floatingNavLightOpacity = 0.70f
-val floatingNavOutlineOpacity = 0.28f
+val floatingNavBlurSigma = 28.dp
+val floatingNavDarkOpacity = 0.46f
+val floatingNavLightOpacity = 0.60f
+val floatingNavOutlineOpacity = 0.20f
+val floatingNavHighlightOpacity = 0.06f
 val floatingNavSelectedOpacity = 0.08f
 val floatingNavSelectedCornerRadius = 13.dp
 val floatingNavShadowElevation = 6.dp

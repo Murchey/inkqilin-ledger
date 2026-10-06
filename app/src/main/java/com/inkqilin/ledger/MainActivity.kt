@@ -112,8 +112,6 @@ class MainActivity : ComponentActivity() {
                         viewModel.backfillTransactionUuids()
                         // 为存量流转自动生成 UUID
                         viewModel.backfillAssetFlowUuids()
-                        // 自动备份：调度 + 打开 APP 计划
-                        viewModel.kickAutoBackupsOnAppOpen()
                     }
 
                     // 首次启动：先展示隐私政策，确认后再问运行环境
@@ -123,6 +121,10 @@ class MainActivity : ComponentActivity() {
                     LaunchedEffect(privacyAcceptedLoaded, privacyAccepted) {
                         if (privacyAcceptedLoaded && !privacyAccepted) {
                             showPrivacy = true
+                        }
+                        if (privacyAcceptedLoaded && privacyAccepted) {
+                            // 用户刚确认隐私政策时，立即获得一次打开 APP 的执行机会。
+                            viewModel.kickAutoBackupsOnAppOpen()
                         }
                     }
 
@@ -430,6 +432,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** 每次 Activity 回到前台都检查一次「打开 APP 时」计划。 */
+    override fun onStart() {
+        super.onStart()
+        viewModel.kickAutoBackupsOnAppOpen()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -438,6 +446,9 @@ class MainActivity : ComponentActivity() {
 
     /** 解析桌面小部件导航目标 */
     private fun parseWidgetTarget(intent: Intent): String? {
+        if (intent.getBooleanExtra("open_backup_status", false)) {
+            return "cloud_backup"
+        }
         if (intent.action != WidgetIntents.ACTION_WIDGET_NAV) return null
         return intent.getStringExtra(WidgetIntents.EXTRA_NAV_TARGET)
     }

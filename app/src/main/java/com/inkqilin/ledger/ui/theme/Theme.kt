@@ -89,6 +89,10 @@ fun floatingNavSurfaceColor(isDark: Boolean): Color = MaterialTheme.colorScheme.
 @Composable
 fun floatingNavOutlineColor(): Color = MaterialTheme.colorScheme.outline.copy(alpha = floatingNavOutlineOpacity)
 
+/** 很轻的高光层，帮助半透明表面在浅色背景上保持边界和可读性。 */
+@Composable
+fun floatingNavHighlightColor(): Color = MaterialTheme.colorScheme.onSurface.copy(alpha = floatingNavHighlightOpacity)
+
 @Composable
 fun appButtonElevation() = ButtonDefaults.buttonElevation(
     defaultElevation = 0.dp,
