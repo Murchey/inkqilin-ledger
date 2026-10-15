@@ -163,6 +163,10 @@ cd inkqilin-ledger
 - **开源仓库** — GitHub 统一为 [github.com/Murchey/inkqilin-ledger](https://github.com/Murchey/inkqilin-ledger)
 - **桌面小组件** — 视觉重制（墨色卡片 / 分区按钮）
 
+## 赞赏和捐赠
+**请注意，您的赞赏会成为作者继续开发的动力，但不代表和开发成果有直接关系，赞赏是自愿行为，不是本软件出售服务的任何方式！**
+![微信赞赏码](README_FILES/BUY_ME_A_COFFEE.jpg)
+
 ## 许可证
 
 本项目采用 [GNU General Public License v3.0](LICENSE) 许可证。
