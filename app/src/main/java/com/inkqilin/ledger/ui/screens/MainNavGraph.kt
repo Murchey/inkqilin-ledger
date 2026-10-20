@@ -57,6 +57,7 @@ internal fun MainNavGraph(
     viewModel: TransactionViewModel,
     renQingViewModel: RenQingViewModel,
     enableAnimations: Boolean,
+    showStartupSkeleton: Boolean,
     innerPadding: PaddingValues,
     currentRoute: String?,
     pagerState: androidx.compose.foundation.pager.PagerState,
@@ -138,6 +139,7 @@ internal fun MainNavGraph(
                     when (pageRoute) {
                         "home" -> HomeScreen(
                             viewModel = viewModel,
+                            showStartupSkeleton = showStartupSkeleton,
                             onNavigateToAddTransaction = {
                                 navController.navigateSingle("add_transaction")
                             },

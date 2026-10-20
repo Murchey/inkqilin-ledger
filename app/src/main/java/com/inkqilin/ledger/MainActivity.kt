@@ -100,12 +100,21 @@ class MainActivity : ComponentActivity() {
                     val githubRepo by viewModel.githubRepo.collectAsState()
                     var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
                     var enableStartupAnimations by remember { mutableStateOf(false) }
+                    var showStartupSkeleton by remember { mutableStateOf(true) }
                     val context = LocalContext.current
                     val scope = rememberCoroutineScope()
 
                     LaunchedEffect(Unit) {
                         withFrameNanos { }
+                        // Let the first composition settle before enabling the
+                        // lightweight navigation/card animations. This avoids
+                        // competing with initial measurement and image decoding.
+                        delay(120)
                         enableStartupAnimations = true
+                        // Keep the first screen structural while Room/Coil and
+                        // Compose finish their initial work.
+                        delay(300)
+                        showStartupSkeleton = false
                         // 启动时清理历史 APK
                         AppUpdateDownloader.cleanOldApks(context)
                         // 为存量交易自动生成 UUID（去重依赖）
@@ -424,6 +433,7 @@ class MainActivity : ComponentActivity() {
                         viewModel = viewModel,
                         renQingViewModel = renQingViewModel,
                         enableAnimations = enableStartupAnimations,
+                        showStartupSkeleton = showStartupSkeleton,
                         externalNavTarget = widgetTarget,
                         onExternalTargetHandled = { widgetNavTarget.value = null }
                     )

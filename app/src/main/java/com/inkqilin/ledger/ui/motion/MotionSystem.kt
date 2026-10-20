@@ -120,7 +120,9 @@ val LocalShimmerProgress = staticCompositionLocalOf<State<Float>> {
 }
 
 @Composable
-fun rememberShimmerProgress(): State<Float> {
+fun rememberShimmerProgress(enabled: Boolean = true): State<Float> {
+    // Do not keep an infinite animation alive on screens that have no skeletons.
+    if (!enabled) return remember { mutableStateOf(0f) }
     val transition = rememberInfiniteTransition(label = "shimmer-shared")
     return transition.animateFloat(
         initialValue = 0f,
@@ -170,9 +172,9 @@ fun Modifier.shimmer(): Modifier {
 
 /** 首次入场只对前 N 条做 stagger，其余直接显示。 */
 object MotionStagger {
-    const val VISIBLE_COUNT = 8
-    const val DELAY_CAP_MS = 240
-    const val DURATION_MS = 220
+    const val VISIBLE_COUNT = 3
+    const val DELAY_CAP_MS = 120
+    const val DURATION_MS = 180
 }
 
 /** 兼容常量别名（与 MotionStagger 同值） */

@@ -66,6 +66,7 @@ fun MainScreen(
     viewModel: TransactionViewModel,
     renQingViewModel: RenQingViewModel,
     enableAnimations: Boolean = true,
+    showStartupSkeleton: Boolean = false,
     externalNavTarget: String? = null,
     onExternalTargetHandled: () -> Unit = {}
 ) {
@@ -351,6 +352,7 @@ fun MainScreen(
                 viewModel = viewModel,
                 renQingViewModel = renQingViewModel,
                 enableAnimations = enableAnimations,
+                showStartupSkeleton = showStartupSkeleton,
                 innerPadding = innerPadding,
                 currentRoute = currentRoute,
                 pagerState = pagerState,
@@ -439,10 +441,14 @@ fun MainScreen(
                                         modifier = Modifier
                                             .weight(1f)
                                             .height(floatingNavHeight)
-                                            .shadow(
-                                                elevation = floatingNavShadowElevation,
-                                                shape = capsuleShape,
-                                                clip = false
+                                            .then(
+                                                if (enableAnimations) {
+                                                    Modifier.shadow(
+                                                        elevation = floatingNavShadowElevation,
+                                                        shape = capsuleShape,
+                                                        clip = false
+                                                    )
+                                                } else Modifier
                                             )
                                             .clip(capsuleShape)
                                     ) {
@@ -457,7 +463,10 @@ fun MainScreen(
                                             modifier = Modifier
                                                 .matchParentSize()
                                                 .background(floatingNavHighlightColor())
-                                                .blur(floatingNavBlurSigma)
+                                                .then(
+                                                    if (enableAnimations) Modifier.blur(floatingNavBlurSigma)
+                                                    else Modifier
+                                                )
                                         )
                                         Box(
                                             modifier = Modifier

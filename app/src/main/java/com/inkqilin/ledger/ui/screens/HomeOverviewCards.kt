@@ -68,7 +68,9 @@ internal fun SingleCurrencyOverviewCard(
     }
     val cardColor by animateColorAsState(
         targetValue = assetAccent,
-        animationSpec = if (enableAnimations) MotionSprings.interactive() else snap(),
+        animationSpec = if (enableAnimations) {
+            tween(durationMillis = 180, easing = MotionCurves.FastOutSlowIn)
+        } else snap(),
         label = "singleCardColor"
     )
 
@@ -218,7 +220,9 @@ internal fun MultiCurrencyOverviewCards(
             val resolvedColor = resolveCardColor(asset, isDark)
             val cardColor by animateColorAsState(
                 targetValue = resolvedColor,
-                animationSpec = if (enableAnimations) MotionSprings.interactive() else snap(),
+                animationSpec = if (enableAnimations) {
+                    tween(durationMillis = 180, easing = MotionCurves.FastOutSlowIn)
+                } else snap(),
                 label = "multiCardColor_${asset.id}"
             )
             val summary = currencySummaries[asset.code] ?: CurrencyPeriodSummary()

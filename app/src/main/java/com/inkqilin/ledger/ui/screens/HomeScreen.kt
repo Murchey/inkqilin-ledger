@@ -51,6 +51,7 @@ import java.util.*
 @Composable
 fun HomeScreen(
     viewModel: TransactionViewModel,
+    showStartupSkeleton: Boolean = false,
     onNavigateToAddTransaction: () -> Unit = {},
     onNavigateToStatistics: () -> Unit = {},
     onNavigateToEditTransaction: (Transaction) -> Unit = {},
@@ -205,11 +206,16 @@ fun HomeScreen(
             )
         }
     }
-    val isDataLoading = false
+    // Hold the initial layout as skeleton blocks while the first composition,
+    // database flow and image requests settle. Empty data is still rendered as
+    // an empty state after this gate opens.
+    val isDataLoading = showStartupSkeleton
     val maxTrendValue = remember(homeData.recentDays) { homeData.recentDays.maxOfOrNull { it.second } ?: 1.0 }
     val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     // 共享 shimmer 进度：骨架块不再各自开无限动画
-    val shimmerProgress = rememberShimmerProgress()
+    // The normal home screen has no skeletons; avoid starting an infinite GPU
+    // animation just because the shimmer modifier is available below.
+    val shimmerProgress = rememberShimmerProgress(enabled = isDataLoading)
     val staggerGate = !hasPlayedListEntry
 
     CompositionLocalProvider(LocalShimmerProgress provides shimmerProgress) {
