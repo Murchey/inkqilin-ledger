@@ -43,6 +43,8 @@ import com.inkqilin.ledger.util.AppMode
 import androidx.core.graphics.toColorInt
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -60,6 +62,8 @@ fun EditTransactionDialog(
     var date by remember { mutableLongStateOf(transaction.date) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showAmountKeypad by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    var categoryMatchJob by remember { mutableStateOf<Job?>(null) }
     fun evaluateAmount() {
         AmountExpressionEvaluator.evaluate(amount)?.let { result ->
             if (result >= 0) amount = AmountExpressionEvaluator.formatForField(result)
@@ -167,7 +171,18 @@ fun EditTransactionDialog(
 
                 OutlinedTextField(
                     value = note,
-                    onValueChange = { note = it },
+                    onValueChange = { newNote ->
+                        note = newNote
+                        categoryMatchJob?.cancel()
+                        if (newNote.isNotBlank()) {
+                            categoryMatchJob = scope.launch {
+                                val matched = viewModel.matchCategoryByKeyword(newNote)
+                                if (matched != null && categories.any { it.name == matched }) {
+                                    category = matched
+                                }
+                            }
+                        }
+                    },
                     label = { Text("账单备注") },
                     modifier = Modifier.fillMaxWidth()
                 )
