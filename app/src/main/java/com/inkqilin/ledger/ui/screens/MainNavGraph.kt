@@ -221,7 +221,15 @@ internal fun MainNavGraph(
                     }
                 }
             }
-            composable("search") { SearchScreen(viewModel) }
+            composable("search") {
+                SearchScreen(
+                    viewModel = viewModel,
+                    onEditTransaction = { transaction ->
+                        viewModel.setPendingEditTransaction(transaction)
+                        navController.navigateSingle("edit_transaction/${transaction.id}")
+                    }
+                )
+            }
             composable("ai_config") {
                 AIConfigScreen(
                     viewModel = viewModel,
@@ -536,7 +544,11 @@ internal fun MainNavGraph(
                     categoryName = categoryName,
                     type = type,
                     startDate = startDate,
-                    endDate = endDate
+                    endDate = endDate,
+                    onEditTransaction = { transaction ->
+                        viewModel.setPendingEditTransaction(transaction)
+                        navController.navigateSingle("edit_transaction/${transaction.id}")
+                    }
                 )
             }
         }

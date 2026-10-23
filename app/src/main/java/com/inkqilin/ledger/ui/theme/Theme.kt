@@ -8,6 +8,8 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -85,9 +87,28 @@ fun floatingNavSurfaceColor(isDark: Boolean): Color = MaterialTheme.colorScheme.
     alpha = if (isDark) floatingNavDarkOpacity else floatingNavLightOpacity
 )
 
-/** 悬浮导航使用主题描边的低透明度版本，适配自定义主题颜色。 */
+/** 磨砂玻璃外圈描边：暗色用白光、浅色用深色，保证深浅色模式下都能看清胶囊边界。 */
 @Composable
-fun floatingNavOutlineColor(): Color = MaterialTheme.colorScheme.outline.copy(alpha = floatingNavOutlineOpacity)
+fun floatingNavRimColor(isDark: Boolean): Color =
+    if (isDark) Color.White.copy(alpha = floatingNavRimDarkAlpha)
+    else OnSurfaceLight.copy(alpha = floatingNavRimLightAlpha)
+
+/**
+ * 磨砂玻璃内侧高光：左上亮、右下淡出，模拟玻璃受光边缘。
+ * 与 [floatingNavRimColor] 叠加后形成"外描边 + 内高光"的双层玻璃轮廓。
+ */
+@Composable
+fun floatingNavSpecularBrush(isDark: Boolean): Brush = Brush.linearGradient(
+    colorStops = arrayOf(
+        0f to Color.White.copy(
+            alpha = if (isDark) floatingNavSpecularDarkAlpha else floatingNavSpecularLightAlpha
+        ),
+        0.55f to Color.White.copy(alpha = if (isDark) 0.06f else 0.20f),
+        1f to Color.Transparent
+    ),
+    start = Offset.Zero,
+    end = Offset.Infinite
+)
 
 /** 很轻的高光层，帮助半透明表面在浅色背景上保持边界和可读性。 */
 @Composable

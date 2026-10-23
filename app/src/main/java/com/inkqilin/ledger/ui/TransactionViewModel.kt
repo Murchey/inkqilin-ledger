@@ -46,6 +46,15 @@ class TransactionViewModel(
     // Eagerly 保持缓存：子页面返回时首帧就能拿到完整账单，避免空列表闪断导致滚动位置丢失
     val allTransactions: StateFlow<List<Transaction>> = transactionDao.getAllTransactions()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /**
+     * 数据库首帧就绪标记。
+     * 统计页、分类明细页、搜索结果据此先渲染骨架屏：
+     * 首帧跳过聚合计算与长列表构建，避免"空数据闪断 + 立即重组"的重复渲染。
+     */
+    private val _dataLoaded = MutableStateFlow(false)
+    val dataLoaded: StateFlow<Boolean> = _dataLoaded.asStateFlow()
+
     val totalIncome: Flow<Double?> = transactionDao.getTotalIncome()
     val totalExpense: Flow<Double?> = transactionDao.getTotalExpense()
 
@@ -100,16 +109,22 @@ class TransactionViewModel(
     init {
         viewModelScope.launch(Dispatchers.IO) {
             // 本版配色改版：仅升级后首次启动重置一次默认色；失败不影响业务数据
-            runCatching { themeManager.migrateColorPaletteOnce() }
-            if (categoryDao.getAllCategories().first().isEmpty()) {
-                initializeDefaultCategories()
+            runCatching {
+                themeManager.migrateColorPaletteOnce()
+                if (categoryDao.getAllCategories().first().isEmpty()) {
+                    initializeDefaultCategories()
+                }
+                if (currencyAssetDao.getCount() == 0) {
+                    initializeDefaultCurrencies()
+                }
+                if (keywordCategoryDao.getAllKeywordCategoriesOnce().isEmpty()) {
+                    initializeDefaultKeywordCategories()
+                }
             }
-            if (currencyAssetDao.getCount() == 0) {
-                initializeDefaultCurrencies()
-            }
-            if (keywordCategoryDao.getAllKeywordCategoriesOnce().isEmpty()) {
-                initializeDefaultKeywordCategories()
-            }
+            // 等账单表首帧返回后再放行首屏内容：骨架屏期间统计聚合不执行。
+            // 无论成败都要放行，避免异常时首屏停在骨架。
+            runCatching { transactionDao.getAllTransactions().first() }
+            _dataLoaded.value = true
         }
     }
 

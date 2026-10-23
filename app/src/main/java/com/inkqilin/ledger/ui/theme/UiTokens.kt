@@ -36,9 +36,22 @@ val floatingNavHeight = 52.dp
 val floatingBottomGap = 8.dp
 val floatingContentBottomInset = floatingNavHeight + floatingBottomGap + 16.dp
 val floatingNavBlurSigma = 28.dp
-val floatingNavDarkOpacity = 0.46f
-val floatingNavLightOpacity = 0.60f
-val floatingNavOutlineOpacity = 0.20f
+val floatingNavDarkOpacity = 0.56f
+val floatingNavLightOpacity = 0.74f
+
+/**
+ * 磨砂玻璃轮廓（rim）。
+ * 原实现用 outline 色 0.20 透明度：暗色下 outline 本身是深灰、浅色下是浅灰，
+ * 两种模式下都几乎看不到胶囊边界。改为按明暗极性取色：
+ * 暗色模式用白光描边，浅色模式用深色描边，再叠一圈左上到右下衰减的高光。
+ */
+val floatingNavRimWidth = 1.dp
+val floatingNavRimDarkAlpha = 0.30f
+val floatingNavRimLightAlpha = 0.21f
+val floatingNavSpecularWidth = 0.8.dp
+val floatingNavSpecularDarkAlpha = 0.45f
+val floatingNavSpecularLightAlpha = 0.90f
+
 val floatingNavHighlightOpacity = 0.06f
 val floatingNavSelectedOpacity = 0.08f
 val floatingNavSelectedCornerRadius = 13.dp

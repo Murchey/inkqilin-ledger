@@ -61,6 +61,8 @@ fun HomeScreen(
 ) {
     // StateFlow 已有缓存值，不要再用 emptyList 当 initial，否则返回首页时会闪一帧空列表
     val allTransactions by viewModel.allTransactions.collectAsState()
+    // 冷启动时数据库首帧可能晚于首屏布局：此时继续用骨架，避免"空态 → 满列表"闪断
+    val dataLoaded by viewModel.dataLoaded.collectAsState()
     val monthlyBudget by viewModel.monthlyBudget.collectAsState()
     val multiCurrencyEnabled by viewModel.multiCurrencyEnabled.collectAsState()
     val allAssets by viewModel.allAssets.collectAsState()
@@ -209,7 +211,7 @@ fun HomeScreen(
     // Hold the initial layout as skeleton blocks while the first composition,
     // database flow and image requests settle. Empty data is still rendered as
     // an empty state after this gate opens.
-    val isDataLoading = showStartupSkeleton
+    val isDataLoading = showStartupSkeleton || !dataLoaded
     val maxTrendValue = remember(homeData.recentDays) { homeData.recentDays.maxOfOrNull { it.second } ?: 1.0 }
     val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     // 共享 shimmer 进度：骨架块不再各自开无限动画

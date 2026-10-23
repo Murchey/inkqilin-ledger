@@ -85,6 +85,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
     val allUserAssets by viewModel.allUserAssets.collectAsState()
     val userAssetTotalValue by viewModel.userAssetTotalValue.collectAsState()
     val allAssetFlows by viewModel.allAssetFlows.collectAsState()
+    val dataLoaded by viewModel.dataLoaded.collectAsState()
 
     var selectedType by rememberSaveable { mutableStateOf(TransactionType.EXPENSE) }
     var selectedPeriod by rememberSaveable { mutableStateOf(TimePeriod.MONTH) }
@@ -144,6 +145,13 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
                 TextButton(onClick = { showEndDatePicker = false }) { Text("取消") }
             }
         )
+    }
+
+    // 数据库首帧未就绪：只渲染骨架，下面的区间聚合、分类排行与图表全部后移一帧，
+    // 避免「空列表闪断 → 满列表重建」的重复渲染。
+    if (!dataLoaded) {
+        StatisticsLoadingSkeleton()
+        return
     }
 
     val filteredByPeriod = remember(transactions, selectedPeriod, startDate, endDate) {

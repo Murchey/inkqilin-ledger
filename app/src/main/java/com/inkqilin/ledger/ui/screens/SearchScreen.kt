@@ -48,7 +48,10 @@ private enum class SearchDateMode(val label: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SearchScreen(viewModel: TransactionViewModel) {
+fun SearchScreen(
+    viewModel: TransactionViewModel,
+    onEditTransaction: (Transaction) -> Unit = {}
+) {
     var query by rememberSaveable { mutableStateOf("") }
     var submittedQuery by rememberSaveable { mutableStateOf("") }
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -84,7 +87,16 @@ fun SearchScreen(viewModel: TransactionViewModel) {
         else viewModel.searchSummaryFiltered(submittedQuery, range?.first, range?.second)
     }
 
-    val searchResults by resultsFlow.collectAsState(initial = emptyList())
+    // 查询结果 + 首帧就绪标记：未就绪时先渲染骨架，避免空列表 → 满列表的闪断
+    val resultsState by produceState(
+        initialValue = emptyList<Transaction>() to false,
+        resultsFlow
+    ) {
+        value = emptyList<Transaction>() to false
+        resultsFlow.collect { value = it to true }
+    }
+    val searchResults = resultsState.first
+    val resultsReady = resultsState.second
     val summary by summaryFlow.collectAsState(initial = SearchSummary(0.0, 0.0))
 
     val incomeColorHex by viewModel.incomeColor.collectAsState()
@@ -267,6 +279,7 @@ fun SearchScreen(viewModel: TransactionViewModel) {
             ) {
                 Text("输入关键词或选择日期范围后搜索", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            !resultsReady -> TransactionListSkeleton(itemCount = 6)
             searchResults.isEmpty() -> Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -279,7 +292,11 @@ fun SearchScreen(viewModel: TransactionViewModel) {
             }
             else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(searchResults, key = { it.id }) { transaction ->
-                    TransactionItem(transaction, viewModel)
+                    TransactionItem(
+                        transaction = transaction,
+                        viewModel = viewModel,
+                        onClick = { onEditTransaction(transaction) }
+                    )
                 }
                 item { Spacer(modifier = Modifier.height(12.dp)) }
             }

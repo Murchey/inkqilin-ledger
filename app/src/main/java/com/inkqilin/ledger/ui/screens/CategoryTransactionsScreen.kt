@@ -28,25 +28,14 @@ fun CategoryTransactionsScreen(
     categoryName: String,
     type: String,
     startDate: Long = 0L,
-    endDate: Long = 0L
+    endDate: Long = 0L,
+    onEditTransaction: (Transaction) -> Unit = {}
 ) {
     val transactionType = if (type == "INCOME") TransactionType.INCOME else TransactionType.EXPENSE
     val transactions by viewModel.getTransactionsByCategory(categoryName).collectAsState(initial = emptyList())
+    val dataLoaded by viewModel.dataLoaded.collectAsState()
     val filteredTransactions = transactions.filter {
         it.type == transactionType && (startDate == 0L || it.date in startDate..endDate)
-    }
-    var transactionToEdit by remember { mutableStateOf<Transaction?>(null) }
-
-    transactionToEdit?.let { transaction ->
-        EditTransactionDialog(
-            transaction = transaction,
-            viewModel = viewModel,
-            onDismiss = { transactionToEdit = null },
-            onConfirm = { updatedTransaction ->
-                viewModel.updateTransaction(updatedTransaction)
-                transactionToEdit = null
-            }
-        )
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
@@ -56,7 +45,9 @@ fun CategoryTransactionsScreen(
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        if (filteredTransactions.isEmpty()) {
+        if (!dataLoaded) {
+            TransactionListSkeleton(itemCount = 6)
+        } else if (filteredTransactions.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("暂无账单记录")
             }
@@ -66,7 +57,7 @@ fun CategoryTransactionsScreen(
                     TransactionItem(
                         transaction = transaction,
                         viewModel = viewModel,
-                        onClick = { transactionToEdit = transaction }
+                        onClick = { onEditTransaction(transaction) }
                     )
                 }
             }
