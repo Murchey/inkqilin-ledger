@@ -130,7 +130,8 @@ internal fun MainNavGraph(
                     state = pagerState,
                     modifier = Modifier.fillMaxSize(),
                     userScrollEnabled = !isAlbumInteracting,
-                    beyondBoundsPageCount = 0
+                    key = { page -> bottomItems[page].route },
+                    beyondBoundsPageCount = 1
                 ) { page ->
                     val pageRoute = bottomItems[page].route
                     // 用路由作为内容身份，页下标因开关功能变化时状态不跟着错位重建
@@ -163,7 +164,7 @@ internal fun MainNavGraph(
                                 navController.navigateSingle("asset_management")
                             }
                         )
-                        "statistics" -> StatisticsScreen(viewModel, navController)
+                        "statistics" -> StatisticsScreen(viewModel, navController, isActive = pagerState.currentPage == page)
                         "album" -> AlbumScreen(
                             viewModel = viewModel,
                             isActive = pagerState.currentPage == bottomItems.indexOfFirst { it.route == "album" },

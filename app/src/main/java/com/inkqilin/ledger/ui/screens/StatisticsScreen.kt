@@ -65,9 +65,9 @@ import kotlinx.coroutines.launch
 
 
 @Composable
-fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavController) {
+fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavController, isActive: Boolean = true) {
     val transactions by viewModel.allTransactions.collectAsState()
-    val categories by viewModel.allCategories.collectAsState(initial = emptyList())
+    val categories by viewModel.allCategories.collectAsState()
     val incomeColorHex by viewModel.incomeColor.collectAsState()
     val expenseColorHex by viewModel.expenseColor.collectAsState()
     val incomeColor = Color(incomeColorHex.toColorInt())
@@ -107,7 +107,7 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
     var showPieChart by rememberSaveable { mutableStateOf(false) }
     val statisticsListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
 
-    BackHandler(enabled = showSubFilterBar) {
+    BackHandler(enabled = isActive && showSubFilterBar) {
         showSubFilterBar = false
         selectedSubFilter = null
         selectedWeekOffset = null

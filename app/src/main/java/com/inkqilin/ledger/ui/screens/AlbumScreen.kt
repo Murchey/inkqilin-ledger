@@ -250,8 +250,8 @@ fun AlbumScreen(
     }
 
     // Trigger gallery picker from nav bar FAB
-    LaunchedEffect(fabTrigger) {
-        if (fabTrigger) {
+    LaunchedEffect(fabTrigger, isActive) {
+        if (fabTrigger && isActive) {
             galleryPicker.launch("image/*")
             onFabTriggered()
         }

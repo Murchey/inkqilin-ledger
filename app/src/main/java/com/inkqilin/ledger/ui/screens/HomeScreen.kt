@@ -75,7 +75,7 @@ fun HomeScreen(
     val expenseColor = Color(expenseColorHex.toColorInt())
     val incomeColorHex by viewModel.incomeColor.collectAsState()
     val incomeColor = Color(incomeColorHex.toColorInt())
-    val allCategories by viewModel.allCategories.collectAsState(initial = emptyList())
+    val allCategories by viewModel.allCategories.collectAsState()
     val homeCardColorHex by viewModel.homeCardColor.collectAsState()
     val homeBgImagePath by viewModel.homeBgImagePath.collectAsState()
     val homeBgOpacity by viewModel.homeBgOpacity.collectAsState()
