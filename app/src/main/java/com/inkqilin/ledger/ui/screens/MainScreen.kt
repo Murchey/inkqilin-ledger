@@ -101,7 +101,9 @@ fun MainScreen(
         }
     }
 
-    val pagerState = rememberPagerState { bottomItems.size }
+    // 页数与页面 key 共用同一份快照状态，避免功能开关加载时旧 key 闭包读取到新页数。
+    val bottomItemsState = rememberUpdatedState(bottomItems)
+    val pagerState = rememberPagerState { bottomItemsState.value.size }
 
     // 以路由而非下标记录当前 Tab：开关人情/相册会增减底部项，下标会错位
     var selectedTabRoute by rememberSaveable { mutableStateOf("home") }
@@ -356,7 +358,7 @@ fun MainScreen(
                 innerPadding = innerPadding,
                 currentRoute = currentRoute,
                 pagerState = pagerState,
-                bottomItems = bottomItems,
+                bottomItemsState = bottomItemsState,
                 albumFabTrigger = albumFabTrigger,
                 cloudBackupOpenSettings = cloudBackupOpenSettings,
                 customTopBarTitle = customTopBarTitle,

@@ -61,13 +61,14 @@ internal fun MainNavGraph(
     innerPadding: PaddingValues,
     currentRoute: String?,
     pagerState: androidx.compose.foundation.pager.PagerState,
-    bottomItems: List<BottomNavItem>,
+    bottomItemsState: State<List<BottomNavItem>>,
     albumFabTrigger: androidx.compose.runtime.MutableState<Boolean>,
     cloudBackupOpenSettings: androidx.compose.runtime.MutableState<Boolean>,
     customTopBarTitle: androidx.compose.runtime.MutableState<String?>,
     customBackAction: androidx.compose.runtime.MutableState<(() -> Unit)?>,
 ) {
     val scope = rememberCoroutineScope()
+    val bottomItems by bottomItemsState
     val renQingEnabled by renQingViewModel.renQingEnabled.collectAsState()
     val albumEnabled by viewModel.albumEnabled.collectAsState()
     val isAlbumInteracting by viewModel.isAlbumInteracting.collectAsState()
@@ -130,10 +131,14 @@ internal fun MainNavGraph(
                     state = pagerState,
                     modifier = Modifier.fillMaxSize(),
                     userScrollEnabled = !isAlbumInteracting,
-                    key = { page -> bottomItems[page].route },
+                    key = { page ->
+                        bottomItemsState.value.getOrNull(page)?.route ?: "pending_page_$page"
+                    },
                     beyondBoundsPageCount = 1
                 ) { page ->
-                    val pageRoute = bottomItems[page].route
+                    // 列表缩短时，丢弃上一轮测量中已经失效的页面。
+                    val pageRoute = bottomItemsState.value.getOrNull(page)?.route
+                        ?: return@HorizontalPager
                     // 用路由作为内容身份，页下标因开关功能变化时状态不跟着错位重建
                     androidx.compose.runtime.key(pageRoute) {
                     saveableStateHolder.SaveableStateProvider(key = pageRoute) {
