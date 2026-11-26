@@ -322,6 +322,29 @@ class TransactionViewModel(
         }
     }
 
+    val cloudBackupProvider: StateFlow<com.inkqilin.ledger.util.CloudBackupProvider> =
+        themeManager.cloudBackupProvider.stateIn(
+            viewModelScope, SharingStarted.WhileSubscribed(5000),
+            com.inkqilin.ledger.util.CloudBackupProvider.COS
+        )
+
+    fun setCloudBackupProvider(provider: com.inkqilin.ledger.util.CloudBackupProvider) {
+        viewModelScope.launch {
+            themeManager.setCloudBackupProvider(provider)
+            com.inkqilin.ledger.util.AutoBackupRunner.refreshAutoBackupWorkers(LedgerApplication.instance)
+        }
+    }
+
+    val webDavConfig: StateFlow<com.inkqilin.ledger.util.WebDavConfig> =
+        themeManager.webDavConfig.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.inkqilin.ledger.util.WebDavConfig())
+
+    fun setWebDavConfig(config: com.inkqilin.ledger.util.WebDavConfig) {
+        viewModelScope.launch {
+            themeManager.setWebDavConfig(config)
+            com.inkqilin.ledger.util.AutoBackupRunner.refreshAutoBackupWorkers(LedgerApplication.instance)
+        }
+    }
+
     // ── 自动备份计划 ──
     val localBackupSchedule: StateFlow<com.inkqilin.ledger.util.BackupSchedule> =
         themeManager.localBackupSchedule.stateIn(

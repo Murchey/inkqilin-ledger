@@ -52,6 +52,11 @@ enum class ThemeMode {
     AUTO, LIGHT, DARK
 }
 
+enum class CloudBackupProvider(val label: String) {
+    COS("腾讯云 COS"),
+    WEBDAV("WebDAV")
+}
+
 enum class AppMode {
     BASIC, SMART
 }
@@ -104,6 +109,10 @@ class ThemeManager(private val context: Context) {
     private val COS_SECRET_KEY_KEY = stringPreferencesKey("cos_secret_key")
     private val COS_BUCKET_URL_KEY = stringPreferencesKey("cos_bucket_url")
     private val COS_PREFIX_KEY = stringPreferencesKey("cos_prefix")
+    private val WEBDAV_ENDPOINT_KEY = stringPreferencesKey("webdav_endpoint")
+    private val WEBDAV_USERNAME_KEY = stringPreferencesKey("webdav_username")
+    private val WEBDAV_PASSWORD_KEY = stringPreferencesKey("webdav_password_ciphertext")
+    private val WEBDAV_PREFIX_KEY = stringPreferencesKey("webdav_prefix")
     private val CUSTOM_PRIMARY_COLOR_KEY = stringPreferencesKey("custom_primary_color")
     private val AUTO_RECORD_ENABLED_KEY = booleanPreferencesKey("auto_record_enabled")
     private val OCR_ENABLED_KEY = booleanPreferencesKey("ocr_enabled")
@@ -135,6 +144,7 @@ private val WIDGET_SHOW_AMOUNT_KEY = booleanPreferencesKey("widget_show_amount")
     private val COLORS_PALETTE_MIGRATED_KEY = booleanPreferencesKey("colors_palette_migrated_2026_09")
     private val LOCAL_BACKUP_SCHEDULE_KEY = stringPreferencesKey("local_backup_schedule")
     private val CLOUD_BACKUP_SCHEDULE_KEY = stringPreferencesKey("cloud_backup_schedule")
+    private val CLOUD_BACKUP_PROVIDER_KEY = stringPreferencesKey("cloud_backup_provider")
     private val LOCAL_BACKUP_LAST_RUN_KEY = longPreferencesKey("local_backup_last_run")
     private val CLOUD_BACKUP_LAST_RUN_KEY = longPreferencesKey("cloud_backup_last_run")
     private val AUTO_BACKUP_ERROR_KEY = stringPreferencesKey("auto_backup_error")
@@ -147,6 +157,11 @@ private val WIDGET_SHOW_AMOUNT_KEY = booleanPreferencesKey("widget_show_amount")
     private val SENSITIVE_PREF_KEYS = setOf(
         "cos_secret_id",
         "cos_secret_key",
+        "webdav_password_ciphertext",
+        "webdav_endpoint",
+        "webdav_username",
+        "webdav_prefix",
+        "cloud_backup_provider",
         "ai_api_key",
         "ocr_api_key",
         "local_auto_password_ciphertext",
@@ -500,6 +515,30 @@ private val WIDGET_SHOW_AMOUNT_KEY = booleanPreferencesKey("widget_show_amount")
     /** GitHub 下载仓库路径，格式 owner/repo 或完整 GitHub 地址 */
     val githubRepo: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[GITHUB_REPO_KEY]?.takeIf { it.isNotBlank() } ?: DEFAULT_GITHUB_REPO
+    }
+
+    /** 缺少选择记录时沿用已有 COS 用户的默认目标。 */
+    val cloudBackupProvider: Flow<CloudBackupProvider> = context.dataStore.data.map { preferences ->
+        CloudBackupProvider.entries.firstOrNull { it.name == preferences[CLOUD_BACKUP_PROVIDER_KEY] }
+            ?: CloudBackupProvider.COS
+    }
+
+    suspend fun setCloudBackupProvider(provider: CloudBackupProvider) {
+        context.dataStore.edit { it[CLOUD_BACKUP_PROVIDER_KEY] = provider.name }
+    }
+
+    /** WebDAV 私有备份配置；密码由 Android Keystore 加密后写入 DataStore。 */
+    val webDavConfig: Flow<WebDavConfig> = context.dataStore.data.map { p ->
+        WebDavConfig(p[WEBDAV_ENDPOINT_KEY] ?: "", p[WEBDAV_USERNAME_KEY] ?: "", secretStore.decrypt(p[WEBDAV_PASSWORD_KEY]), p[WEBDAV_PREFIX_KEY]?.takeIf { it.isNotBlank() } ?: "backups/v1")
+    }
+
+    suspend fun setWebDavConfig(config: WebDavConfig) {
+        context.dataStore.edit { p ->
+            if (config.endpoint.isBlank()) p.remove(WEBDAV_ENDPOINT_KEY) else p[WEBDAV_ENDPOINT_KEY] = config.endpoint.trim()
+            if (config.username.isBlank()) p.remove(WEBDAV_USERNAME_KEY) else p[WEBDAV_USERNAME_KEY] = config.username.trim()
+            if (config.password.isBlank()) p.remove(WEBDAV_PASSWORD_KEY) else p[WEBDAV_PASSWORD_KEY] = secretStore.encrypt(config.password)
+            if (config.prefix.isBlank()) p.remove(WEBDAV_PREFIX_KEY) else p[WEBDAV_PREFIX_KEY] = config.prefix.trim()
+        }
     }
 
     /** 腾讯云 COS 私有备份配置 */

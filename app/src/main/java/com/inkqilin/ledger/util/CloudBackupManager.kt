@@ -166,6 +166,32 @@ object CloudBackupManager {
             failures.takeIf { it.isNotEmpty() }?.joinToString("；")
         }
 
+    suspend fun uploadWebDavBackup(context: Context, config: WebDavConfig, password: CharArray? = null, auto: Boolean = false): WebDavObjectMeta {
+        val export = exportDatabaseZip(context, password, auto)
+        WebDavClient.putObject(config, export.fileName, export.bytes)
+        return WebDavObjectMeta(export.fileName, export.size, SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).format(Date()))
+    }
+
+    suspend fun listWebDavBackups(config: WebDavConfig): List<WebDavObjectMeta> = WebDavClient.listObjects(config)
+
+    suspend fun downloadAndRestoreWebDav(context: Context, config: WebDavConfig, name: String, password: CharArray? = null): Unit = withBackupOperation {
+        withContext(Dispatchers.IO) {
+            val raw = WebDavClient.getObject(config, name)
+            val zip = if (BackupCrypto.isEncrypted(raw)) BackupCrypto.decrypt(raw, password ?: charArrayOf()) else raw
+            restoreZipBytes(context, zip)
+        }
+    }
+
+    suspend fun deleteWebDavBackup(config: WebDavConfig, name: String) = withBackupOperation { WebDavClient.deleteObject(config, name) }
+
+    suspend fun deletePreviousAutoWebDavBackups(config: WebDavConfig, keepName: String? = null): String? {
+        val items = runCatching { listWebDavBackups(config) }.getOrElse { return "列出旧自动备份失败：${it.message ?: "未知错误"}" }
+        val failures = items.filter { it.path != keepName && it.path.startsWith("auto_backup") }.mapNotNull { item ->
+            runCatching { WebDavClient.deleteObject(config, item.path) }.exceptionOrNull()?.let { item.path }
+        }
+        return failures.takeIf { it.isNotEmpty() }?.joinToString("、")
+    }
+
     /** 列出云端备份 */
     suspend fun listBackups(config: CosConfig): List<CosObjectMeta> {
         return CosClient.listObjects(config, "${prefixOf(config)}/")

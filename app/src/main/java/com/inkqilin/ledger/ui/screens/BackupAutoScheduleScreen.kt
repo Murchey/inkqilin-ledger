@@ -72,6 +72,7 @@ fun BackupAutoScheduleScreen(
     } else {
         viewModel.cloudBackupSchedule.collectAsState()
     }
+    val cloudProvider by viewModel.cloudBackupProvider.collectAsState()
     val status by if (isLocal) {
         viewModel.localBackupStatus.collectAsState()
     } else {
@@ -93,7 +94,7 @@ fun BackupAutoScheduleScreen(
         Spacer(Modifier.height(6.dp))
         Text(
             "自动备份文件名以 auto_backup 开头，与手动备份区分。" +
-                if (!isLocal) "\n云端备份需先配置 COS 密钥。" else "",
+                if (!isLocal) "\n自动备份使用所选云端服务：${cloudProvider.label}。" else "",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

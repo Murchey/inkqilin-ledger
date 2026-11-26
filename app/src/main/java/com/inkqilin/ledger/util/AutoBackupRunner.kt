@@ -105,8 +105,14 @@ object AutoBackupRunner {
         if (!shouldRunNow(schedule, last)) return@withLock AutoBackupRunResult.Skipped
 
         val config = tm.cosConfig.first()
-        if (!config.isConfigured) {
-            val message = "云端自动备份需要先配置腾讯云 COS"
+        val webDav = tm.webDavConfig.first()
+        val provider = tm.cloudBackupProvider.first()
+        val configured = when (provider) {
+            CloudBackupProvider.COS -> config.isConfigured
+            CloudBackupProvider.WEBDAV -> webDav.isConfigured
+        }
+        if (!configured) {
+            val message = "云端自动备份需要先配置所选的 "+provider.label
             tm.markBackupFailure(AutoBackupTarget.CLOUD, message)
             Log.w(TAG, message)
             return@withLock AutoBackupRunResult.Blocked
@@ -116,23 +122,39 @@ object AutoBackupRunner {
         tm.markBackupAttempt(AutoBackupTarget.CLOUD, attemptAt)
         val password = schedule.autoPassword.takeIf { it.isNotBlank() }?.toCharArray()
         try {
-            val uploaded = CloudBackupManager.uploadBackup(context, config, password, auto = true)
-            val cleanupWarning = if (schedule.deletePreviousAuto) {
-                CloudBackupManager.deletePreviousAutoCloudBackups(config, keepKey = uploaded.key)
+            val uploadedName: String
+            val uploadedSize: Long
+            val cleanupWarning: String?
+            if (provider == CloudBackupProvider.WEBDAV) {
+                val uploaded = CloudBackupManager.uploadWebDavBackup(context, webDav, password, auto = true)
+                uploadedName = uploaded.path
+                uploadedSize = uploaded.size
+                cleanupWarning = if (schedule.deletePreviousAuto) {
+                    CloudBackupManager.deletePreviousAutoWebDavBackups(webDav, uploaded.path)
+                } else {
+                    null
+                }
             } else {
-                null
+                val uploaded = CloudBackupManager.uploadBackup(context, config, password, auto = true)
+                uploadedName = uploaded.key
+                uploadedSize = uploaded.size
+                cleanupWarning = if (schedule.deletePreviousAuto) {
+                    CloudBackupManager.deletePreviousAutoCloudBackups(config, keepKey = uploaded.key)
+                } else {
+                    null
+                }
             }
             val successAt = System.currentTimeMillis()
             tm.markCloudBackupRun(successAt)
             tm.markBackupSuccess(
                 target = AutoBackupTarget.CLOUD,
-                fileName = uploaded.key.substringAfterLast('/'),
-                size = uploaded.size,
+                fileName = uploadedName.substringAfterLast('/'),
+                size = uploadedSize,
                 cleanupWarning = cleanupWarning,
                 timeMs = successAt
             )
-            Log.d(TAG, "Cloud auto backup ok: ${uploaded.key}")
-            AutoBackupRunResult.Success(uploaded.key.substringAfterLast('/'), uploaded.size)
+            Log.d(TAG, "Cloud auto backup ok: $uploadedName")
+            AutoBackupRunResult.Success(uploadedName.substringAfterLast('/'), uploadedSize)
         } catch (t: Throwable) {
             val message = "云端自动备份失败：${t.message ?: t.javaClass.simpleName}"
             recordFailure(context, tm, AutoBackupTarget.CLOUD, message, t)
@@ -176,6 +198,11 @@ object AutoBackupRunner {
         val local = tm.localBackupSchedule.first()
         val cloud = tm.cloudBackupSchedule.first()
         val cos = tm.cosConfig.first()
+        val webDav = tm.webDavConfig.first()
+        val configured = when (tm.cloudBackupProvider.first()) {
+            CloudBackupProvider.COS -> cos.isConfigured
+            CloudBackupProvider.WEBDAV -> webDav.isConfigured
+        }
         val workManager = WorkManager.getInstance(context)
 
         // 旧版本的共享任务不能继续运行，避免和新 Worker 重复执行。
@@ -191,7 +218,7 @@ object AutoBackupRunner {
             )
         }
 
-        if (cloud.frequency == BackupFrequency.OFF || !cos.isConfigured) {
+        if (cloud.frequency == BackupFrequency.OFF || !configured) {
             workManager.cancelUniqueWork(CLOUD_WORK_NAME)
         } else {
             workManager.enqueueUniquePeriodicWork(

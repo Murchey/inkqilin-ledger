@@ -51,6 +51,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -63,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.inkqilin.ledger.ui.TransactionViewModel
 import com.inkqilin.ledger.util.CloudBackupManager
+import com.inkqilin.ledger.util.CloudBackupProvider
 import com.inkqilin.ledger.util.AutoBackupStatus
 import com.inkqilin.ledger.util.BackupSchedule
 import com.inkqilin.ledger.util.CosConfig
@@ -85,6 +87,12 @@ fun CloudBackupScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val cosConfig by viewModel.cosConfig.collectAsState()
+    val webDavConfig by viewModel.webDavConfig.collectAsState()
+    val provider by viewModel.cloudBackupProvider.collectAsState()
+    val providerConfigured = when (provider) {
+        CloudBackupProvider.COS -> cosConfig.isConfigured
+        CloudBackupProvider.WEBDAV -> webDavConfig.isConfigured
+    }
     val localSchedule by viewModel.localBackupSchedule.collectAsState()
     val cloudSchedule by viewModel.cloudBackupSchedule.collectAsState()
     val localBackupStatus by viewModel.localBackupStatus.collectAsState()
@@ -95,17 +103,37 @@ fun CloudBackupScreen(
 
     var uiState by remember { mutableStateOf<BackupUiState>(BackupUiState.Idle) }
     var showRestoreDoneDialog by remember { mutableStateOf(false) }
-    var restoreConfirm by remember { mutableStateOf<RestoreConfirm?>(null) }
-    var pendingBackup by remember { mutableStateOf<PendingBackup?>(null) }
+    var restoreConfirm by remember(provider, cosConfig, webDavConfig) {
+        mutableStateOf<RestoreConfirm?>(null)
+    }
+    var pendingBackup by remember(provider, cosConfig, webDavConfig) {
+        mutableStateOf<PendingBackup?>(null)
+    }
     var showSafetyRestoreConfirm by remember { mutableStateOf(false) }
     var showFileInfo by remember { mutableStateOf(false) }
     var fileInfoText by remember { mutableStateOf("") }
 
     // 云端
-    var cloudBackups by remember { mutableStateOf<List<CosObjectMeta>>(emptyList()) }
-    var isLoadingCloudList by remember { mutableStateOf(false) }
-    var deleteCloudTarget by remember { mutableStateOf<CosObjectMeta?>(null) }
+    var cloudBackups by remember(provider, cosConfig) {
+        mutableStateOf<List<CosObjectMeta>>(emptyList())
+    }
+    var isLoadingCloudList by remember(provider, cosConfig, webDavConfig) { mutableStateOf(false) }
+    var cloudListRequestId by remember { mutableIntStateOf(0) }
+    val currentProvider by rememberUpdatedState(provider)
+    val currentCosConfig by rememberUpdatedState(cosConfig)
+    val currentWebDavConfig by rememberUpdatedState(webDavConfig)
+    var deleteCloudTarget by remember(provider, cosConfig, webDavConfig) {
+        mutableStateOf<CosObjectMeta?>(null)
+    }
     var lastCloudBackupInfo by remember { mutableStateOf<String?>(null) }
+    var webDavBackups by remember(provider, webDavConfig) {
+        mutableStateOf<List<com.inkqilin.ledger.util.WebDavObjectMeta>>(emptyList())
+    }
+    var deleteWebDavTarget by remember(provider, cosConfig, webDavConfig) {
+        mutableStateOf<WebDavDeleteTarget?>(null)
+    }
+    var showWebDavSettings by remember { mutableStateOf(false) }
+    var showCosSettings by remember { mutableStateOf(false) }
 
     // 本地
     var localBackups by remember { mutableStateOf<List<File>>(emptyList()) }
@@ -117,20 +145,62 @@ fun CloudBackupScreen(
         localBackups = CloudBackupManager.listLocalBackups(context)
     }
 
-    fun refreshCloudList() {
-        if (!cosConfig.isConfigured) {
-            cloudBackups = emptyList()
+    fun refreshWebDavList() {
+        val source = webDavConfig
+        if (currentProvider != CloudBackupProvider.WEBDAV || currentWebDavConfig != source) return
+        val requestId = ++cloudListRequestId
+        fun isCurrentRequest() = requestId == cloudListRequestId &&
+            currentProvider == CloudBackupProvider.WEBDAV && currentWebDavConfig == source
+        if (!source.isConfigured || !isCurrentRequest()) {
+            if (isCurrentRequest()) {
+                webDavBackups = emptyList()
+                isLoadingCloudList = false
+            }
             return
         }
         isLoadingCloudList = true
         scope.launch {
             try {
-                cloudBackups = withContext(Dispatchers.IO) { CloudBackupManager.listBackups(cosConfig) }
-                uiState = BackupUiState.Idle
-            } catch (e: Exception) {
-                uiState = BackupUiState.Error(e.message ?: "加载云端列表失败")
+                val backups = withContext(Dispatchers.IO) {
+                    CloudBackupManager.listWebDavBackups(source)
+                }
+                if (isCurrentRequest()) webDavBackups = backups
+            } catch (error: Exception) {
+                if (isCurrentRequest()) {
+                    uiState = BackupUiState.Error(error.message ?: "加载 WebDAV 列表失败")
+                }
             } finally {
+                if (isCurrentRequest()) isLoadingCloudList = false
+            }
+        }
+    }
+
+    fun refreshCloudList() {
+        val source = cosConfig
+        if (currentProvider != CloudBackupProvider.COS || currentCosConfig != source) return
+        val requestId = ++cloudListRequestId
+        fun isCurrentRequest() = requestId == cloudListRequestId &&
+            currentProvider == CloudBackupProvider.COS && currentCosConfig == source
+        if (!source.isConfigured || !isCurrentRequest()) {
+            if (isCurrentRequest()) {
+                cloudBackups = emptyList()
                 isLoadingCloudList = false
+            }
+            return
+        }
+        isLoadingCloudList = true
+        scope.launch {
+            try {
+                val backups = withContext(Dispatchers.IO) {
+                    CloudBackupManager.listBackups(source)
+                }
+                if (isCurrentRequest()) cloudBackups = backups
+            } catch (error: Exception) {
+                if (isCurrentRequest()) {
+                    uiState = BackupUiState.Error(error.message ?: "加载云端列表失败")
+                }
+            } finally {
+                if (isCurrentRequest()) isLoadingCloudList = false
             }
         }
     }
@@ -180,8 +250,11 @@ fun CloudBackupScreen(
     }
 
     LaunchedEffect(Unit) { refreshLocalList() }
-    LaunchedEffect(cosConfig.isConfigured) {
-        if (cosConfig.isConfigured) refreshCloudList()
+    LaunchedEffect(provider, cosConfig, webDavConfig) {
+        when (provider) {
+            CloudBackupProvider.COS -> refreshCloudList()
+            CloudBackupProvider.WEBDAV -> refreshWebDavList()
+        }
     }
 
     Column(
@@ -273,7 +346,7 @@ fun CloudBackupScreen(
                 headlineContent = { Text("自动备份设置") },
                 supportingContent = {
                     Text(
-                        backupStatusSummary(cloudSchedule, cloudBackupStatus, cosConfig.isConfigured),
+                        backupStatusSummary(cloudSchedule, cloudBackupStatus, providerConfigured),
                         fontSize = 12.sp
                     )
                 },
@@ -281,34 +354,81 @@ fun CloudBackupScreen(
             )
             HorizontalDivider()
             Spacer(Modifier.height(8.dp))
-            CloudBackupSection(
-                cosConfig = cosConfig,
-                lastInfo = lastCloudBackupInfo,
-                backups = cloudBackups,
-                isLoadingList = isLoadingCloudList,
-                working = uiState is BackupUiState.Working,
-                onBackupNow = {
-                    if (!cosConfig.isConfigured) {
-                        uiState = BackupUiState.Error("请先点右上角齿轮配置 COS")
-                        return@CloudBackupSection
-                    }
-                    pendingBackup = PendingBackup.Cloud
-                },
-                onRefresh = { refreshCloudList() },
-                onRestore = { restoreConfirm = RestoreConfirm.Cloud(it) },
-                onDelete = { deleteCloudTarget = it }
-            )
+            Text("手动与自动云备份目标", style = MaterialTheme.typography.labelMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                CloudBackupProvider.entries.forEach { option ->
+                    FilterChip(
+                        selected = provider == option,
+                        enabled = uiState !is BackupUiState.Working,
+                        onClick = { viewModel.setCloudBackupProvider(option) },
+                        label = { Text(option.label) }
+                    )
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = { showCosSettings = true }) { Text("COS 设置") }
+                TextButton(onClick = { showWebDavSettings = true }) { Text("WebDAV 设置") }
+            }
+            if (provider == CloudBackupProvider.WEBDAV) {
+                WebDavBackupSection(
+                    config = webDavConfig,
+                    backups = webDavBackups,
+                    loading = isLoadingCloudList,
+                    working = uiState is BackupUiState.Working,
+                    onBackup = { pendingBackup = PendingBackup.WebDav },
+                    onRefresh = { refreshWebDavList() },
+                    onRestore = { restoreConfirm = RestoreConfirm.WebDav(it.path, webDavConfig) },
+                    onDelete = { deleteWebDavTarget = WebDavDeleteTarget(it.path, webDavConfig) }
+                )
+            } else {
+                CloudBackupSection(
+                    cosConfig = cosConfig,
+                    lastInfo = lastCloudBackupInfo,
+                    backups = cloudBackups,
+                    isLoadingList = isLoadingCloudList,
+                    working = uiState is BackupUiState.Working,
+                    onBackupNow = {
+                        if (cosConfig.isConfigured) {
+                            pendingBackup = PendingBackup.Cloud
+                        } else {
+                            showCosSettings = true
+                        }
+                    },
+                    onRefresh = { refreshCloudList() },
+                    onRestore = { restoreConfirm = RestoreConfirm.Cloud(it) },
+                    onDelete = { deleteCloudTarget = it }
+                )
+            }
         }
     }
 
-    if (openSettings) {
+    if (showCosSettings || (openSettings && provider == CloudBackupProvider.COS)) {
         CosSettingsDialog(
             initial = cosConfig,
-            onDismiss = { onOpenSettingsConsumed() },
+            onDismiss = {
+                showCosSettings = false
+                onOpenSettingsConsumed()
+            },
             onSave = { config ->
                 viewModel.setCosConfig(config)
+                showCosSettings = false
                 onOpenSettingsConsumed()
                 uiState = BackupUiState.Success("COS 配置已保存")
+            }
+        )
+    }
+    if (showWebDavSettings || (openSettings && provider == CloudBackupProvider.WEBDAV)) {
+        WebDavSettingsDialog(
+            initial = webDavConfig,
+            onDismiss = {
+                showWebDavSettings = false
+                onOpenSettingsConsumed()
+            },
+            onSave = { config ->
+                viewModel.setWebDavConfig(config)
+                showWebDavSettings = false
+                onOpenSettingsConsumed()
+                uiState = BackupUiState.Success("WebDAV 配置已保存")
             }
         )
     }
@@ -316,7 +436,11 @@ fun CloudBackupScreen(
     // 备份：可选加密
     pendingBackup?.let { target ->
         BackupPasswordDialog(
-            title = if (target is PendingBackup.Local) "本地备份" else "云端备份",
+            title = when (target) {
+                PendingBackup.Local -> "本地备份"
+                PendingBackup.Cloud -> "COS 云备份"
+                PendingBackup.WebDav -> "WebDAV 备份"
+            },
             onDismiss = { pendingBackup = null },
             onConfirm = { password ->
                 pendingBackup = null
@@ -331,6 +455,12 @@ fun CloudBackupScreen(
                                 lastLocalBackupInfo = "上次本地备份：${SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date())} · ${CloudBackupManager.formatSize(file.length())}${if (password != null) " · 已加密" else ""}"
                                 uiState = BackupUiState.Success("本地备份成功：${file.name}")
                                 refreshLocalList()
+                            }
+                            PendingBackup.WebDav -> {
+                                val meta = withContext(Dispatchers.IO) { CloudBackupManager.uploadWebDavBackup(context, webDavConfig, password) }
+                                uiState = BackupUiState.Success("WebDAV 备份成功：${meta.path}")
+                                lastCloudBackupInfo = "WebDAV · ${CloudBackupManager.formatSize(meta.size)}${if (password != null) " · 已加密" else ""}"
+                                refreshWebDavList()
                             }
                             PendingBackup.Cloud -> {
                                 val meta = withContext(Dispatchers.IO) {
@@ -355,11 +485,13 @@ fun CloudBackupScreen(
         val label = when (confirm) {
             is RestoreConfirm.Cloud -> confirm.item.key.substringAfterLast('/')
             is RestoreConfirm.Local -> confirm.file.name
+            is RestoreConfirm.WebDav -> confirm.name
         }
         var restorePassword by remember(confirm) { mutableStateOf("") }
         val localLooksEncrypted = when (confirm) {
             is RestoreConfirm.Local -> CloudBackupManager.isLocalBackupEncrypted(confirm.file)
             is RestoreConfirm.Cloud -> confirm.item.key.contains("_enc")
+            is RestoreConfirm.WebDav -> confirm.name.contains("_enc")
         }
         AlertDialog(
             onDismissRequest = { restoreConfirm = null },
@@ -408,6 +540,7 @@ fun CloudBackupScreen(
                                         CloudBackupManager.downloadAndRestore(
                                             context, cosConfig, confirmRef.item.key, pwdOrNull
                                         )
+                                    is RestoreConfirm.WebDav -> CloudBackupManager.downloadAndRestoreWebDav(context, confirmRef.config, confirmRef.name, pwdOrNull)
                                     is RestoreConfirm.Local ->
                                         CloudBackupManager.restoreLocalBackup(context, confirmRef.file, pwdOrNull)
                                 }
@@ -427,6 +560,34 @@ fun CloudBackupScreen(
             },
             dismissButton = {
                 TextButton(onClick = { restoreConfirm = null }) { Text("取消") }
+            }
+        )
+    }
+
+    deleteWebDavTarget?.let { target ->
+        AlertDialog(
+            onDismissRequest = { deleteWebDavTarget = null },
+            title = { Text("删除 WebDAV 备份") },
+            text = { Text("确定删除 "+target.path+"？此操作不可撤销。") },
+            confirmButton = {
+                Button(onClick = {
+                    deleteWebDavTarget = null
+                    uiState = BackupUiState.Working
+                    scope.launch {
+                        try {
+                            withContext(Dispatchers.IO) {
+                                CloudBackupManager.deleteWebDavBackup(target.config, target.path)
+                            }
+                            uiState = BackupUiState.Success("已删除")
+                            refreshWebDavList()
+                        } catch (error: Exception) {
+                            uiState = BackupUiState.Error(error.message ?: "删除失败")
+                        }
+                    }
+                }) { Text("删除") }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteWebDavTarget = null }) { Text("取消") }
             }
         )
     }
@@ -557,7 +718,7 @@ private fun backupStatusSummary(
         schedule.frequency.label
     }
     if (!cosConfigured && schedule.frequency != com.inkqilin.ledger.util.BackupFrequency.OFF) {
-        return "$frequency · 需要配置 COS"
+        return "$frequency · 需要配置所选云服务"
     }
     val success = status.lastSuccessAt.takeIf { it > 0L }?.let {
         SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(it))
