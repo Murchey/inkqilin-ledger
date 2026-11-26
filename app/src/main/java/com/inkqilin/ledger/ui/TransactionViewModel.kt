@@ -58,7 +58,8 @@ class TransactionViewModel(
     val totalIncome: Flow<Double?> = transactionDao.getTotalIncome()
     val totalExpense: Flow<Double?> = transactionDao.getTotalExpense()
 
-    val allCategories: Flow<List<Category>> = categoryDao.getAllCategories()
+    val allCategories: StateFlow<List<Category>> = categoryDao.getAllCategories()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val themeMode: StateFlow<ThemeMode> = themeManager.themeMode.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),
@@ -830,7 +831,7 @@ class TransactionViewModel(
         excelImporter.ImportTransactions(
             context = context,
             uri = uri,
-            existingCategories = { allCategories.first() },
+            existingCategories = { categoryDao.getAllCategories().first() },
             onDone = onDone,
         )
     }

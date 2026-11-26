@@ -82,7 +82,7 @@ internal fun MainNavGraph(
                     fadeIn(animationSpec = MotionSprings.appearanceTween()) +
                         slideInHorizontally(
                             animationSpec = MotionSprings.appearanceTween(),
-                            initialOffsetX = { it }
+                            initialOffsetX = { it / 8 }
                         )
                 } else {
                     EnterTransition.None
@@ -93,7 +93,7 @@ internal fun MainNavGraph(
                     fadeOut(animationSpec = MotionSprings.appearanceTween()) +
                         slideOutHorizontally(
                             animationSpec = MotionSprings.appearanceTween(),
-                            targetOffsetX = { -it / 4 }
+                            targetOffsetX = { -it / 8 }
                         )
                 } else {
                     ExitTransition.None
@@ -104,7 +104,7 @@ internal fun MainNavGraph(
                     fadeIn(animationSpec = MotionSprings.appearanceTween()) +
                         slideInHorizontally(
                             animationSpec = MotionSprings.appearanceTween(),
-                            initialOffsetX = { -it / 4 }
+                            initialOffsetX = { -it / 8 }
                         )
                 } else {
                     EnterTransition.None
@@ -115,7 +115,7 @@ internal fun MainNavGraph(
                     fadeOut(animationSpec = MotionSprings.appearanceTween()) +
                         slideOutHorizontally(
                             animationSpec = MotionSprings.appearanceTween(),
-                            targetOffsetX = { it }
+                            targetOffsetX = { it / 8 }
                         )
                 } else {
                     ExitTransition.None

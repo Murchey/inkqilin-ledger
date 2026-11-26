@@ -463,10 +463,7 @@ fun MainScreen(
                                             modifier = Modifier
                                                 .matchParentSize()
                                                 .background(floatingNavHighlightColor())
-                                                .then(
-                                                    if (enableAnimations) Modifier.blur(floatingNavBlurSigma)
-                                                    else Modifier
-                                                )
+
                                         )
                                         // 磨砂玻璃轮廓：外圈 1dp 描边 + 内圈左上高光，深浅色都能看清边界
                                         Box(

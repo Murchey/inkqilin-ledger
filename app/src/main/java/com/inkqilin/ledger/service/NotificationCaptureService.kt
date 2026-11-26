@@ -57,13 +57,28 @@ class NotificationCaptureService : NotificationListenerService() {
                     val notification = sbn.notification
                     val extras = notification.extras ?: return@launch
 
-                    val title = extras.getString(Notification.EXTRA_TITLE) ?: ""
-                    val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
-                    val bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString() ?: ""
-                    val infoText = extras.getCharSequence(Notification.EXTRA_INFO_TEXT)?.toString() ?: ""
-                    val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString() ?: ""
+                    // 汇总通知可能包含多笔历史交易，不作为单笔账单处理。
+                    if (notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return@launch
 
-                    val combinedText = "$text $bigText $infoText $subText"
+                    val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
+                    val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty()
+                    val bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString().orEmpty()
+                    val infoText = extras.getCharSequence(Notification.EXTRA_INFO_TEXT)?.toString().orEmpty()
+                    val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString().orEmpty()
+                    val textLines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
+                    val messages = Notification.MessagingStyle.Message.getMessagesFromBundleArray(
+                        extras.getParcelableArray(Notification.EXTRA_MESSAGES)
+                    )
+                    // 展开正文包含普通正文时只保留完整版本。无正文时读取最新一条消息，
+                    // 避免将消息历史中的金额拼接成当前交易。
+                    val body = when {
+                        bigText.isNotBlank() -> bigText
+                        text.isNotBlank() -> text
+                        messages.isNotEmpty() -> messages.maxByOrNull { it.timestamp }?.text?.toString().orEmpty()
+                        else -> textLines?.joinToString(" ").orEmpty()
+                    }
+                    val combinedText = listOf(body, infoText, subText)
+                        .filter { it.isNotBlank() }.distinct().joinToString(" ")
                     Log.d("NotificationCapture", "Full contents: Title=$title, CombinedText=$combinedText")
 
                     com.inkqilin.ledger.service.parser.NotificationParser.Parse(packageName, title, combinedText)?.let { parsed ->

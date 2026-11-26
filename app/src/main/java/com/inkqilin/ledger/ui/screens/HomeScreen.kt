@@ -75,6 +75,7 @@ fun HomeScreen(
     val expenseColor = Color(expenseColorHex.toColorInt())
     val incomeColorHex by viewModel.incomeColor.collectAsState()
     val incomeColor = Color(incomeColorHex.toColorInt())
+    val allCategories by viewModel.allCategories.collectAsState(initial = emptyList())
     val homeCardColorHex by viewModel.homeCardColor.collectAsState()
     val homeBgImagePath by viewModel.homeBgImagePath.collectAsState()
     val homeBgOpacity by viewModel.homeBgOpacity.collectAsState()
@@ -93,6 +94,8 @@ fun HomeScreen(
     var hasPlayedListEntry by rememberSaveable { mutableStateOf(false) }
 
     val defaultAsset = remember(allAssets) { allAssets.firstOrNull { it.isDefault } }
+    val categoryIcons = remember(allCategories) { allCategories.associate { (it.name to it.type) to it.icon } }
+    val currencySymbols = remember(allAssets) { allAssets.associate { it.code to it.symbol } }
 
     LaunchedEffect(Unit) {
         withFrameNanos { }
@@ -407,11 +410,14 @@ fun HomeScreen(
                 // 跨日分组的全局条目序号
                 var globalTxIndex = 0
                 homeData.groupedTransactions.forEach { group ->
-                    group.transactions.forEachIndexed { index, transaction ->
-                        // 全局列表序号：stagger 只作用于整表前 N 条，而不是每天分组内前 N 条
-                        val globalIndex = globalTxIndex
-                        globalTxIndex++
-                        item(key = "tx_${transaction.id}") {
+                    val groupStartIndex = globalTxIndex
+                    globalTxIndex += group.transactions.size
+                    itemsIndexed(
+                        items = group.transactions,
+                        key = { _, transaction -> "tx_${transaction.id}" },
+                        contentType = { index, _ -> if (index == 0) "day_first_transaction" else "transaction" }
+                    ) { index, transaction ->
+                        val globalIndex = groupStartIndex + index
                         // 首次进入对前 N 条 stagger；二级页返回/滚动复用不重放
                         Column {
                             if (index == 0) {
@@ -449,10 +455,13 @@ fun HomeScreen(
                                     onDelete = { transactionToDelete = transaction },
                                     onEdit = { onNavigateToEditTransaction(transaction) },
                                     onClick = { onNavigateToEditTransaction(transaction) },
-                                    cardOpacity = homeTxCardOpacity
+                                    cardOpacity = homeTxCardOpacity,
+                                    resolvedCategoryIcon = categoryIcons[transaction.category to transaction.type] ?: "📋",
+                                    resolvedCurrencySymbol = currencySymbols[transaction.currency] ?: "¥",
+                                    resolvedIncomeColor = incomeColor,
+                                    resolvedExpenseColor = expenseColor
                                 )
                             }
-                        }
                         }
                     }
                 }

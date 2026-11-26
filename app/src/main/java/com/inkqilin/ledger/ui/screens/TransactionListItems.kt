@@ -58,7 +58,11 @@ fun SwipeableTransactionItem(
     onEdit: () -> Unit,
     onClick: () -> Unit = onEdit,
     /** 卡片不透明度 0.08–1；配合首页背景图使用 */
-    cardOpacity: Float = 0.8f
+    cardOpacity: Float = 0.8f,
+    resolvedCategoryIcon: String? = null,
+    resolvedCurrencySymbol: String? = null,
+    resolvedIncomeColor: Color? = null,
+    resolvedExpenseColor: Color? = null
 ) {
     val density = LocalDensity.current
     val menuWidth = 120.dp
@@ -70,8 +74,8 @@ fun SwipeableTransactionItem(
         offsetX = newOffset
     }
 
-    val expenseColorHex by viewModel.expenseColor.collectAsState()
-    val expenseColor = Color(expenseColorHex.toColorInt())
+    val fallbackExpenseColorHex by viewModel.expenseColor.collectAsState()
+    val expenseColor = resolvedExpenseColor ?: Color(fallbackExpenseColorHex.toColorInt())
     val cardAlpha = cardOpacity.coerceIn(0.08f, 1f)
     val trackAlpha = (cardAlpha * 0.45f).coerceIn(0.06f, 0.55f)
     // 未滑开时不组合操作按钮，避免半透明卡片下图标透出重叠
@@ -137,7 +141,11 @@ fun SwipeableTransactionItem(
                 transaction = transaction,
                 viewModel = viewModel,
                 onClick = onClick,
-                translucent = cardAlpha < 0.95f
+                translucent = cardAlpha < 0.95f,
+                resolvedCategoryIcon = resolvedCategoryIcon,
+                resolvedCurrencySymbol = resolvedCurrencySymbol,
+                resolvedIncomeColor = resolvedIncomeColor,
+                resolvedExpenseColor = resolvedExpenseColor
             )
         }
     }
@@ -150,23 +158,30 @@ fun TransactionItem(
     transaction: Transaction,
     viewModel: TransactionViewModel,
     onClick: () -> Unit = {},
-    translucent: Boolean = false
+    translucent: Boolean = false,
+    resolvedCategoryIcon: String? = null,
+    resolvedCurrencySymbol: String? = null,
+    resolvedIncomeColor: Color? = null,
+    resolvedExpenseColor: Color? = null
 ) {
-    val sdf = SimpleDateFormat("MM月dd日", Locale.getDefault())
-    val dateStr = sdf.format(Date(transaction.date))
-
-    val allCategories by viewModel.allCategories.collectAsState(initial = emptyList())
-    val category = allCategories.find { it.name == transaction.category && it.type == transaction.type }
-    val icon = category?.icon ?: "📋"
-    val isIncome = transaction.type == TransactionType.INCOME
-
+    val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
+    val dateStr = remember(transaction.date, locale) {
+        SimpleDateFormat("MM月dd日", locale).format(Date(transaction.date))
+    }
+    val amountText = remember(transaction.amount, locale) { String.format(locale, "%.2f", transaction.amount) }
+    val allCategories by viewModel.allCategories.collectAsState()
     val allAssets by viewModel.allAssets.collectAsState()
-    val currencySymbol = allAssets.firstOrNull { it.code == transaction.currency }?.symbol ?: "¥"
-
     val incomeColorHex by viewModel.incomeColor.collectAsState()
     val expenseColorHex by viewModel.expenseColor.collectAsState()
-    val incomeColor = Color(android.graphics.Color.parseColor(incomeColorHex))
-    val expenseColor = Color(android.graphics.Color.parseColor(expenseColorHex))
+    val icon = resolvedCategoryIcon ?: allCategories.firstOrNull {
+        it.name == transaction.category && it.type == transaction.type
+    }?.icon ?: "📋"
+    val isIncome = transaction.type == TransactionType.INCOME
+    val currencySymbol = resolvedCurrencySymbol ?: allAssets.firstOrNull {
+        it.code == transaction.currency
+    }?.symbol ?: "¥"
+    val incomeColor = resolvedIncomeColor ?: Color(incomeColorHex.toColorInt())
+    val expenseColor = resolvedExpenseColor ?: Color(expenseColorHex.toColorInt())
 
     val interactionSource = remember { MutableInteractionSource() }
     // Card 本身必须透明/半透明，否则外层半透明底会被完全盖住
@@ -230,7 +245,7 @@ fun TransactionItem(
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = "${if (isIncome) "+" else "-"}${currencySymbol}${String.format("%.2f", transaction.amount)}",
+                    text = "${if (isIncome) "+" else "-"}${currencySymbol}${amountText}",
                     color = if (isIncome) incomeColor else expenseColor,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp

@@ -53,7 +53,7 @@ fun CategoryTransactionsScreen(
             }
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(filteredTransactions) { transaction ->
+                items(filteredTransactions, key = { it.id }, contentType = { "transaction" }) { transaction ->
                     TransactionItem(
                         transaction = transaction,
                         viewModel = viewModel,

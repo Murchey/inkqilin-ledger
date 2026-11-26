@@ -87,6 +87,28 @@ internal fun AnimatedBarChart(
 
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
 
+    val labelPaint = remember(onSurfaceVariant) { android.graphics.Paint().apply {
+            color = onSurfaceVariant.toArgb()
+            textSize = 24f
+            textAlign = android.graphics.Paint.Align.CENTER
+            isAntiAlias = true
+        } }
+    val valuePaint = remember { android.graphics.Paint().apply {
+            textSize = 22f
+            textAlign = android.graphics.Paint.Align.CENTER
+            isAntiAlias = true
+        } }
+
+    val valueLabels = remember(data) {
+        data.map { (_, value) ->
+            when {
+                value >= 10000 -> "${String.format("%.1f", value / 10000)}w"
+                value >= 1000 -> String.format("%.0f", value)
+                else -> String.format("%.2f", value)
+            }
+        }
+    }
+
     Canvas(
         modifier = modifier
             .width(totalBarArea)
@@ -113,18 +135,6 @@ internal fun AnimatedBarChart(
         val bottomPadding = 32f
         val chartAreaHeight = canvasH - topPadding - bottomPadding
 
-        val labelPaint = android.graphics.Paint().apply {
-            color = onSurfaceVariant.toArgb()
-            textSize = 24f
-            textAlign = android.graphics.Paint.Align.CENTER
-            isAntiAlias = true
-        }
-        val valuePaint = android.graphics.Paint().apply {
-            textSize = 22f
-            textAlign = android.graphics.Paint.Align.CENTER
-            isAntiAlias = true
-        }
-
         data.forEachIndexed { index, (label, value) ->
             val barHeight = if (maxVal > 0) (value / maxVal).toFloat() * chartAreaHeight * animProgress.value else 0f
             val x = barAreaWidth * index + (barAreaWidth - barWidthPx) / 2
@@ -143,13 +153,7 @@ internal fun AnimatedBarChart(
                 drawText(label, textX, canvasH - 6f, labelPaint)
 
                 if (value > 0 && animProgress.value > 0.8f) {
-                    val valueText = if (value >= 10000) {
-                        "${String.format("%.1f", value / 10000)}w"
-                    } else if (value >= 1000) {
-                        String.format("%.0f", value)
-                    } else {
-                        String.format("%.2f", value)
-                    }
+                    val valueText = valueLabels[index]
                     valuePaint.color = accentColor.toArgb()
                     drawText(valueText, textX, y - 8f, valuePaint)
                 }

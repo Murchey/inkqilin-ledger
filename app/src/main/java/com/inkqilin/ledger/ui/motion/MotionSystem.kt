@@ -209,19 +209,19 @@ fun Modifier.staggeredAppearance(
             durationMillis = STAGGER_DURATION_MS,
             easing = MotionCurves.FastOutSlowIn
         )
-        val alpha by animateFloatAsState(
+        val alpha = animateFloatAsState(
             targetValue = if (shown) 1f else 0f,
             animationSpec = tweenSpec,
             label = "staggerAlpha"
         )
-        val ty by animateFloatAsState(
+        val ty = animateFloatAsState(
             targetValue = if (shown) 0f else 20f,
             animationSpec = tweenSpec,
             label = "staggerY"
         )
         graphicsLayer {
-            this.alpha = alpha
-            translationY = ty
+            this.alpha = alpha.value
+            translationY = ty.value
         }
     }
 }
@@ -232,12 +232,12 @@ fun Modifier.staggeredAppearance(
 fun Modifier.appearOnce(): Modifier = composed {
     var shown by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { shown = true }
-    val alpha by animateFloatAsState(
+    val alpha = animateFloatAsState(
         targetValue = if (shown) 1f else 0f,
         animationSpec = tween(MotionDurations.FAST, easing = MotionCurves.FastOutSlowIn),
         label = "appearOnce"
     )
-    graphicsLayer { this.alpha = alpha }
+    graphicsLayer { this.alpha = alpha.value }
 }
 
 fun Modifier.shimmerLegacyPlaceholder() = this.background(Color.LightGray.copy(alpha = 0.35f))

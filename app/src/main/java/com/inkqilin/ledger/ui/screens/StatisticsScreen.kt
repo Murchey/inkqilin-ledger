@@ -311,20 +311,22 @@ fun StatisticsScreen(viewModel: TransactionViewModel, navController: NavControll
         defaultAsset?.symbol ?: "¥"
     }
 
-    val filteredByCurrency = if (effectiveCurrencyCode != null) {
-        subFiltered.filter { it.currency == effectiveCurrencyCode }
-    } else {
-        subFiltered
+    val filteredByCurrency = remember(subFiltered, effectiveCurrencyCode) {
+        if (effectiveCurrencyCode != null) subFiltered.filter { it.currency == effectiveCurrencyCode }
+        else subFiltered
+    }
+    val filteredTransactions = remember(filteredByCurrency, selectedType) {
+        filteredByCurrency.filter { it.type == selectedType }
+    }
+    val totalAmount = remember(filteredTransactions) { filteredTransactions.sumOf { it.amount } }
+    val categoryTotals = remember(filteredTransactions) {
+        filteredTransactions.groupBy { it.category }
+            .mapValues { it.value.sumOf { t -> t.amount } }
+            .toList()
+            .sortedByDescending { it.second }
     }
 
-    val filteredTransactions = filteredByCurrency.filter { it.type == selectedType }
-    val totalAmount = filteredTransactions.sumOf { it.amount }
-    val categoryTotals = filteredTransactions.groupBy { it.category }
-        .mapValues { it.value.sumOf { t -> t.amount } }
-        .toList()
-        .sortedByDescending { it.second }
-
-    val previousPeriodTransactions = remember(transactions, selectedPeriod, selectedCurrencyCode, startDate, endDate, multiCurrencyEnabled) {
+    val previousPeriodTransactions = remember(transactions, selectedPeriod, effectiveCurrencyCode, startDate, endDate) {
         val prevRange = when (selectedPeriod) {
             TimePeriod.WEEK -> {
                 val c = Calendar.getInstance().apply {
