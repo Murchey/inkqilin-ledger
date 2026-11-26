@@ -372,13 +372,15 @@ fun CloudBackupScreen(
             if (provider == CloudBackupProvider.WEBDAV) {
                 WebDavBackupSection(
                     config = webDavConfig,
+                    lastInfo = lastCloudBackupInfo,
                     backups = webDavBackups,
                     loading = isLoadingCloudList,
                     working = uiState is BackupUiState.Working,
                     onBackup = { pendingBackup = PendingBackup.WebDav },
                     onRefresh = { refreshWebDavList() },
                     onRestore = { restoreConfirm = RestoreConfirm.WebDav(it.path, webDavConfig) },
-                    onDelete = { deleteWebDavTarget = WebDavDeleteTarget(it.path, webDavConfig) }
+                    onDelete = { deleteWebDavTarget = WebDavDeleteTarget(it.path, webDavConfig) },
+                    onConfigure = { showWebDavSettings = true }
                 )
             } else {
                 CloudBackupSection(
@@ -387,16 +389,11 @@ fun CloudBackupScreen(
                     backups = cloudBackups,
                     isLoadingList = isLoadingCloudList,
                     working = uiState is BackupUiState.Working,
-                    onBackupNow = {
-                        if (cosConfig.isConfigured) {
-                            pendingBackup = PendingBackup.Cloud
-                        } else {
-                            showCosSettings = true
-                        }
-                    },
+                    onBackupNow = { pendingBackup = PendingBackup.Cloud },
                     onRefresh = { refreshCloudList() },
                     onRestore = { restoreConfirm = RestoreConfirm.Cloud(it) },
-                    onDelete = { deleteCloudTarget = it }
+                    onDelete = { deleteCloudTarget = it },
+                    onConfigure = { showCosSettings = true }
                 )
             }
         }
