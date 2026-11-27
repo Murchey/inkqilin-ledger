@@ -47,6 +47,15 @@ interface TransactionDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertTransactionIgnore(transaction: Transaction): Long
 
+    /** 通知的 UUID 检查与插入在同一事务中，避免并发重复提交。 */
+    @androidx.room.Transaction
+    suspend fun insertNotificationIfAbsent(transaction: Transaction): Boolean {
+        val uuid = requireNotNull(transaction.uuid)
+        if (countByUuid(uuid) > 0) return false
+        insertTransaction(transaction)
+        return true
+    }
+
     @Query("SELECT * FROM transactions WHERE uuid IS NULL")
     suspend fun getTransactionsWithoutUuid(): List<Transaction>
 

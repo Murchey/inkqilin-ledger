@@ -33,7 +33,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.app.NotificationManagerCompat
 import com.inkqilin.ledger.data.*
 import com.inkqilin.ledger.ui.*
 import com.inkqilin.ledger.ui.motion.*
@@ -48,8 +47,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 internal fun isNotificationServiceEnabled(context: Context): Boolean {
-    val packageNames = NotificationManagerCompat.getEnabledListenerPackages(context)
-    return packageNames.contains(context.packageName)
+    return runCatching { NotificationCaptureMonitor.hasPermission(context) }.getOrDefault(false)
 }
 
 /**

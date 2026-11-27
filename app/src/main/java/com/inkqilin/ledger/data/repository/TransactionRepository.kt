@@ -15,6 +15,8 @@ class TransactionRepository(private val dao: TransactionDao) {
 
     fun searchTransactions(query: String): Flow<List<Transaction>> = dao.searchTransactions(query)
     suspend fun insertTransaction(transaction: Transaction) = dao.insertTransaction(transaction)
+    suspend fun insertNotificationIfAbsent(transaction: Transaction): Boolean =
+        dao.insertNotificationIfAbsent(transaction)
     suspend fun updateTransaction(transaction: Transaction) = dao.updateTransaction(transaction)
     suspend fun deleteTransaction(transaction: Transaction) = dao.deleteTransaction(transaction)
     fun getTotalIncome(): Flow<Double?> = dao.getTotalIncome()

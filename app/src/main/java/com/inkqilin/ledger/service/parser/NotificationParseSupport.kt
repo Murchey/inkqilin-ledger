@@ -1,6 +1,5 @@
 package com.inkqilin.ledger.service.parser
 
-import android.util.Log
 
 /** 通知解析共用规则：过滤、金额抽取、分类、商户。 */
 object NotificationParseSupport {
@@ -60,7 +59,6 @@ object NotificationParseSupport {
 
         if (ContainsAny(text, "碰一碰", "碰一下")) return null
 
-        Log.d("NotificationParser", "Income matched: $amount")
         return ParsedNotification(
             amount = amount,
             isIncome = true,
@@ -82,11 +80,9 @@ object NotificationParseSupport {
         } ?: return null
 
         if (IsAdvertisement(text)) {
-            Log.d("NotificationParser", "Expense skipped: ad content detected")
             return null
         }
 
-        Log.d("NotificationParser", "Expense matched: $amount")
         return ParsedNotification(
             amount = amount,
             isIncome = false,
@@ -103,12 +99,10 @@ object NotificationParseSupport {
         val hasTradeKeyword = NotificationKeywords.INCOME_KEYWORDS.any { text.contains(it) } ||
             NotificationKeywords.EXPENSE_KEYWORDS.any { text.contains(it) }
         if (!hasTradeKeyword) {
-            Log.d("NotificationParser", "Fallback skipped: no trade keyword, amount=$amount")
             return null
         }
 
         val isIncome = NotificationKeywords.INCOME_KEYWORDS.any { text.contains(it) }
-        Log.d("NotificationParser", "Fallback matched: $amount, isIncome=$isIncome")
         return ParsedNotification(
             amount = amount,
             isIncome = isIncome,
@@ -123,7 +117,6 @@ object NotificationParseSupport {
 
         val match = NotificationKeywords.AMOUNT_REGEX.find(text) ?: return null
         val amount = match.groupValues[1].toDoubleOrNull() ?: return null
-        Log.d("NotificationParser", "Tap-to-pay matched: $amount")
 
         return ParsedNotification(
             amount = amount,
@@ -158,16 +151,13 @@ object NotificationParseSupport {
         }
 
         if (amount == null || amount <= 0) {
-            Log.d("NotificationParser", "PaymentSuccess: no valid amount found")
             return null
         }
 
         if (IsAdvertisement(text)) {
-            Log.d("NotificationParser", "PaymentSuccess skipped: ad content detected")
             return null
         }
 
-        Log.d("NotificationParser", "PaymentSuccess matched: $amount")
         return ParsedNotification(
             amount = amount,
             isIncome = false,

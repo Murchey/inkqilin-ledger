@@ -32,7 +32,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.app.NotificationManagerCompat
 import com.inkqilin.ledger.data.*
 import com.inkqilin.ledger.ui.*
 import com.inkqilin.ledger.ui.motion.*
@@ -92,29 +91,11 @@ internal fun SettingsFeatureSection(
                         }
                     )
                     HorizontalDivider(modifier = Modifier.padding(horizontal = com.inkqilin.ledger.ui.theme.Space.PageHorizontal))
-                    ListItem(
-                        headlineContent = { Text("自动记账") },
-                        supportingContent = {
-                            Text(
-                                when {
-                                    harmonyCompatMode -> "鸿蒙/兼容环境不支持自动记账"
-                                    autoRecordEnabled -> "已启用；需要通知监听权限"
-                                    else -> "未启用；需要时再开启"
-                                }
-                            )
-                        },
-                        trailingContent = {
-                            Switch(
-                                checked = autoRecordEnabled,
-                                onCheckedChange = { enabled ->
-                                    if (enabled && !isNotificationServiceEnabled(context)) {
-                                        context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-                                        Toast.makeText(context, "请先开启通知监听权限", Toast.LENGTH_LONG).show()
-                                    }
-                                    viewModel.setAutoRecordEnabled(enabled)
-                                }
-                            )
-                        }
+                    AutoRecordSettings(
+                        autoRecordEnabled = autoRecordEnabled,
+                        harmonyCompatMode = harmonyCompatMode,
+                        onAutoRecordEnabledChange = viewModel::setAutoRecordEnabled,
+                        onHarmonyCompatModeChange = viewModel::setHarmonyCompatMode,
                     )
                 }
             }

@@ -1,14 +1,11 @@
 package com.inkqilin.ledger.service.parser
 
-import android.util.Log
 
 /** 云闪付通知解析。 */
 object UnionPayParser {
     fun Parse(text: String): ParsedNotification? {
-        Log.d("NotificationParser", "UnionPay fullText: $text")
 
         if (NotificationParseSupport.ShouldSkip(text)) {
-            Log.d("NotificationParser", "UnionPay: non-transaction/ad content filtered")
             return null
         }
 
@@ -19,7 +16,6 @@ object UnionPayParser {
         if (NotificationParseSupport.IsAdvertisement(text) &&
             !strongSignals.any { text.contains(it) }
         ) {
-            Log.d("NotificationParser", "UnionPay: ad content detected")
             return null
         }
 
@@ -30,7 +26,6 @@ object UnionPayParser {
                 val amount = altMatch.groupValues[1].toDoubleOrNull() ?: return null
                 return ParseUnionPayWithAmount(text, amount, incomeKeywords, expenseKeywords, strongSignals)
             }
-            Log.d("NotificationParser", "UnionPay: no amount found")
             return null
         }
 
@@ -56,7 +51,6 @@ object UnionPayParser {
             else -> false
         }
 
-        Log.d("NotificationParser", "UnionPay matched: amount=$amount, isIncome=$isIncome")
         return ParsedNotification(
             amount = amount,
             isIncome = isIncome,

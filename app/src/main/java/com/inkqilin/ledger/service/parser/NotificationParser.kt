@@ -1,29 +1,28 @@
 package com.inkqilin.ledger.service.parser
 
-import android.util.Log
-
-/**
- * 通知解析门面：按包名分发到各渠道解析器。
- * 原 `service.NotificationParser` 拆分而来，对外入口保持稳定。
- */
+/** 通知解析门面，兼容原有入口并提供可诊断的原因。 */
 object NotificationParser {
+    fun Parse(pkg: String, title: String, text: String): ParsedNotification? =
+        ParseDetailed(pkg, title, text).parsed
 
-    fun Parse(pkg: String, title: String, text: String): ParsedNotification? {
-        val rawText = "$title\n$text".replace("\n", " ").replace("\r", " ")
-        Log.d("NotificationParser", "Parsing: pkg=$pkg, rawText=$rawText")
+    fun ParseDetailed(pkg: String, content: NotificationContent): NotificationParseResult =
+        content.parseDetailed { title, body -> ParseDetailed(pkg, title, body) }
 
-        val result = when (pkg) {
-            "com.eg.android.AlipayGphone", "com.android.shell" -> AlipayParser.Parse(rawText)
+    fun ParseDetailed(pkg: String, title: String, text: String): NotificationParseResult {
+        val rawText = "$title $text".replace("\n", " ").replace("\r", " ").trim()
+        if (rawText.isEmpty()) return NotificationParseResult(null, "empty", "text")
+        if (pkg == "com.eg.android.AlipayGphone" || pkg == "com.android.shell") {
+            val result = AlipayParser.ParseDetailed(rawText)
+            return NotificationParseResult(result.parsed, result.reason, "text")
+        }
+        val parsed = when (pkg) {
             "com.tencent.mm" -> WeChatParser.Parse(rawText)
             "com.unionpay" -> UnionPayParser.Parse(rawText)
             else -> GenericPaymentParser.Parse(rawText)
+        } ?: return NotificationParseResult(null, "no_transaction_signal", "text")
+        if (!parsed.amount.isFinite() || parsed.amount <= 0.0) {
+            return NotificationParseResult(null, "invalid_amount", "text")
         }
-
-        if (result != null && result.amount <= 0.0) {
-            Log.d("NotificationParser", "Filtered zero-amount transaction: ${result.amount}")
-            return null
-        }
-
-        return result
+        return NotificationParseResult(parsed, "success", "text")
     }
 }

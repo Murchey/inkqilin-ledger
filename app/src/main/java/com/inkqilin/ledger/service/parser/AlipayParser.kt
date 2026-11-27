@@ -32,14 +32,20 @@ object AlipayParser {
     )
     private val otherAmountLabel = Regex("(?:优惠|立减|减免|折扣|红包|余额|原价|节省|返现)[\\s：:为共计]*$")
 
-    fun Parse(text: String): ParsedNotification? {
-        val normalized = text.replace(Regex("(?<=[0-9])，(?=[0-9]{3}(?:[^0-9]|$))"), ",").replace('．', '.').replace('\u00a0', ' ')
-        if (excludedStates.any { normalized.contains(it) }) return null
+    data class DetailedResult(val parsed: ParsedNotification?, val reason: String)
 
+    /** 保持既有 API 兼容。 */
+    fun Parse(text: String): ParsedNotification? = ParseDetailed(text).parsed
+
+    /** 详细原因仅描述判定类别，不包含通知原文。 */
+    fun ParseDetailed(text: String): DetailedResult {
+        if (text.isBlank()) return DetailedResult(null, "empty")
+        val normalized = text.replace(Regex("(?<=[0-9])，(?=[0-9]{3}(?:[^0-9]|$))"), ",").replace('．', '.').replace('\u00a0', ' ')
+        if (excludedStates.any { normalized.contains(it) }) return DetailedResult(null, "excluded_status")
         val isIncome = incomeSignals.any { normalized.contains(it) }
-        if (!isIncome && expenseSignals.none { normalized.contains(it) }) return null
+        if (!isIncome && expenseSignals.none { normalized.contains(it) }) return DetailedResult(null, "no_transaction_signal")
         val confirmed = confirmedSignals.any { normalized.contains(it) }
-        if (!confirmed && NotificationParseSupport.ShouldSkip(normalized)) return null
+        if (!confirmed && NotificationParseSupport.ShouldSkip(normalized)) return DetailedResult(null, "no_transaction_signal")
 
         val amounts = moneyPattern.findAll(normalized).toList()
         // 每个金额只检查紧邻的字段名，不跨过另一个金额去匹配交易词。
@@ -52,17 +58,20 @@ object AlipayParser {
         val fallbackAmounts = amounts.filter { match ->
             !otherAmountLabel.containsMatchIn(normalized.substring(0, match.range.first).takeLast(16))
         }
-        // 多个无明确字段的金额无法可靠区分，等待更明确的通知。
-        val selected = actualAmount ?: transactionAmount ?: fallbackAmounts.singleOrNull() ?: return null
-        val amount = selected.groupValues.drop(1).first { it.isNotEmpty() }
-            .replace(",", "").toDoubleOrNull()?.takeIf { it.isFinite() && it > 0 } ?: return null
-
-        return ParsedNotification(
-            amount = amount,
-            isIncome = isIncome,
-            category = NotificationParseSupport.InferCategory(normalized),
-            merchant = NotificationParseSupport.ExtractMerchantFallback(normalized),
-            rawSource = "支付宝",
+        val selected = actualAmount ?: transactionAmount ?: fallbackAmounts.singleOrNull()
+            ?: return DetailedResult(null, if (amounts.isEmpty()) "no_amount" else "ambiguous_amount")
+        val rawAmount = selected.groupValues.drop(1).first { it.isNotEmpty() }.replace(",", "")
+        val amount = rawAmount.toDoubleOrNull()?.takeIf { it.isFinite() && it > 0 }
+            ?: return DetailedResult(null, "invalid_amount")
+        return DetailedResult(
+            parsed = ParsedNotification(
+                amount = amount,
+                isIncome = isIncome,
+                category = NotificationParseSupport.InferCategory(normalized),
+                merchant = NotificationParseSupport.ExtractMerchantFallback(normalized),
+                rawSource = "支付宝",
+            ),
+            reason = "success",
         )
     }
 }

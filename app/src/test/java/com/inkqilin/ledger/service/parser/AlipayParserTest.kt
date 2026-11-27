@@ -43,6 +43,22 @@ class AlipayParserTest {
     }
 
     @Test
+    fun detailedReasonsAreStableAndDoNotContainNotificationText() {
+        val cases = listOf(
+            "" to "empty",
+            "支付失败￥20.00" to "excluded_status",
+            "新通知" to "no_transaction_signal",
+            "付款成功" to "no_amount",
+            "付款成功，订单￥10.00，订单￥20.00" to "ambiguous_amount",
+            "付款成功￥0.00" to "invalid_amount",
+            "付款成功￥10.00" to "success",
+        )
+        cases.forEach { (text, reason) ->
+            assertEquals(reason, AlipayParser.ParseDetailed(text).reason)
+        }
+    }
+
+    @Test
     fun rejectsFailedPendingMarketingAndAmbiguousAmounts() {
         listOf(
             "支付宝 支付失败￥20.00", "支付宝 未支付20元", "支付宝 待付款￥20.00",
